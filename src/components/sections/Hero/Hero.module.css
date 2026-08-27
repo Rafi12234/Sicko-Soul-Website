@@ -1,0 +1,54 @@
+.videoWrap {
+  will-change: transform;
+}
+
+.videoInner {
+  will-change: transform;
+}
+
+/* Vignette kept light across the lockup band so the knockout line stays legible. */
+.vignette {
+  background:
+    radial-gradient(ellipse 95% 75% at 64% 34%, rgb(10 10 10 / 0) 0%, rgb(10 10 10 / 0.72) 100%),
+    linear-gradient(to top, rgb(10 10 10 / 0.8) 0%, rgb(10 10 10 / 0.1) 42%);
+}
+
+.scanlines {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 0.3) 0px,
+    rgb(0 0 0 / 0.3) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+  opacity: 0.45;
+}
+
+/*
+ * Video-through-text. Multiply against the footage: the black plate resolves to
+ * black and pure-white glyphs resolve to the backdrop, so the type becomes a
+ * window into the video. #fff here is blend math, not a brand colour token.
+ */
+.knockout {
+  background-color: var(--black);
+  mix-blend-mode: multiply;
+}
+
+.knockoutText {
+  color: #fff;
+}
+
+.marqueeTrack {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+
+.scrollRail {
+  transform-origin: top center;
+  will-change: transform;
+}
+
+.ghost {
+  will-change: transform, clip-path;
+}
