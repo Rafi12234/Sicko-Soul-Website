@@ -1,0 +1,60 @@
+.root {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 120;
+  pointer-events: none;
+  opacity: 0;
+}
+
+.ring,
+.cross {
+  position: fixed;
+  top: 0;
+  left: 0;
+  will-change: transform;
+}
+
+/* DESIGN_SYSTEM.md specifies a circle for the cursor reticle — the 2px radius
+   ceiling governs buttons, cards and media, not the pointer itself. */
+.ring {
+  width: 38px;
+  height: 38px;
+  border: 1px solid rgb(242 240 235 / 0.35);
+  border-radius: 50%;
+  background-color: transparent;
+}
+
+.cross {
+  width: 14px;
+  height: 14px;
+}
+
+.cross::before,
+.cross::after {
+  content: "";
+  position: absolute;
+  background-color: var(--bone-white);
+}
+
+.cross::before {
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 1px;
+}
+
+.cross::after {
+  left: 50%;
+  top: 0;
+  height: 100%;
+  width: 1px;
+}
+
+@media (pointer: coarse) {
+  .root,
+  .ring,
+  .cross {
+    display: none;
+  }
+}
