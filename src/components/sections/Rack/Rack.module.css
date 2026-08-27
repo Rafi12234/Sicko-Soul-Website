@@ -1,0 +1,65 @@
+.frame {
+  will-change: transform, border-color;
+}
+
+/* Fill wipes in from the left on hover; GSAP owns the tween. */
+.actionFill {
+  clip-path: inset(0 100% 0 0);
+  will-change: clip-path;
+}
+
+/*
+ * Diagonal blade wipe. Both polygons carry four points so GSAP can interpolate
+ * them; the "on" shape overshoots the box on every side so the still never
+ * clips itself at rest, and the "off" shape is the same shape pushed clear.
+ */
+.still {
+  clip-path: polygon(-60% 0%, 100% 0%, 160% 100%, 0% 100%);
+  will-change: clip-path;
+}
+
+.scan {
+  will-change: transform, opacity;
+}
+
+/* Black-only burn, not a colour gradient — see ANTI_PATTERNS.md §5.
+   Keeps the garment lit while the studio plate falls away at the edges. */
+.vignette {
+  background: radial-gradient(
+    ellipse at 50% 44%,
+    rgb(10 10 10 / 0) 26%,
+    rgb(10 10 10 / 0.4) 58%,
+    rgb(10 10 10 / 0.85) 85%,
+    rgb(10 10 10 / 0.97) 100%
+  );
+}
+
+.bracket {
+  opacity: 0;
+  transform: scale(0.55);
+  will-change: transform, opacity;
+}
+
+.grid {
+  transform-origin: center center;
+  will-change: transform;
+}
+
+.marker {
+  will-change: transform, width, height;
+}
+
+.edge {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* Sealed plate stands in for artwork that does not exist yet — see
+   IMAGE_SOURCING.md placeholder rule. Never a stand-in stock photo. */
+.hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 15px,
+    rgb(242 240 235 / 0.045) 15px 16px
+  );
+}
