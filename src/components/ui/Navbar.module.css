@@ -1,0 +1,30 @@
+.bar {
+  will-change: transform;
+}
+
+.logo {
+  will-change: transform, filter;
+}
+
+/* Full-bleed menu plate wipes in from the top edge — no fade, no slide-over. */
+.overlay {
+  clip-path: inset(0 0 100% 0);
+  will-change: clip-path;
+}
+
+.link {
+  display: block;
+  will-change: transform;
+}
+
+.linkInner {
+  display: inline-block;
+  will-change: transform;
+}
+
+/* Hairline that draws left-to-right under each menu row on hover. */
+.linkRule {
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
+}
