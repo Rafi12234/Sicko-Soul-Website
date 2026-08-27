@@ -1,0 +1,14 @@
+.panel {
+  will-change: transform;
+}
+
+/* Digits must not reflow the box as the counter climbs 000 → 100. */
+.counter {
+  font-variant-numeric: tabular-nums;
+  will-change: contents;
+}
+
+.bar {
+  will-change: transform;
+  transform-origin: left center;
+}
