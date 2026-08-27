@@ -1,0 +1,21 @@
+/* Stacked panels: only the active one is unclipped. GSAP owns the transitions. */
+.imageLayer {
+  clip-path: inset(100% 0 0 0);
+  will-change: clip-path, transform;
+}
+
+/* Solid copy sitting exactly over the hollow name; wipes open on activate. */
+.fill {
+  clip-path: inset(0 100% 0 0);
+  will-change: clip-path;
+}
+
+.rowRule {
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
+}
+
+.numeral {
+  will-change: contents;
+}
