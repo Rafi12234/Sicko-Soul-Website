@@ -149,6 +149,15 @@
     filter: grayscale(1) contrast(1.2) brightness(0.9);
   }
 
+  /*
+   * The rack is the one place colour is allowed: buyers have to see the actual
+   * garment. Graded rather than raw — IMAGE_SOURCING.md still forbids dropping
+   * an untouched photo in, and the frame vignette carries the mood.
+   */
+  .media-product {
+    filter: contrast(1.06) saturate(1.04) brightness(0.97);
+  }
+
   /* logo.jpg is white-on-black with no alpha; screen blend drops the black. */
   .logo-knockout {
     mix-blend-mode: screen;
