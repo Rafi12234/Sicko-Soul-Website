@@ -1,5 +1,6 @@
 import Hero from "@/components/sections/Hero";
 import Preloader from "@/components/sections/Preloader";
+import Rack from "@/components/sections/Rack";
 import Segments from "@/components/sections/Segments";
 import Navbar from "@/components/ui/Navbar";
 
@@ -15,6 +16,7 @@ export default function Home() {
       <main>
         <Hero />
         <Segments />
+        <Rack />
         <section className="min-h-screen px-gutter pt-bleed">
           <p className="font-stencil text-stamp text-blood-accent">NEXT / MANIFESTO</p>
           <div className="hairline mt-8 max-w-[38rem]" />
