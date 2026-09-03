@@ -14,9 +14,9 @@ export const RACK_COPY = {
   addToCart: "ADD TO CART",
   buyNow: "BUY NOW",
   closing: {
-    stamp: "FILE 02 — SEALED",
+    stamp: "FILE 03 — SEALED",
     line: "The rest opens when we say so. Not before.",
-    meta: "04 CATEGORIES WITHHELD",
+    meta: "03 CATEGORIES WITHHELD",
   },
 } as const;
 
@@ -31,7 +31,7 @@ export const RACK_CATEGORIES: readonly RackCategory[] = [
   { id: "shirt", index: "01", label: "SHIRT", status: "open" },
   { id: "tshirt", index: "02", label: "T-SHIRT", status: "locked" },
   { id: "baggy", index: "03", label: "BAGGY PANT", status: "locked" },
-  { id: "dropshoulder", index: "04", label: "DROP SHOULDER", status: "locked" },
+  { id: "dropshoulder", index: "04", label: "DROP SHOULDER", status: "open" },
   { id: "hoodie", index: "05", label: "HOODIE", status: "locked" },
 ];
 
@@ -89,6 +89,48 @@ export const RACK_PRODUCTS: Record<string, readonly RackProduct[]> = {
       price: "৳ 3,590",
       spec: "DOUBLE STITCH · LONG BODY",
       line: "Comfortable. Still not free.",
+    },
+  ],
+  dropshoulder: [
+    {
+      id: "dropshoulder-01",
+      index: "01",
+      name: "BLACKOUT RITUAL",
+      still: "/imgs/dropsholder_1.jpg",
+      worn: "/imgs/man_dropsholder_1.jpg",
+      price: "৳ 3,390",
+      spec: "OVERSIZED · SEAM DROPPED",
+      line: "Wide enough to hide what you're carrying.",
+    },
+    {
+      id: "dropshoulder-02",
+      index: "02",
+      name: "BAD OMEN",
+      still: "/imgs/dropsholder_2.jpg",
+      worn: "/imgs/man_dropsholder_2.jpg",
+      price: "৳ 3,490",
+      spec: "HEAVYWEIGHT · BOXY CUT",
+      line: "Everyone reads the signs too late.",
+    },
+    {
+      id: "dropshoulder-03",
+      index: "03",
+      name: "COLD BLOODED",
+      still: "/imgs/dropsholder_3.jpg",
+      worn: "/imgs/man_dropsholder_3.jpg",
+      price: "৳ 3,690",
+      spec: "DOUBLE PANEL · DROPPED SEAM",
+      line: "It doesn't flinch. Neither should you.",
+    },
+    {
+      id: "dropshoulder-04",
+      index: "04",
+      name: "UNDER THE HOOD",
+      still: "/imgs/dropsholder_4.jpg",
+      worn: "/imgs/man_dropsholder_4.jpg",
+      price: "৳ 3,790",
+      spec: "HEAVY COTTON · BOXED FIT",
+      line: "You don't see the face. Just the shape.",
     },
   ],
 };
