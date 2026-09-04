@@ -1,0 +1,41 @@
+/*
+ * Frames open like a letterbox — centre outward — so this section shares no
+ * reveal geometry with Segments (bottom-up) or Rack (diagonal blade).
+ */
+.frame {
+  clip-path: inset(50% 0 50% 0);
+  will-change: clip-path;
+}
+
+.media {
+  will-change: transform;
+}
+
+/* Sprayed tag: solid accent eroded by the global distress mask. GSAP owns the
+   rotation from mount; this is only the pre-hydration state. */
+.tag {
+  transform: rotate(-7deg);
+  opacity: 0.9;
+  will-change: transform, opacity;
+}
+
+.seal {
+  will-change: transform;
+}
+
+.ctaFill {
+  clip-path: inset(0 100% 0 0);
+  will-change: clip-path;
+}
+
+.edge {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* Hairline spine that draws itself down the gap between the columns. */
+.spine {
+  transform: scaleY(0);
+  transform-origin: top center;
+  will-change: transform;
+}
