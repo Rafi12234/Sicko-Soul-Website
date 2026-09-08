@@ -1,0 +1,60 @@
+/* Deep red vignette that floods in while the field holds focus — the section
+   should feel watched, per docs/ANIMATION_GUIDE.md, Join The Crew. */
+.watch {
+  background: radial-gradient(
+    ellipse at 50% 55%,
+    rgb(138 3 3 / 0.32) 0%,
+    rgb(138 3 3 / 0.1) 42%,
+    rgb(10 10 10 / 0) 74%
+  );
+  will-change: opacity;
+}
+
+.ghost {
+  will-change: transform, opacity;
+}
+
+/* Native caret is hidden; a GSAP-blinked block stands in for it. */
+.field {
+  caret-color: transparent;
+}
+
+.field::placeholder {
+  color: rgb(138 138 133 / 0.55);
+}
+
+.caret {
+  will-change: opacity, transform;
+}
+
+.rule {
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
+}
+
+.magnet {
+  will-change: transform;
+}
+
+.magnetFill {
+  clip-path: inset(100% 0 0 0);
+  will-change: clip-path;
+}
+
+.receipt {
+  will-change: transform, opacity;
+}
+
+.edge {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+.hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 15px,
+    rgb(242 240 235 / 0.04) 15px 16px
+  );
+}
