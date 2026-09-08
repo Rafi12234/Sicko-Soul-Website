@@ -2,6 +2,7 @@
 
 export const STREETS_COPY = {
   eyebrow: "04 / THE STREETS",
+  originLabel: "ORIGIN FILE — UNSEALED",
   aside: "NO FOUNDER STORY. NO INVESTORS. NO PERMISSION.",
   /** Sprayed across the artwork like a tag on the wall behind it. */
   tag: "SICKO SOUL",
