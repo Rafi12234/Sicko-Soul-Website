@@ -1,0 +1,50 @@
+/* Rows are driven by a gsap.ticker loop, never a CSS animation, so their speed
+   can react to scroll velocity — see docs/ANIMATION_GUIDE.md, Street Cred. */
+.track {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+
+.plate {
+  will-change: transform, background-color, border-color;
+}
+
+/* Blacked-out clause; the bar retracts to the right when a plate is held. */
+.redactBar {
+  transform-origin: left center;
+  will-change: transform;
+}
+
+/* Tape cuts the wall in half and inverts whatever passes beneath it. */
+.tape {
+  mix-blend-mode: difference;
+}
+
+.tapeTrack {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+
+/* Plates emerge from and vanish into black rather than hitting a hard edge. */
+.fadeLeft {
+  background: linear-gradient(to right, rgb(10 10 10) 0%, rgb(10 10 10 / 0) 100%);
+}
+
+.fadeRight {
+  background: linear-gradient(to left, rgb(10 10 10) 0%, rgb(10 10 10 / 0) 100%);
+}
+
+.edge {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+.hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 15px,
+    rgb(242 240 235 / 0.04) 15px 16px
+  );
+}
