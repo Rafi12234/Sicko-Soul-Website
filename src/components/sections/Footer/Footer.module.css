@@ -1,0 +1,33 @@
+/* Outro wordmark is sized to overflow the viewport on purpose. */
+.wordmark {
+  display: flex;
+  justify-content: center;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.letter {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+.tickerTrack {
+  display: flex;
+  width: max-content;
+  will-change: transform;
+}
+
+.linkFill {
+  clip-path: inset(0 100% 0 0);
+  will-change: clip-path;
+}
+
+.edge {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* Ground fog so the page dissolves rather than stopping at a hard edge. */
+.floor {
+  background: linear-gradient(to top, rgb(138 3 3 / 0.16) 0%, rgb(10 10 10 / 0) 100%);
+}
