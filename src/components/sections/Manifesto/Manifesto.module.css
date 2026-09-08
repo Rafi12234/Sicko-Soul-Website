@@ -1,0 +1,34 @@
+/* No imagery in this section by design — the only texture is the type itself. */
+.ghost {
+  will-change: transform, opacity;
+}
+
+.spineFill {
+  transform: scaleY(0);
+  transform-origin: top center;
+  will-change: transform;
+}
+
+/* Terminal caret parked at the end of the creed. */
+.caret {
+  will-change: opacity;
+}
+
+.stamp {
+  will-change: transform, opacity;
+}
+
+.edge {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* Breathes under the text so the black is never flat. */
+.glow {
+  background: radial-gradient(
+    ellipse at 50% 52%,
+    rgb(138 3 3 / 0.13) 0%,
+    rgb(10 10 10 / 0) 62%
+  );
+  will-change: opacity, transform;
+}
