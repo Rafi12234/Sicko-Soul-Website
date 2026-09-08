@@ -1,0 +1,29 @@
+.track {
+  will-change: transform;
+}
+
+.frame {
+  will-change: transform, border-color;
+}
+
+/* Caption plate wipes open from the left on hover — GSAP owns the tween. */
+.caption {
+  clip-path: inset(0 100% 0 0);
+  will-change: clip-path;
+}
+
+.progressFill {
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
+}
+
+.edge {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* Script sits low and to the right of the display word, overlapping it. */
+.script {
+  transform: rotate(-4deg);
+}
