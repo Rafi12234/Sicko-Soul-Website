@@ -1,0 +1,100 @@
+/* Drawer bodies are height-driven by GSAP; CSS only holds the closed state. */
+.body {
+  height: 0;
+  overflow: hidden;
+  will-change: height;
+}
+
+/* Video is only visible where a drawer has been pulled open. */
+.window {
+  will-change: opacity;
+}
+
+.rule {
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
+}
+
+.bar {
+  will-change: transform, background-color;
+}
+
+.card {
+  will-change: transform, opacity;
+}
+
+/* Black-only burn under the tile meta — see ANTI_PATTERNS.md §5. */
+.tilePlate {
+  background: linear-gradient(
+    to top,
+    rgb(10 10 10 / 0.94) 0%,
+    rgb(10 10 10 / 0.78) 45%,
+    rgb(10 10 10 / 0) 100%
+  );
+}
+
+/* Tints the garment without flattening it — luminance survives. */
+.wash {
+  mix-blend-mode: color;
+  will-change: opacity;
+}
+
+/* Inverts whatever it crosses, so a torn band reads without a second image. */
+.slice {
+  mix-blend-mode: difference;
+  will-change: transform, opacity;
+}
+
+.chip {
+  transform: translateY(-140%);
+  opacity: 0;
+  will-change: transform, opacity;
+}
+
+/* Wipes up from the floor of the tile on hover; GSAP owns the tween. */
+.enterFill {
+  clip-path: inset(100% 0 0 0);
+  will-change: clip-path;
+}
+
+.cardPlate {
+  clip-path: inset(0 0 0 0);
+  will-change: clip-path;
+}
+
+.scan {
+  will-change: transform, opacity;
+}
+
+/* Sealed run: hatch plate, never a stand-in photograph. */
+.hatch {
+  background-image: repeating-linear-gradient(
+    135deg,
+    transparent 0 15px,
+    rgb(242 240 235 / 0.045) 15px 16px
+  );
+}
+
+.edge {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+/* Interlaced tint over the plate video so it never reads as raw footage. */
+.scanlines {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    rgb(0 0 0 / 0) 0 2px,
+    rgb(0 0 0 / 0.35) 2px 4px
+  );
+}
+
+.vignette {
+  background: radial-gradient(
+    ellipse at 50% 46%,
+    rgb(10 10 10 / 0.15) 30%,
+    rgb(10 10 10 / 0.72) 72%,
+    rgb(10 10 10 / 0.95) 100%
+  );
+}
