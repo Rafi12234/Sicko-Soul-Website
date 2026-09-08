@@ -418,19 +418,20 @@ export default function Streets() {
           <div className="streets-meta mb-7 flex items-center gap-4">
             <span className="h-px w-10 bg-blood-accent" />
             <span className="font-stencil text-[0.55rem] tracking-stencil text-blood-accent">
-              {STREETS_COPY.eyebrow}
+              {STREETS_COPY.originLabel}
             </span>
           </div>
 
-          {/* Scale contrast inside one lockup — the quiet line sets up the loud one. */}
-          <h2>
-            <span className="split-mask block pb-[0.12em]">
-              <span className="streets-heading block font-display text-[clamp(0.95rem,1.5vw,1.3rem)] uppercase leading-none tracking-[0.42em] text-concrete-gray">
+          {/* Brush script over Old English — the tattoo-flash lockup. Scale and
+              face both change between the two lines, not just the size. */}
+          <h2 className="relative">
+            <span className="split-mask block pb-[0.14em]">
+              <span className="streets-heading block font-script text-[clamp(2.1rem,3.4vw,3rem)] leading-[0.9] text-blood-accent">
                 {STREETS_COPY.headingSmall}
               </span>
             </span>
-            <span className="split-mask -mt-[0.02em] block pb-[0.08em]">
-              <span className="streets-heading text-distress block whitespace-nowrap font-display text-[clamp(2rem,4.3vw,3.75rem)] leading-[0.92] tracking-crushed text-bone-white">
+            <span className="split-mask -mt-[0.34em] block pb-[0.14em] pl-[6%]">
+              <span className="streets-heading text-distress block whitespace-nowrap font-blackletter text-[clamp(1.75rem,3.5vw,3rem)] leading-[1] text-bone-white">
                 {STREETS_COPY.headingLarge}
               </span>
             </span>
@@ -443,7 +444,7 @@ export default function Streets() {
                   {paragraph.index}
                 </span>
                 <p className="streets-body max-w-[46ch] font-body text-[1.02rem] leading-[1.75] text-bone-white/65">
-                  <span className="font-stencil tracking-[0.14em] text-bone-white">
+                  <span className="font-display text-[1.18rem] uppercase tracking-[0.02em] text-bone-white">
                     {paragraph.lead}
                   </span>{" "}
                   {paragraph.rest}
@@ -452,12 +453,12 @@ export default function Streets() {
             ))}
           </div>
 
-          {/* Blackletter pull-quote — the gothic face only appears twice on the
-              page, and both times it is this brand talking about itself. */}
+          {/* Anton here on purpose: the blackletter above stays the one
+              unrepeatable moment in the column. */}
           <div className="streets-meta mt-11 border-l-2 border-blood-accent pl-6">
             <p
               ref={quoteRef}
-              className="font-gothic text-[clamp(1.5rem,2.7vw,2.6rem)] uppercase leading-[1.15] text-bone-white"
+              className="font-display text-[clamp(1.4rem,2.5vw,2.4rem)] uppercase leading-[1.08] tracking-crushed text-bone-white"
             >
               {STREETS_COPY.quote}
             </p>
