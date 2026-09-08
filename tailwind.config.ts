@@ -39,6 +39,10 @@ const config: Config = {
       display: ['"Anton"', '"Arial Narrow Bold"', "sans-serif"],
       // Matches the blackletter lockup in public/imgs/logo.jpg.
       gothic: ['"Pirata One"', '"Anton"', "serif"],
+      // Heavier, tighter Old English — tattoo flash rather than storybook.
+      blackletter: ['"UnifrakturCook"', '"Pirata One"', "serif"],
+      // Brush signature, mirrors the script on the garments.
+      script: ['"Alex Brush"', "cursive"],
       body: ['"Archivo Narrow"', '"Helvetica Neue Condensed"', '"Arial Narrow"', "sans-serif"],
       stencil: ['"Special Elite"', '"Courier New"', "monospace"],
     },
