@@ -1,14 +1,16 @@
+import Cred from "@/components/sections/Cred";
+import Crew from "@/components/sections/Crew";
+import Drop from "@/components/sections/Drop";
+import Footer from "@/components/sections/Footer";
 import Hero from "@/components/sections/Hero";
+import Lookbook from "@/components/sections/Lookbook";
+import Manifesto from "@/components/sections/Manifesto";
 import Preloader from "@/components/sections/Preloader";
 import Rack from "@/components/sections/Rack";
 import Segments from "@/components/sections/Segments";
 import Streets from "@/components/sections/Streets";
 import Navbar from "@/components/ui/Navbar";
 
-/**
- * Holding shell. Sections land here one at a time from Step 4 onward
- * (Manifesto → … → Footer), never inline — see ANTI_PATTERNS.md §6.1.
- */
 export default function Home() {
   return (
     <>
@@ -17,13 +19,16 @@ export default function Home() {
       <main>
         <Hero />
         <Segments />
+        {/* Text-only breather before the image-heavy run of sections. */}
+        <Manifesto />
         <Rack />
         <Streets />
-        <section className="min-h-screen px-gutter pt-bleed">
-          <p className="font-stencil text-stamp text-blood-accent">NEXT / MANIFESTO</p>
-          <div className="hairline mt-8 max-w-[38rem]" />
-        </section>
+        <Lookbook />
+        <Drop />
+        <Cred />
+        <Crew />
       </main>
+      <Footer />
     </>
   );
 }
