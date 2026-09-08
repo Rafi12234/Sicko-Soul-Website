@@ -35,6 +35,24 @@
   font-display: swap;
 }
 
+/* Tattoo-shop Old English. The section headline voice. */
+@font-face {
+  font-family: "UnifrakturCook";
+  src: url("/fonts/unifraktur-cook-700.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Brush signature — matches the script embroidered on the garments. */
+@font-face {
+  font-family: "Alex Brush";
+  src: url("/fonts/alex-brush-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @font-face {
   font-family: "Special Elite";
   src: url("/fonts/special-elite-400.woff2") format("woff2");
