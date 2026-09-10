@@ -12,11 +12,15 @@ const config: Config = {
       transparent: "transparent",
       current: "currentColor",
       inherit: "inherit",
-      black: "#0a0a0a",
-      "off-black": "#141414",
-      "bone-white": "#f2f0eb",
-      "concrete-gray": "#8a8a85",
+      /* Invertible: these follow --c-* so a .theme-light section flips wholesale. */
+      black: "rgb(var(--c-bg) / <alpha-value>)",
+      "off-black": "rgb(var(--c-surface) / <alpha-value>)",
+      "bone-white": "rgb(var(--c-fg) / <alpha-value>)",
+      "concrete-gray": "rgb(var(--c-muted) / <alpha-value>)",
       "blood-accent": "#8a0303",
+      /* Absolute. For plates that sit over imagery and must not invert. */
+      ink: "#0a0a0a",
+      paper: "#f2f0eb",
     },
 
     // 2px is the hard ceiling. lg/xl/full deliberately do not exist.
@@ -41,8 +45,15 @@ const config: Config = {
       gothic: ['"Pirata One"', '"Anton"', "serif"],
       // Heavier, tighter Old English — tattoo flash rather than storybook.
       blackletter: ['"UnifrakturCook"', '"Pirata One"', "serif"],
-      // Brush signature, mirrors the script on the garments.
-      script: ['"Alex Brush"', "cursive"],
+      // Graffiti tag hand. Falls back to marker, never to system cursive —
+      // the `cursive` keyword resolves to Comic Sans on Windows.
+      script: ['"Sedgwick Ave Display"', '"Permanent Marker"', "sans-serif"],
+      /** Aerosol tags sprayed on the wall. Accent only, never body copy. */
+      spray: ['"Rubik Spray Paint"', '"Anton"', "sans-serif"],
+      /** Marker scrawl — annotations written over the top of the page. */
+      marker: ['"Permanent Marker"', '"Special Elite"', "sans-serif"],
+      /** Raw scrawl for the hardest annotations. */
+      scrawl: ['"Rock Salt"', '"Permanent Marker"', "sans-serif"],
       body: ['"Archivo Narrow"', '"Helvetica Neue Condensed"', '"Arial Narrow"', "sans-serif"],
       stencil: ['"Special Elite"', '"Courier New"', "monospace"],
     },
