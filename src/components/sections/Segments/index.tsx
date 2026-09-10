@@ -216,7 +216,7 @@ export default function Segments() {
           </div>
         </div>
 
-        <h2 className="mt-4 px-gutter">
+        <h2 className="relative mt-4 px-gutter">
           <span className="split-mask block pb-[0.08em]">
             <span className="segments-heading text-distress block font-display text-display text-bone-white">
               {SEGMENTS_COPY.heading}
