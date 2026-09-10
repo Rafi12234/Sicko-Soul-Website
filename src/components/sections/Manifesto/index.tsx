@@ -19,8 +19,9 @@ export default function Manifesto() {
       const mm = gsap.matchMedia();
 
       const split = new SplitText(".manifesto-line", { type: "words" });
-      // Cold start: every word sits nearly extinguished until it is read.
-      gsap.set(split.words, { autoAlpha: 0.11 });
+      // Cold start. Ink sits faint on the stock until it is read — lighter than
+      // this and unread words vanish entirely against paper.
+      gsap.set(split.words, { autoAlpha: 0.2 });
       gsap.set(".manifesto-verdict", { autoAlpha: 0, yPercent: 40 });
 
       const buildRead = (pinned: boolean) => {
@@ -122,7 +123,7 @@ export default function Manifesto() {
   }, []);
 
   return (
-    <section ref={rootRef} id="manifesto" className="relative bg-black">
+    <section ref={rootRef} id="manifesto" className="theme-graphite relative bg-black">
       <div ref={pinRef} className="relative flex min-h-screen flex-col justify-center overflow-hidden py-[12vh]">
         <span
           ref={glowRef}
@@ -141,7 +142,7 @@ export default function Manifesto() {
         <span
           ref={ghostRef}
           aria-hidden
-          className={`${styles.ghost} pointer-events-none absolute -right-[4vw] top-[6vh] z-0 hidden font-blackletter text-[22vw] leading-none text-outline-2 opacity-[0.05] lg:block`}
+          className={`${styles.ghost} pointer-events-none absolute -right-[4vw] top-[6vh] z-0 hidden font-blackletter text-[22vw] leading-none text-outline-2 opacity-[0.09] lg:block`}
         >
           {MANIFESTO_COPY.ghost}
         </span>
@@ -172,18 +173,34 @@ export default function Manifesto() {
             </span>
           </div>
 
-          {/* Text block hangs off-centre — the creed is not a centred hero. */}
-          <div className="max-w-[52rem] lg:ml-[6%]">
+          {/* The creed is a sheet laid on the table, not a white section.
+              Sized so the whole page reads inside one pinned viewport. */}
+          <div
+            className={`${styles.sheet} theme-light relative max-w-[50rem] bg-black px-[5vw] py-[4.5vh] shadow-print lg:ml-[4%] lg:px-[3vw]`}
+          >
+            {/* Ruled margin down the sheet, like a filing document. */}
+            <span
+              aria-hidden
+              className="absolute inset-y-0 left-[3.2vw] hidden w-px bg-blood-accent/25 lg:block"
+            />
+
+            <div className="manifesto-meta mb-5 flex items-center gap-3">
+              <span className="font-stencil text-[0.5rem] tracking-stencil text-concrete-gray">
+                {MANIFESTO_COPY.sheetRef}
+              </span>
+              <span className="h-px flex-1 bg-bone-white/15" />
+            </div>
+
             {MANIFESTO_COPY.lines.map((line) => (
               <p
                 key={line}
-                className="manifesto-line font-display text-manifesto uppercase text-bone-white"
+                className="manifesto-line font-display text-[clamp(1.15rem,2.5vw,2.1rem)] uppercase leading-[1.12] text-bone-white"
               >
                 {line}
               </p>
             ))}
 
-            <p className="manifesto-verdict mt-10 font-blackletter text-[clamp(1.6rem,3.4vw,3rem)] leading-[1.2] text-blood-accent">
+            <p className="manifesto-verdict mt-7 font-blackletter text-[clamp(1.15rem,2.4vw,2.05rem)] leading-[1.2] text-blood-accent">
               {MANIFESTO_COPY.verdict}
               <span
                 aria-hidden
@@ -191,7 +208,7 @@ export default function Manifesto() {
               />
             </p>
 
-            <div className="manifesto-meta mt-12 flex items-center gap-5">
+            <div className="manifesto-meta mt-7 flex items-center gap-5">
               <span className="h-px w-16 bg-bone-white/20" />
               <span className="font-stencil text-[0.55rem] tracking-stencil text-concrete-gray">
                 {MANIFESTO_COPY.sign}
