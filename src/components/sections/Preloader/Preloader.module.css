@@ -12,3 +12,28 @@
   will-change: transform;
   transform-origin: left center;
 }
+
+/* Centre lockup. Letters are individually transformed, so each needs its own
+   box; the ghost is a misregistered second pass behind them. */
+.coreMark {
+  white-space: nowrap;
+}
+
+.coreChar {
+  display: inline-block;
+  will-change: transform, opacity;
+}
+
+.coreGhost {
+  white-space: nowrap;
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+}
+
+.coreScan {
+  will-change: transform, opacity;
+}
+
+.coreRule {
+  will-change: transform;
+}
