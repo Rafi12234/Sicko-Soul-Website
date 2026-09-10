@@ -44,6 +44,20 @@ export const CURSOR = {
   ringLag: 0.55,
 } as const;
 
+/**
+ * Resolves a palette token from whichever theme scope `el` sits in, so GSAP
+ * tweens invert alongside the CSS when a section carries .theme-light.
+ */
+export function themeColor(
+  el: Element,
+  token: "--c-fg" | "--c-bg" | "--c-surface" | "--c-muted",
+  alpha = 1,
+): string {
+  const channels = getComputedStyle(el).getPropertyValue(token).trim().split(/\s+/).join(",");
+  if (!channels) return alpha === 1 ? COLOR.boneWhite : `rgba(242,240,235,${alpha})`;
+  return alpha === 1 ? `rgb(${channels})` : `rgba(${channels},${alpha})`;
+}
+
 export const BREAKPOINT = {
   md: 768,
 } as const;
