@@ -1,0 +1,46 @@
+/* Full-width statement band. Sits between sections and touches none of them. */
+.band {
+  position: relative;
+  overflow: hidden;
+}
+
+.ghost {
+  will-change: transform, opacity;
+}
+
+.lineTwo {
+  will-change: clip-path, transform;
+}
+
+/* Blood rule that draws itself beneath the second line. */
+.rule {
+  transform: scaleX(0);
+  transform-origin: left center;
+  will-change: transform;
+}
+
+.edge {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+}
+
+.outline {
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgb(242 240 235 / 0.5);
+}
+
+.outlineBlood {
+  color: transparent;
+  -webkit-text-stroke: 1.5px rgb(138 3 3 / 0.9);
+}
+
+/* Faint sweep so the black behind the type is never dead flat. */
+.sheen {
+  background: linear-gradient(
+    100deg,
+    rgb(10 10 10 / 0) 35%,
+    rgb(242 240 235 / 0.05) 50%,
+    rgb(10 10 10 / 0) 65%
+  );
+  will-change: transform;
+}
