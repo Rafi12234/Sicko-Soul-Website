@@ -2,6 +2,7 @@
 
 export const MANIFESTO_COPY = {
   eyebrow: "03 / THE CREED",
+  /** Margin note, as if someone answered the creed on the wall. */
   aside: "READ IT ONCE. IT WON'T BE REPEATED.",
   /** Sits behind the text, hollow and oversized, drifting on scrub. */
   ghost: "CREED",
@@ -16,6 +17,7 @@ export const MANIFESTO_COPY = {
   /** Lands in blackletter after the body has fully burned in. */
   verdict: "You were never the target market.",
   sign: "SIGNED — SICKO SOUL",
+  sheetRef: "DOC 03 — ONE PAGE — NO COPIES",
   stamp: "NO REVISIONS",
   progress: "CREED",
 } as const;
