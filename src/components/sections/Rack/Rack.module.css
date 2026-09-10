@@ -23,14 +23,14 @@
 }
 
 /* Black-only burn, not a colour gradient — see ANTI_PATTERNS.md §5.
-   Keeps the garment lit while the studio plate falls away at the edges. */
+   Keyed to the section's own surface so it burns into paper or into black. */
 .vignette {
   background: radial-gradient(
     ellipse at 50% 44%,
-    rgb(10 10 10 / 0) 26%,
-    rgb(10 10 10 / 0.4) 58%,
-    rgb(10 10 10 / 0.85) 85%,
-    rgb(10 10 10 / 0.97) 100%
+    rgb(var(--c-surface) / 0) 26%,
+    rgb(var(--c-surface) / 0.4) 58%,
+    rgb(var(--c-surface) / 0.85) 85%,
+    rgb(var(--c-surface) / 0.97) 100%
   );
 }
 
@@ -60,6 +60,6 @@
   background-image: repeating-linear-gradient(
     135deg,
     transparent 0 15px,
-    rgb(242 240 235 / 0.045) 15px 16px
+    rgb(var(--c-fg) / 0.045) 15px 16px
   );
 }
