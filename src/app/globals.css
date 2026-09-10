@@ -44,10 +44,19 @@
   font-display: swap;
 }
 
-/* Brush signature — matches the script embroidered on the garments. */
+/* Graffiti hand — the tag script, not a wedding invitation. */
 @font-face {
-  font-family: "Alex Brush";
-  src: url("/fonts/alex-brush-400.woff2") format("woff2");
+  font-family: "Sedgwick Ave Display";
+  src: url("/fonts/sedgwick-ave-display-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Raw scrawl, for the hardest annotations. */
+@font-face {
+  font-family: "Rock Salt";
+  src: url("/fonts/rock-salt-400.woff2") format("woff2");
   font-weight: 400;
   font-style: normal;
   font-display: swap;
@@ -61,8 +70,35 @@
   font-display: swap;
 }
 
+/* Wall tags. Never used for body copy — accents and graffiti only. */
+@font-face {
+  font-family: "Rubik Spray Paint";
+  src: url("/fonts/rubik-spray-paint-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Permanent Marker";
+  src: url("/fonts/permanent-marker-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
 @layer base {
   :root {
+    /*
+     * Palette is stored as raw RGB channels so a section can invert simply by
+     * carrying .theme-light. Everything downstream reads these, which is why a
+     * whole section flips without touching a single utility class.
+     */
+    --c-bg: 10 10 10;
+    --c-surface: 20 20 20;
+    --c-fg: 242 240 235;
+    --c-muted: 138 138 133;
+
     --black: #0a0a0a;
     --off-black: #141414;
     --bone-white: #f2f0eb;
@@ -70,6 +106,38 @@
     --blood-accent: #8a0303;
     /* Driven by GSAP where a section needs a reactive backdrop. */
     --page-bg: var(--black);
+  }
+
+  /*
+   * Light stock. Aged newsprint, not bright white — #f2f0eb at full strength
+   * blows out against black. Scoped to plates far more often than to whole
+   * sections; a full-bleed white slab reads as a cut, not a design.
+   */
+  .theme-light {
+    --c-bg: 222 217 206;
+    --c-surface: 208 203 191;
+    --c-fg: 20 20 19;
+    --c-muted: 106 103 96;
+    color: rgb(var(--c-fg));
+  }
+
+  /* Lifted black. Breaks long dark runs and gives paper plates something to
+     sit on other than the void. */
+  .theme-graphite {
+    --c-bg: 23 23 25;
+    --c-surface: 34 34 37;
+    --c-fg: 242 240 235;
+    --c-muted: 142 142 137;
+    color: rgb(var(--c-fg));
+  }
+
+  /* Blood stock. Used once, as the page's single loudest surface. */
+  .theme-blood {
+    --c-bg: 106 2 2;
+    --c-surface: 88 2 2;
+    --c-fg: 242 240 235;
+    --c-muted: 226 186 186;
+    color: rgb(var(--c-fg));
   }
 
   * {
@@ -157,7 +225,7 @@
   .hairline {
     height: 1px;
     width: 100%;
-    background: rgb(242 240 235 / 0.2);
+    background: rgb(var(--c-fg) / 0.2);
   }
 }
 
@@ -184,12 +252,12 @@
   /* Hollow display type for the counter-voice in oversized headlines. */
   .text-outline {
     color: transparent;
-    -webkit-text-stroke: 1px rgb(242 240 235 / 0.55);
+    -webkit-text-stroke: 1px rgb(var(--c-fg) / 0.55);
   }
 
   .text-outline-2 {
     color: transparent;
-    -webkit-text-stroke: 2px rgb(242 240 235 / 0.38);
+    -webkit-text-stroke: 2px rgb(var(--c-fg) / 0.38);
   }
 
   .text-outline-blood {
