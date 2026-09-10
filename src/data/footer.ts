@@ -27,7 +27,7 @@ export const FOOTER_COPY = {
         { label: "Drop 002", href: "#drop" },
         { label: "Street Cred", href: "#street-cred" },
         { label: "The Creed", href: "#manifesto" },
-        { label: "The Crew", href: "#crew" },
+        { label: "Complaints", href: "#complaints" },
       ],
     },
     {
