@@ -254,7 +254,7 @@ export default function Rack() {
   };
 
   return (
-    <section ref={rootRef} id="rack" className="relative bg-black pb-[14vh] pt-[12vh]">
+    <section ref={rootRef} id="rack" className="theme-graphite relative bg-black pb-[14vh] pt-[12vh]">
       <span
         aria-hidden
         className={`${styles.edge} pointer-events-none absolute left-2 top-[22vh] hidden font-stencil text-[0.6rem] tracking-stencil text-concrete-gray/60 xl:block`}
