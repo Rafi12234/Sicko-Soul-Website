@@ -1,3 +1,8 @@
+/* Sheet edge: a hard screen-print offset, never a soft drop shadow. */
+.sheet {
+  will-change: transform, opacity;
+}
+
 /* No imagery in this section by design — the only texture is the type itself. */
 .ghost {
   will-change: transform, opacity;
@@ -23,12 +28,12 @@
   text-orientation: mixed;
 }
 
-/* Breathes under the text so the black is never flat. */
+/* Breathes under the text so the stock is never flat. */
 .glow {
   background: radial-gradient(
     ellipse at 50% 52%,
-    rgb(138 3 3 / 0.13) 0%,
-    rgb(10 10 10 / 0) 62%
+    rgb(138 3 3 / 0.1) 0%,
+    rgb(var(--c-bg) / 0) 62%
   );
   will-change: opacity, transform;
 }
