@@ -3,7 +3,7 @@
 import Image from "next/image";
 import { useLayoutEffect, useRef } from "react";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
-import { COLOR, EASE } from "@/styles/theme";
+import { COLOR, EASE, themeColor } from "@/styles/theme";
 import { RACK_COPY, type RackProduct } from "@/data/rack";
 import styles from "./Rack.module.css";
 
@@ -11,7 +11,7 @@ import styles from "./Rack.module.css";
 const STILL_ON = "polygon(-60% 0%, 100% 0%, 160% 100%, 0% 100%)";
 const STILL_OFF = "polygon(100% 0%, 260% 0%, 320% 100%, 160% 100%)";
 
-const FRAME_IDLE = "rgba(242, 240, 235, 0.15)";
+const FRAME_IDLE = (el: Element) => themeColor(el, "--c-fg", 0.16);
 
 type Props = {
   product: RackProduct;
@@ -65,7 +65,7 @@ export default function RackCard({ product, offsetClass }: Props) {
           .to(numeralRef.current, { autoAlpha: 0.16, y: 0, duration: 0.9, ease: EASE.expo }, 0)
           .to(frame, { borderColor: COLOR.bloodAccent, duration: 0.3 }, 0)
           .to(priceRef.current, { backgroundColor: COLOR.bloodAccent, duration: 0.3 }, 0)
-          .to(priceTextRef.current, { color: COLOR.black, duration: 0.3 }, 0)
+          .to(priceTextRef.current, { color: COLOR.boneWhite, duration: 0.3 }, 0)
           .to(
             statusRef.current,
             {
@@ -129,7 +129,7 @@ export default function RackCard({ product, offsetClass }: Props) {
         tl.to(still, { clipPath: STILL_ON, duration: 0.5, ease: EASE.inOut }, 0)
           .to(worn, { scale: 1.12, duration: 0.7, ease: EASE.inOut }, 0)
           .to(numeralRef.current, { autoAlpha: 0, duration: 0.35, ease: EASE.inOut }, 0)
-          .to(frame, { borderColor: FRAME_IDLE, duration: 0.45 }, 0)
+          .to(frame, { borderColor: FRAME_IDLE(frame), duration: 0.45 }, 0)
           .to(priceRef.current, { backgroundColor: "rgba(0,0,0,0)", duration: 0.35 }, 0)
           .to(priceTextRef.current, { color: COLOR.bloodAccent, duration: 0.35 }, 0)
           .to(brackets, { autoAlpha: 0, scale: 0.55, duration: 0.3, ease: EASE.inOut }, 0)
@@ -222,6 +222,8 @@ export default function RackCard({ product, offsetClass }: Props) {
       const actionCleanups = q(".rack-action").map((button) => {
         const fill = button.querySelector<HTMLElement>(".rack-action-fill");
         const label = button.querySelector<HTMLElement>(".rack-action-label");
+        // The solid blood button always carries paper ink, whatever the stock.
+        const fixedInk = (button as HTMLElement).dataset.ink === "paper";
 
         const onOver = () => {
           gsap.to(fill, {
@@ -230,7 +232,13 @@ export default function RackCard({ product, offsetClass }: Props) {
             ease: EASE.expo,
             overwrite: "auto",
           });
-          gsap.to(label, { color: COLOR.black, duration: 0.25, overwrite: "auto" });
+          if (!fixedInk) {
+            gsap.to(label, {
+              color: themeColor(button, "--c-bg"),
+              duration: 0.25,
+              overwrite: "auto",
+            });
+          }
         };
         const onOut = () => {
           gsap.to(fill, {
@@ -239,7 +247,13 @@ export default function RackCard({ product, offsetClass }: Props) {
             ease: EASE.inOut,
             overwrite: "auto",
           });
-          gsap.to(label, { color: COLOR.boneWhite, duration: 0.3, overwrite: "auto" });
+          if (!fixedInk) {
+            gsap.to(label, {
+              color: themeColor(button, "--c-fg"),
+              duration: 0.3,
+              overwrite: "auto",
+            });
+          }
         };
 
         button.addEventListener("pointerenter", onOver);
@@ -262,10 +276,12 @@ export default function RackCard({ product, offsetClass }: Props) {
       className={`rack-card relative ${offsetClass}`}
       data-cursor="hover"
     >
-      <div
-        ref={frameRef}
-        className={`${styles.frame} relative aspect-[4/5] overflow-hidden border border-bone-white/15 bg-off-black`}
-      >
+      {/* Paper wraps the garment only — the plate is a mount, not a card. */}
+      <div className="theme-light bg-black p-3 shadow-print">
+        <div
+          ref={frameRef}
+          className={`${styles.frame} relative aspect-[4/5] overflow-hidden border border-bone-white/15 bg-off-black`}
+        >
         {/* Worn shot sits underneath and is oversized so the drift never
             exposes the frame edge. Top-biased crop keeps every model framed
             the same way despite the source files differing in aspect. */}
@@ -334,16 +350,21 @@ export default function RackCard({ product, offsetClass }: Props) {
         >
           {RACK_COPY.still}
         </span>
+        </div>
       </div>
 
+      {/* Meta sits off the plate, on the dark field, in bone and blood only. */}
       <div className="mt-5">
-        <h3 className="font-display text-[clamp(1.1rem,1.6vw,1.5rem)] leading-none tracking-crushed text-bone-white">
-          {product.name}
-        </h3>
-        <p className="mt-2 font-stencil text-[0.58rem] tracking-stencil text-concrete-gray">
+        <div className="flex items-baseline gap-3">
+          <span className="h-px w-5 shrink-0 bg-blood-accent" />
+          <h3 className="font-display text-[clamp(1.1rem,1.6vw,1.5rem)] leading-none tracking-crushed text-bone-white">
+            {product.name}
+          </h3>
+        </div>
+        <p className="mt-2 pl-8 font-stencil text-[0.58rem] tracking-stencil text-blood-accent/85">
           {product.spec}
         </p>
-        <p className="mt-3 font-body text-[0.9rem] leading-snug text-concrete-gray">
+        <p className="mt-3 pl-8 font-body text-[0.9rem] leading-snug text-bone-white/60">
           {product.line}
         </p>
       </div>
@@ -377,13 +398,14 @@ export default function RackCard({ product, offsetClass }: Props) {
 
         <button
           type="button"
+          data-ink="paper"
           className="rack-action clip-cut relative overflow-hidden border border-blood-accent bg-blood-accent py-3"
         >
           <span
             aria-hidden
-            className={`${styles.actionFill} rack-action-fill absolute inset-0 bg-bone-white`}
+            className={`${styles.actionFill} rack-action-fill absolute inset-0 bg-ink`}
           />
-          <span className="rack-action-label relative block font-stencil text-[0.55rem] tracking-[0.16em] text-bone-white">
+          <span className="rack-action-label relative block font-stencil text-[0.55rem] tracking-[0.16em] text-paper">
             {RACK_COPY.buyNow}
           </span>
         </button>
