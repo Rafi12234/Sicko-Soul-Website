@@ -7,7 +7,7 @@ export const NAV_COPY = {
     { label: "Lookbook", href: "#lookbook", index: "01" },
     { label: "The Streets", href: "#the-streets", index: "02" },
     { label: "Drop 001", href: "#drop", index: "03" },
-    { label: "The Crew", href: "#crew", index: "04" },
+    { label: "Complaints", href: "#complaints", index: "04" },
   ],
   aside: "NO STOCKISTS. NO SALES. NO SECOND CHANCES.",
 } as const;
