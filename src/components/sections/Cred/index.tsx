@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useRef } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
-import { COLOR, EASE, STAGGER } from "@/styles/theme";
+import { COLOR, EASE, STAGGER, themeColor } from "@/styles/theme";
 import { CRED_COPY, CRED_ROWS } from "@/data/cred";
 import styles from "./Cred.module.css";
 
@@ -72,16 +72,21 @@ export default function Cred() {
         const seal = plate.querySelector<HTMLElement>(".cred-seal");
 
         const onOver = () => {
+          // Held statements invert to ink, the reverse of the printed rest state.
           gsap.to(plate, {
-            backgroundColor: COLOR.boneWhite,
-            borderColor: COLOR.boneWhite,
+            backgroundColor: themeColor(plate, "--c-fg"),
+            borderColor: themeColor(plate, "--c-fg"),
             scale: 1.04,
             duration: 0.45,
             ease: EASE.expo,
             overwrite: "auto",
           });
-          gsap.to(ink, { color: COLOR.black, duration: 0.3, overwrite: "auto" });
-          gsap.to(dim, { color: "rgba(10,10,10,0.55)", duration: 0.3, overwrite: "auto" });
+          gsap.to(ink, { color: themeColor(plate, "--c-bg"), duration: 0.3, overwrite: "auto" });
+          gsap.to(dim, {
+            color: themeColor(plate, "--c-bg", 0.6),
+            duration: 0.3,
+            overwrite: "auto",
+          });
           gsap.to(bar, {
             scaleX: 0,
             duration: 0.55,
@@ -100,15 +105,19 @@ export default function Cred() {
 
         const onOut = () => {
           gsap.to(plate, {
-            backgroundColor: "rgba(20,20,20,0.86)",
-            borderColor: "rgba(242,240,235,0.14)",
+            backgroundColor: themeColor(plate, "--c-bg"),
+            borderColor: themeColor(plate, "--c-fg", 0.16),
             scale: 1,
             duration: 0.5,
             ease: EASE.inOut,
             overwrite: "auto",
           });
-          gsap.to(ink, { color: COLOR.boneWhite, duration: 0.35, overwrite: "auto" });
-          gsap.to(dim, { color: COLOR.concreteGray, duration: 0.35, overwrite: "auto" });
+          gsap.to(ink, { color: themeColor(plate, "--c-fg"), duration: 0.35, overwrite: "auto" });
+          gsap.to(dim, {
+            color: themeColor(plate, "--c-muted"),
+            duration: 0.35,
+            overwrite: "auto",
+          });
           gsap.to(bar, { scaleX: 1, duration: 0.4, ease: EASE.inOut, overwrite: "auto" });
           gsap.to(seal, {
             autoAlpha: 0,
@@ -347,7 +356,7 @@ export default function Cred() {
                 <article
                   key={`${statement.id}-${i}`}
                   aria-hidden={i >= row.length}
-                  className={`${styles.plate} cred-plate relative flex w-[74vw] shrink-0 flex-col justify-between border border-bone-white/14 bg-off-black/85 p-6 sm:w-[52vw] md:w-[30vw] lg:w-[23vw]`}
+                  className={`${styles.plate} theme-light cred-plate relative flex w-[74vw] shrink-0 flex-col justify-between border border-bone-white/16 bg-black p-6 shadow-print sm:w-[52vw] md:w-[30vw] lg:w-[23vw]`}
                   data-cursor="hover"
                 >
                   <div className="flex items-center justify-between gap-4">
@@ -372,9 +381,11 @@ export default function Cred() {
                       <span className="cred-ink font-display text-[clamp(1.05rem,1.5vw,1.4rem)] uppercase leading-[1.15] tracking-crushed text-bone-white">
                         {statement.redacted}
                       </span>
+                      {/* Absolute ink: a redaction bar must read as blacked
+                          out on paper and on dark alike. */}
                       <span
                         aria-hidden
-                        className={`${styles.redactBar} cred-redact-bar absolute -inset-x-1 -inset-y-0.5 block border-l-2 border-blood-accent bg-black`}
+                        className={`${styles.redactBar} cred-redact-bar absolute -inset-x-1 -inset-y-0.5 block border-l-2 border-blood-accent bg-ink`}
                       />
                     </span>
                   </blockquote>
