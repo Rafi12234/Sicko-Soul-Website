@@ -2,6 +2,26 @@
   will-change: transform;
 }
 
+/* Content/core wrappers tween opacity+transform together on entry/exit. */
+.content {
+  will-change: transform, opacity;
+}
+
+.core {
+  will-change: transform, opacity;
+}
+
+/* scrambleText mutates these every tick — promote so the browser doesn't
+   repaint the whole flex column each swap. */
+.wordmark {
+  will-change: contents;
+}
+
+.sub,
+.status {
+  will-change: contents;
+}
+
 /* Digits must not reflow the box as the counter climbs 000 → 100. */
 .counter {
   font-variant-numeric: tabular-nums;

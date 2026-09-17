@@ -27,13 +27,22 @@ export function useLenis() {
 
     const raf = (time: number) => lenis.raf(time * 1000);
     gsap.ticker.add(raf);
-    gsap.ticker.lagSmoothing(0);
 
     // Child effects run before this one, so the Preloader cannot lock scroll
     // itself — the store gates it instead.
     if (!useAppStore.getState().hasEntered) lenis.stop();
+
+    // Lag smoothing off is correct for scroll-driven scrub accuracy, but it
+    // makes any main-thread hitch during the preloader's own timeline (font
+    // swap, hydration) show up as a visible jump. Only disable it once real
+    // scrolling can happen.
+    let smoothed = false;
     const unsubscribe = useAppStore.subscribe((state) => {
       if (state.hasEntered && !state.isMenuOpen) lenis.start();
+      if (state.hasEntered && !smoothed) {
+        smoothed = true;
+        gsap.ticker.lagSmoothing(0);
+      }
     });
 
     return () => {

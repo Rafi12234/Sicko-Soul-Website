@@ -233,8 +233,9 @@ export default function Preloader() {
 
       <div
         ref={contentRef}
-        className="absolute inset-0 flex flex-col justify-between px-gutter py-gutter"
-      >        <div className="flex items-start justify-between gap-8">
+        className={`${styles.content} absolute inset-0 flex flex-col justify-between px-gutter py-gutter`}
+      >
+        <div className="flex items-start justify-between gap-8">
           <p className="font-stencil text-stamp text-concrete-gray">{PRELOADER_COPY.eyebrow}</p>
           <p className="font-stencil text-stamp text-blood-accent">{PRELOADER_COPY.tag}</p>
         </div>
@@ -242,14 +243,14 @@ export default function Preloader() {
         <div className="relative">
           <span
             ref={statusRef}
-            className="mb-4 block font-stencil text-stamp text-concrete-gray"
+            className={`${styles.status} mb-4 block font-stencil text-stamp text-concrete-gray`}
           >
             {PRELOADER_COPY.status[0]}
           </span>
 
           <h1
             ref={wordmarkRef}
-            className="text-distress -ml-gutter font-display text-display-xl leading-[0.85]"
+            className={`${styles.wordmark} text-distress -ml-gutter font-display text-display-xl leading-[0.85]`}
           >
             {PRELOADER_COPY.wordmarkCipher}
           </h1>
@@ -267,7 +268,7 @@ export default function Preloader() {
       {/* Centre lockup: assembles out of scattered letters while the count runs. */}
       <div
         ref={coreRef}
-        className="pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center px-gutter"
+        className={`${styles.core} pointer-events-none absolute inset-0 z-10 flex flex-col items-center justify-center px-gutter`}
       >
         <div className="relative">
           <span aria-hidden className={`${styles.coreMark} pre-core-mark block font-gothic text-[clamp(2.6rem,7.5vw,6rem)] leading-none text-bone-white`}>
@@ -302,7 +303,7 @@ export default function Preloader() {
 
         <span
           ref={subRef}
-          className="mt-5 block text-center font-stencil text-[0.58rem] tracking-stencil text-bone-white/75"
+          className={`${styles.sub} mt-5 block text-center font-stencil text-[0.58rem] tracking-stencil text-bone-white/75`}
         >
           {PRELOADER_COPY.core.subCipher}
         </span>

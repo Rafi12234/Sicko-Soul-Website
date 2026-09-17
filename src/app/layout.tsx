@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import SmoothScroll from "@/components/providers/SmoothScroll";
 import CustomCursor from "@/components/ui/CustomCursor";
 import NoiseOverlay from "@/components/ui/NoiseOverlay";
+import SiteAudio from "@/components/ui/SiteAudio";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -27,10 +28,19 @@ export default function RootLayout({ children }: { children: ReactNode }) {
     // Extensions (QuillBot, Grammarly, password managers) stamp attributes onto
     // html/body before hydration; only these two roots skip attribute diffing.
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {/* Preload the three faces the Preloader renders immediately — without
+            this, font-display: swap can substitute a fallback face mid-scramble
+            and the glyph-width swap reads as a jittery reflow. */}
+        <link rel="preload" href="/fonts/anton-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/pirata-one-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/special-elite-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+      </head>
       <body className="bg-black text-bone-white antialiased" suppressHydrationWarning>
         <SmoothScroll>{children}</SmoothScroll>
         <NoiseOverlay />
         <CustomCursor />
+        <SiteAudio />
       </body>
     </html>
   );

@@ -193,8 +193,18 @@ export default function DistortionImage({ src, alt, velocityRef, className = "" 
       container.addEventListener("pointerenter", onEnter);
       container.addEventListener("pointerleave", onLeave);
 
+      // The page never unmounts off-screen sections, so without this every
+      // frame gallery keeps its shader looping (and the GPU paying for it)
+      // long after the user has scrolled away. Only render while visible.
+      let inView = false;
+      const visibility = new IntersectionObserver(([entry]) => {
+        inView = entry.isIntersecting;
+      }, { rootMargin: "200px 0px" });
+      visibility.observe(container);
+
       // Driven off the shared ticker so it stays in step with Lenis/ScrollTrigger.
       const render = (time: number) => {
+        if (!inView) return;
         program.uniforms.uTime.value = time;
         program.uniforms.uPointer.value = [pointer.x, pointer.y];
         program.uniforms.uVelocity.value +=
@@ -206,6 +216,7 @@ export default function DistortionImage({ src, alt, velocityRef, className = "" 
       return () => {
         gsap.ticker.remove(render);
         observer.disconnect();
+        visibility.disconnect();
         container.removeEventListener("pointermove", onMove);
         container.removeEventListener("pointerenter", onEnter);
         container.removeEventListener("pointerleave", onLeave);

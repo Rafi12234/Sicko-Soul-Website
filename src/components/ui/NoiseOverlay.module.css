@@ -5,7 +5,9 @@
  */
 .noise {
   position: fixed;
-  inset: -150%;
+  /* Just enough overscan to hide edges through the ~9% max grain jitter —
+     -150% was rendering (and repainting) a 16x-viewport layer every step. */
+  inset: -20%;
   z-index: 110;
   pointer-events: none;
   opacity: 0.06;
