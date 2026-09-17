@@ -14,6 +14,8 @@ export const FOOTER_COPY = {
       id: "rooms",
       title: "ROOMS",
       links: [
+        { label: "Products", href: "/products" },
+        { label: "Cart", href: "/cart" },
         { label: "The Arsenal", href: "#segments" },
         { label: "The Rack", href: "#rack" },
         { label: "The Streets", href: "#the-streets" },
