@@ -22,6 +22,14 @@ export default function Preloader() {
   const [dismissed, setDismissed] = useState(false);
 
   useLayoutEffect(() => {
+    // Returning from an internal page should not replay the entrance ritual.
+    // The root audio and app state survive client navigation, so the visitor is
+    // already inside the Sicko Soul world.
+    if (useAppStore.getState().hasEntered) {
+      setDismissed(true);
+      return;
+    }
+
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     window.scrollTo(0, 0);
