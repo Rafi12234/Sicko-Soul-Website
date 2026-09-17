@@ -1,0 +1,244 @@
+.hero {
+  isolation: isolate;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(10, 10, 10, 0.08), rgba(10, 10, 10, 0.82)),
+    radial-gradient(circle at 74% 22%, rgba(138, 3, 3, 0.12), transparent 26%);
+  z-index: 1;
+}
+
+.heroGrid {
+  opacity: 0.24;
+  background-image:
+    linear-gradient(rgba(242, 240, 235, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(242, 240, 235, 0.045) 1px, transparent 1px);
+  background-size: 7.5vw 7.5vw;
+  mask-image: linear-gradient(to bottom, black, transparent 82%);
+}
+
+.categoryMarker {
+  height: 1px;
+  transform: scaleX(0);
+  transform-origin: left center;
+}
+
+.categoryButton {
+  isolation: isolate;
+}
+
+.categoryButton::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  transform: scaleY(0);
+  transform-origin: bottom center;
+  background: rgba(242, 240, 235, 0.035);
+  transition: transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.categoryButton:hover::before,
+.categoryButton:focus-visible::before,
+.categoryButton[aria-pressed="true"]::before {
+  transform: scaleY(1);
+}
+
+.categoryButton:focus-visible {
+  outline: 1px solid #8a0303;
+  outline-offset: 4px;
+}
+
+.coverFrame::after,
+.primaryFrame::after,
+.secondaryFrame::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 1px solid rgba(242, 240, 235, 0.08);
+  mix-blend-mode: screen;
+}
+
+.mediaVignette {
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(10, 10, 10, 0.08), rgba(10, 10, 10, 0.2)),
+    radial-gradient(circle at 50% 45%, transparent 48%, rgba(10, 10, 10, 0.32) 100%);
+  box-shadow: inset 0 0 0 1px rgba(242, 240, 235, 0.05);
+}
+
+.record {
+  min-height: min(980px, 118vh);
+}
+
+.mediaCluster {
+  min-height: clamp(34rem, 72vw, 58rem);
+}
+
+.recordNumeral {
+  right: 5%;
+  font-size: clamp(9rem, 24vw, 23rem);
+  line-height: 0.7;
+}
+
+.recordReverse .recordNumeral {
+  left: -2%;
+  right: auto;
+}
+
+.primaryFrame,
+.secondaryFrame {
+  will-change: transform;
+}
+
+.secondaryFrame {
+  transform: rotate(1.2deg);
+}
+
+.recordReverse .primaryFrame {
+  margin-left: auto;
+}
+
+.recordReverse .secondaryFrame,
+.recordReverse .noBody {
+  left: 0;
+  right: auto;
+  transform: rotate(-1.4deg);
+}
+
+.noBody {
+  min-height: 9rem;
+}
+
+.recordMeta::before {
+  content: "";
+  position: absolute;
+  left: -1.15rem;
+  top: 0;
+  width: 1px;
+  height: 5rem;
+  background: #8a0303;
+  opacity: 0.8;
+}
+
+.tickerTrack {
+  will-change: transform;
+}
+
+.homeLinkFill {
+  clip-path: inset(0 100% 0 0);
+  transition: clip-path 460ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.homeLink:hover .homeLinkFill,
+.homeLink:focus-visible .homeLinkFill {
+  clip-path: inset(0 0 0 0);
+}
+
+.homeLink:focus-visible {
+  outline: 1px solid #8a0303;
+  outline-offset: 4px;
+}
+
+@media (max-width: 1023px) {
+  .record {
+    min-height: 0;
+  }
+
+  .mediaCluster {
+    min-height: clamp(31rem, 112vw, 48rem);
+  }
+
+  .recordNumeral {
+    right: 0;
+  }
+
+  .recordReverse .recordNumeral {
+    left: auto;
+    right: 0;
+  }
+
+  .recordReverse .primaryFrame {
+    margin-left: 0;
+  }
+
+  .recordReverse .secondaryFrame,
+  .recordReverse .noBody {
+    left: auto;
+    right: 0;
+  }
+}
+
+@media (max-width: 767px) {
+  .heroGrid {
+    background-size: 4.5rem 4.5rem;
+  }
+
+  .mediaCluster {
+    min-height: clamp(30rem, 138vw, 42rem);
+  }
+
+  .recordNumeral {
+    font-size: 42vw;
+    top: -0.05em;
+  }
+
+  .recordMeta::before {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .primaryFrame,
+  .secondaryFrame,
+  .tickerTrack {
+    will-change: auto;
+  }
+
+  .categoryButton::before,
+  .homeLinkFill {
+    transition-duration: 0.01ms;
+  }
+}
+
+.recordAction::before,
+.buyAction::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.recordAction::before {
+  background: rgba(242, 240, 235, 0.08);
+}
+
+.buyAction::before {
+  background: #f2f0eb;
+}
+
+.recordAction:hover::before,
+.recordAction:focus-visible::before,
+.buyAction:hover::before,
+.buyAction:focus-visible::before {
+  transform: scaleX(1);
+}
+
+.buyAction:hover span,
+.buyAction:focus-visible span {
+  color: #0a0a0a;
+}
+
+.recordAction:focus-visible,
+.buyAction:focus-visible {
+  outline: 1px solid #8a0303;
+  outline-offset: 3px;
+}
