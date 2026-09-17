@@ -4,10 +4,12 @@ export const NAV_COPY = {
   menuOpen: "MENU",
   menuClose: "CLOSE",
   links: [
-    { label: "Lookbook", href: "#lookbook", index: "01" },
-    { label: "The Streets", href: "#the-streets", index: "02" },
-    { label: "Drop 001", href: "#drop", index: "03" },
-    { label: "Complaints", href: "#complaints", index: "04" },
+    { label: "Products", href: "/products", index: "01" },
+    { label: "Lookbook", href: "#lookbook", index: "02" },
+    { label: "The Streets", href: "#the-streets", index: "03" },
+    { label: "Drop 001", href: "#drop", index: "04" },
+    { label: "Complaints", href: "#complaints", index: "05" },
+    { label: "Cart", href: "/cart", index: "06" },
   ],
   aside: "NO STOCKISTS. NO SALES. NO SECOND CHANCES.",
 } as const;
