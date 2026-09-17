@@ -1,9 +1,11 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import SmoothScroll from "@/components/providers/SmoothScroll";
+import ClientRuntime from "@/components/providers/ClientRuntime";
 import CustomCursor from "@/components/ui/CustomCursor";
 import NoiseOverlay from "@/components/ui/NoiseOverlay";
 import SiteAudio from "@/components/ui/SiteAudio";
+import RouteTransition from "@/components/ui/RouteTransition";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -37,7 +39,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <link rel="preload" href="/fonts/special-elite-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
       </head>
       <body className="bg-black text-bone-white antialiased" suppressHydrationWarning>
+        <ClientRuntime />
         <SmoothScroll>{children}</SmoothScroll>
+        <RouteTransition />
         <NoiseOverlay />
         <CustomCursor />
         <SiteAudio />
