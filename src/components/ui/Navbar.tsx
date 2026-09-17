@@ -1,15 +1,19 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useLayoutEffect, useRef } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { EASE } from "@/styles/theme";
 import { useAppStore } from "@/store/useAppStore";
+import { useCartStore } from "@/store/useCartStore";
 import { getLenis } from "@/hooks/useLenis";
 import { NAV_COPY } from "@/data/hero";
 import styles from "./Navbar.module.css";
 
 export default function Navbar() {
+  const pathname = usePathname();
   const rootRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLElement>(null);
   const plateRef = useRef<HTMLDivElement>(null);
@@ -21,15 +25,26 @@ export default function Navbar() {
 
   const isMenuOpen = useAppStore((state) => state.isMenuOpen);
   const toggleMenu = useAppStore((state) => state.toggleMenu);
+  const cartCount = useCartStore((state) =>
+    state.items.reduce((sum, item) => sum + item.quantity, 0),
+  );
+
+  const resolveHref = (href: string) => {
+    if (!href.startsWith("#") || pathname === "/") return href;
+    return `/${href}`;
+  };
 
   useLayoutEffect(() => {
+    const root = rootRef.current;
+    if (!root) return;
+
+    const nativeCleanups: Array<() => void> = [];
+
     const ctx = gsap.context(() => {
       const bar = barRef.current;
       const plate = plateRef.current;
       if (!bar || !plate) return;
 
-      /* ---- Hidden-until-earned bar: retreats going down, snaps back going up,
-              and inverts to a solid plate once past the hero. ANTI_PATTERNS §1.4 */
       let hidden = false;
       let plated = false;
 
@@ -58,7 +73,6 @@ export default function Navbar() {
         },
       });
 
-      /* ---- Logo glitch: bone plate jitters, blood ghost tears away from it. */
       const logo = logoRef.current;
       const ghost = ghostRef.current;
       if (logo && ghost) {
@@ -70,16 +84,21 @@ export default function Navbar() {
           .to(ghost, { x: -2, y: 2, duration: 0.06, ease: EASE.hard })
           .to(ghost, { x: 3, y: 0, duration: 0.06, ease: EASE.hard });
 
-        const stop = () => {
+        const onEnter = () => glitch.play(0);
+        const onLeave = () => {
           glitch.pause(0);
           gsap.to(ghost, { autoAlpha: 0, x: 0, y: 0, duration: 0.25, ease: EASE.expo });
         };
 
-        logo.addEventListener("pointerenter", () => glitch.play(0));
-        logo.addEventListener("pointerleave", stop);
+        logo.addEventListener("pointerenter", onEnter);
+        logo.addEventListener("pointerleave", onLeave);
+        nativeCleanups.push(() => {
+          logo.removeEventListener("pointerenter", onEnter);
+          logo.removeEventListener("pointerleave", onLeave);
+          glitch.kill();
+        });
       }
 
-      /* ---- Menu plate: built once, scrubbed open/closed by the store effect. */
       const overlay = overlayRef.current;
       if (overlay) {
         const split = new SplitText(".nav-link-label", { type: "chars" });
@@ -108,9 +127,10 @@ export default function Navbar() {
           )
           .from(".nav-aside", { autoAlpha: 0, y: 18, duration: 0.5, ease: EASE.hard }, "<0.2");
       }
-    }, rootRef);
+    }, root);
 
     return () => {
+      nativeCleanups.forEach((cleanup) => cleanup());
       menuTlRef.current = null;
       ctx.revert();
     };
@@ -146,19 +166,16 @@ export default function Navbar() {
 
   return (
     <div ref={rootRef}>
-      <header
-        ref={barRef}
-        className={`${styles.bar} fixed inset-x-0 top-0 z-nav`}
-      >
+      <header ref={barRef} className={`${styles.bar} fixed inset-x-0 top-0 z-nav`}>
         <div
           ref={plateRef}
           className="pointer-events-none absolute inset-0 border-b border-bone-white/15 bg-black/90 opacity-0"
         />
 
         <div className="relative flex items-center justify-between px-gutter py-5">
-          <a
+          <Link
             ref={logoRef}
-            href="#top"
+            href={pathname === "/" ? "#top" : "/"}
             aria-label="Sicko Soul — home"
             className={`${styles.logo} relative block h-9 w-[150px] overflow-hidden`}
           >
@@ -180,19 +197,33 @@ export default function Navbar() {
                 className="logo-knockout absolute left-1/2 top-1/2 max-w-none -translate-x-1/2 -translate-y-1/2 [filter:sepia(1)_saturate(9)_hue-rotate(-38deg)_brightness(0.75)]"
               />
             </div>
-          </a>
+          </Link>
 
-          <button
-            type="button"
-            onClick={toggleMenu}
-            aria-expanded={isMenuOpen}
-            className="group flex items-center gap-3 font-stencil text-stamp text-bone-white"
-          >
-            <span className="h-px w-8 bg-bone-white/50 transition-colors ease-hard group-hover:bg-blood-accent" />
-            <span ref={triggerLabelRef} className="min-w-[5ch] text-left">
-              {NAV_COPY.menuOpen}
-            </span>
-          </button>
+          <div className="flex items-center gap-5 md:gap-8">
+            <Link
+              href="/cart"
+              data-cursor="hover"
+              className="group flex items-center gap-2 font-stencil text-[0.52rem] tracking-stencil text-concrete-gray transition-colors duration-300 hover:text-bone-white"
+              aria-label={`Cart with ${cartCount} item${cartCount === 1 ? "" : "s"}`}
+            >
+              <span className="hidden sm:inline">CART</span>
+              <span className="flex h-7 min-w-7 items-center justify-center border border-bone-white/20 px-2 text-bone-white group-hover:border-blood-accent group-hover:text-blood-accent">
+                {String(cartCount).padStart(2, "0")}
+              </span>
+            </Link>
+
+            <button
+              type="button"
+              onClick={toggleMenu}
+              aria-expanded={isMenuOpen}
+              className="group flex items-center gap-3 font-stencil text-stamp text-bone-white"
+            >
+              <span className="h-px w-8 bg-bone-white/50 transition-colors ease-hard group-hover:bg-blood-accent" />
+              <span ref={triggerLabelRef} className="min-w-[5ch] text-left">
+                {NAV_COPY.menuOpen}
+              </span>
+            </button>
+          </div>
         </div>
       </header>
 
@@ -205,9 +236,9 @@ export default function Navbar() {
       >
         <nav className="flex h-full flex-col justify-center px-gutter pt-24">
           {NAV_COPY.links.map((link) => (
-            <a
+            <Link
               key={link.href}
-              href={link.href}
+              href={resolveHref(link.href)}
               onClick={toggleMenu}
               className={`${styles.link} group relative max-w-3xl py-2`}
             >
@@ -222,7 +253,7 @@ export default function Navbar() {
               <span
                 className={`${styles.linkRule} nav-link-rule mt-1 block h-px w-full max-w-3xl origin-left bg-bone-white/15`}
               />
-            </a>
+            </Link>
           ))}
 
           <p className="nav-aside mt-12 max-w-[34ch] font-stencil text-stamp text-concrete-gray">
