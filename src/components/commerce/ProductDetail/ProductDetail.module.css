@@ -1,0 +1,177 @@
+.hero {
+  isolation: isolate;
+}
+
+.grid {
+  opacity: 0.2;
+  background-image:
+    linear-gradient(rgba(242, 240, 235, 0.045) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(242, 240, 235, 0.045) 1px, transparent 1px);
+  background-size: 7vw 7vw;
+  mask-image: linear-gradient(to bottom, black, transparent 88%);
+}
+
+.fileNumber {
+  right: -0.04em;
+  top: 9vh;
+  z-index: 0;
+  font-size: clamp(14rem, 37vw, 38rem);
+  line-height: 0.68;
+  opacity: 0.11;
+}
+
+.viewerWrap {
+  min-height: clamp(38rem, 66vw, 58rem);
+}
+
+.viewer {
+  transform: rotate(-0.8deg);
+  will-change: transform;
+}
+
+.viewer::before {
+  content: "";
+  position: absolute;
+  inset: -10px 14px 12px -10px;
+  border-left: 1px solid rgba(138, 3, 3, 0.75);
+  border-bottom: 1px solid rgba(242, 240, 235, 0.1);
+  pointer-events: none;
+}
+
+.vignette {
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, rgba(10, 10, 10, 0.04), rgba(10, 10, 10, 0.18)),
+    radial-gradient(circle at 50% 45%, transparent 48%, rgba(10, 10, 10, 0.34) 100%);
+}
+
+.scan {
+  box-shadow: 0 0 16px rgba(138, 3, 3, 0.6);
+  animation: scan 4.8s steps(1, end) infinite;
+}
+
+.panel {
+  position: relative;
+}
+
+.panel::before {
+  content: "";
+  position: absolute;
+  left: -1.5rem;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: linear-gradient(to bottom, #8a0303, rgba(138, 3, 3, 0));
+}
+
+.frameButton,
+.sizeButton {
+  transition:
+    color 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    background-color 280ms cubic-bezier(0.16, 1, 0.3, 1),
+    border-color 280ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.frameButton:hover,
+.frameButton:focus-visible,
+.sizeButton:hover,
+.sizeButton:focus-visible {
+  border-color: #8a0303;
+  color: #f2f0eb;
+}
+
+.frameButton:focus-visible,
+.sizeButton:focus-visible,
+.cta:focus-visible,
+.ctaBlood:focus-visible,
+.related:focus-visible,
+.cartLink:focus-visible {
+  outline: 1px solid #8a0303;
+  outline-offset: 4px;
+}
+
+.cta::before,
+.ctaBlood::before,
+.cartLink::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: scaleX(0);
+  transform-origin: left center;
+  transition: transform 440ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.cta::before,
+.cartLink::before {
+  background: #f2f0eb;
+}
+
+.ctaBlood::before {
+  background: #f2f0eb;
+}
+
+.cta:hover::before,
+.cta:focus-visible::before,
+.ctaBlood:hover::before,
+.ctaBlood:focus-visible::before,
+.cartLink:hover::before,
+.cartLink:focus-visible::before {
+  transform: scaleX(1);
+}
+
+.related::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  border: 1px solid transparent;
+  transition: border-color 350ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.related:hover::after,
+.related:focus-visible::after {
+  border-color: #8a0303;
+}
+
+@keyframes scan {
+  0%, 18% { transform: translateY(0); opacity: 0; }
+  19% { opacity: 0.8; }
+  38% { transform: translateY(48vh); opacity: 0.55; }
+  39%, 100% { transform: translateY(48vh); opacity: 0; }
+}
+
+@media (max-width: 1279px) {
+  .viewerWrap {
+    min-height: clamp(40rem, 104vw, 62rem);
+  }
+
+  .panel::before {
+    display: none;
+  }
+}
+
+@media (max-width: 767px) {
+  .grid {
+    background-size: 4.5rem 4.5rem;
+  }
+
+  .fileNumber {
+    top: 15vh;
+    font-size: 58vw;
+  }
+
+  .viewerWrap {
+    min-height: clamp(31rem, 135vw, 46rem);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .viewer {
+    will-change: auto;
+  }
+
+  .scan {
+    animation: none;
+    opacity: 0;
+  }
+}
