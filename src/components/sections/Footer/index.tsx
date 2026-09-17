@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useLayoutEffect, useRef } from "react";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
 import { COLOR, EASE } from "@/styles/theme";
@@ -253,7 +254,7 @@ export default function Footer() {
             <ul className="mt-6 space-y-3">
               {column.links.map((link) => (
                 <li key={link.label}>
-                  <a
+                  <Link
                     href={link.href}
                     className="footer-link relative flex items-center gap-2 py-1"
                   >
@@ -275,7 +276,7 @@ export default function Footer() {
                     >
                       →
                     </span>
-                  </a>
+                  </Link>
                 </li>
               ))}
             </ul>
