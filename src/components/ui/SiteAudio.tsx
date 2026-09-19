@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { MEDIA } from "@/lib/media";
 
-/** Space in the filename must be percent-encoded to resolve from /public. */
-const TRACK_SRC = "/audio/Hell%20Let%20Loose.mp3";
 
 /**
  * Persistent soundtrack.
@@ -29,7 +28,7 @@ export default function SiteAudio() {
     <audio
       id="sicko-soul-audio"
       ref={audioRef}
-      src={TRACK_SRC}
+      src={MEDIA.audio.soundtrack}
       loop
       preload="auto"
       className="hidden"
