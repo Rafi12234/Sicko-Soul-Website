@@ -5,7 +5,6 @@ import Footer from "@/components/sections/Footer";
 import Hero from "@/components/sections/Hero";
 import Lookbook from "@/components/sections/Lookbook";
 import Manifesto from "@/components/sections/Manifesto";
-import Preloader from "@/components/sections/Preloader";
 import Rack from "@/components/sections/Rack";
 import Segments from "@/components/sections/Segments";
 import Streets from "@/components/sections/Streets";
@@ -16,12 +15,10 @@ import { STATEMENTS } from "@/data/statements";
 export default function Home() {
   return (
     <>
-      <Preloader />
       <Navbar />
       <main>
         <Hero />
         <Segments />
-        {/* Text-only breather before the image-heavy run of sections. */}
         <Manifesto />
         <StatementBand statement={STATEMENTS.entry} />
         <Rack />
