@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { MEDIA } from "@/lib/media";
 import { useLayoutEffect, useRef } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER } from "@/styles/theme";
@@ -335,7 +336,7 @@ export default function Streets() {
           >
             <div ref={primaryRef} className={`${styles.media} absolute -inset-[9%]`}>
               <Image
-                src="/imgs/image_4.jpg"
+                src={MEDIA.images.image4}
                 alt="Three figures on a stairwell at night"
                 fill
                 sizes="(max-width: 1024px) 100vw, 46vw"
@@ -366,7 +367,7 @@ export default function Streets() {
           >
             <div ref={secondaryRef} className={`${styles.media} absolute -inset-[12%]`}>
               <Image
-                src="/imgs/image_5.jpg"
+                src={MEDIA.images.image5}
                 alt="Masked crew on a lower parking deck"
                 fill
                 sizes="(max-width: 1024px) 50vw, 22vw"
