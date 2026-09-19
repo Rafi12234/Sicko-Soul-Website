@@ -7,6 +7,7 @@ import CustomCursor from "@/components/ui/CustomCursor";
 import NoiseOverlay from "@/components/ui/NoiseOverlay";
 import SiteAudio from "@/components/ui/SiteAudio";
 import RouteTransition from "@/components/ui/RouteTransition";
+import { CLOUDINARY_ORIGIN } from "@/lib/media";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -30,6 +31,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
+        {/* Warm the media CDN during the entrance ritual. No visual change,
+            but the first hero/product requests avoid a cold DNS/TLS handshake. */}
+        <link rel="preconnect" href={CLOUDINARY_ORIGIN} crossOrigin="anonymous" />
+        <link rel="dns-prefetch" href={CLOUDINARY_ORIGIN} />
+
         {/* Faces required by the entrance ritual before the rest of the page. */}
         <link
           rel="preload"
