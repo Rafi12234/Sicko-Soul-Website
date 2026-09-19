@@ -1,41 +1,118 @@
+.root {
+  background: var(--black);
+  isolation: isolate;
+}
+
+.root::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  opacity: 0.22;
+  background:
+    linear-gradient(rgb(242 240 235 / 0.035) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(242 240 235 / 0.025) 1px, transparent 1px);
+  background-size: 100% 44px, 44px 100%;
+  mask-image: linear-gradient(to bottom, transparent, black 20%, black 82%, transparent);
+}
+
+.root::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: radial-gradient(circle at 50% 48%, transparent 0 24%, rgb(0 0 0 / 0.2) 58%, rgb(0 0 0 / 0.68) 100%);
+}
+
 .panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  z-index: 1;
+  height: 50.08%;
+  background: var(--black);
   will-change: transform;
 }
 
-/* Content/core wrappers tween opacity+transform together on entry/exit. */
-.content {
-  will-change: transform, opacity;
+.panelTop {
+  top: 0;
+  border-bottom: 1px solid rgb(242 240 235 / 0.08);
 }
 
-.core {
-  will-change: transform, opacity;
+.panelBottom {
+  bottom: 0;
+  border-top: 1px solid rgb(242 240 235 / 0.08);
 }
 
-/* scrambleText mutates these every tick — promote so the browser doesn't
-   repaint the whole flex column each swap. */
-.wordmark {
-  will-change: contents;
+.screenGrid {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  opacity: 0.16;
+  background: repeating-linear-gradient(
+    to bottom,
+    transparent 0,
+    transparent 4px,
+    rgb(242 240 235 / 0.06) 5px
+  );
 }
 
-.sub,
-.status {
-  will-change: contents;
+.leftRail,
+.rightRail {
+  position: absolute;
+  z-index: 8;
+  top: 50%;
+  display: flex;
+  gap: 1.2rem;
+  align-items: center;
+  font-family: "Special Elite", "Courier New", monospace;
+  font-size: 0.48rem;
+  letter-spacing: 0.28em;
+  color: rgb(138 138 133 / 0.5);
+  pointer-events: none;
+  white-space: nowrap;
 }
 
-/* Digits must not reflow the box as the counter climbs 000 → 100. */
-.counter {
-  font-variant-numeric: tabular-nums;
-  will-change: contents;
-}
-
-.bar {
-  will-change: transform;
+.leftRail {
+  left: clamp(0.4rem, 1.2vw, 1rem);
+  transform: translateY(-50%) rotate(-90deg) translateX(-50%);
   transform-origin: left center;
 }
 
-/* Centre lockup. Letters are individually transformed, so each needs its own
-   box; the ghost is a misregistered second pass behind them. */
-.coreMark {
+.rightRail {
+  right: clamp(0.4rem, 1.2vw, 1rem);
+  transform: translateY(-50%) rotate(90deg) translateX(50%);
+  transform-origin: right center;
+}
+
+.content,
+.core {
+  z-index: 6;
+  will-change: transform, opacity;
+}
+
+.wordmark,
+.sub,
+.status,
+.counter {
+  will-change: contents;
+}
+
+.counter {
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  z-index: 12;
+  transform-origin: left center;
+  will-change: transform, opacity;
+}
+
+.coreMark,
+.coreGhost {
   white-space: nowrap;
 }
 
@@ -45,15 +122,362 @@
 }
 
 .coreGhost {
-  white-space: nowrap;
   mix-blend-mode: screen;
   will-change: transform, opacity;
 }
 
-.coreScan {
+.coreScan,
+.coreRule {
   will-change: transform, opacity;
 }
 
-.coreRule {
-  will-change: transform;
+.accessGate {
+  position: absolute;
+  z-index: 18;
+  left: 50%;
+  top: 50%;
+  width: min(880px, calc(100vw - clamp(2rem, 10vw, 9rem)));
+  transform: translate(-50%, -50%);
+  color: var(--bone-white);
+  will-change: transform, opacity;
+}
+
+.accessLine {
+  width: 100%;
+  height: 1px;
+  transform-origin: center;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgb(242 240 235 / 0.18) 10%,
+    rgb(138 3 3 / 0.9) 50%,
+    rgb(242 240 235 / 0.18) 90%,
+    transparent
+  );
+}
+
+.accessMeta,
+.accessFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 0.72rem 0;
+  color: rgb(138 138 133 / 0.84);
+  font-size: clamp(0.46rem, 0.7vw, 0.58rem);
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+}
+
+.accessMask {
+  overflow: hidden;
+}
+
+.accessMask > * {
+  display: block;
+}
+
+.accessTitle {
+  padding: clamp(1rem, 2vw, 1.65rem) 0 clamp(0.9rem, 1.7vw, 1.4rem);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.accessTitle > div:first-child span {
+  display: block;
+  color: var(--bone-white);
+  font-size: clamp(2rem, 5vw, 4.8rem);
+  line-height: 0.84;
+  letter-spacing: -0.01em;
+}
+
+.accessTitle > div:last-child span {
+  display: block;
+  margin-top: -0.05em;
+  color: var(--blood-accent);
+  font-size: clamp(4.6rem, 13vw, 11rem);
+  line-height: 0.74;
+  letter-spacing: -0.055em;
+  text-shadow: 7px 0 0 rgb(242 240 235 / 0.035);
+}
+
+.accessInstruction {
+  display: flex;
+  justify-content: center;
+  padding: clamp(1rem, 2vw, 1.5rem) 0 0.8rem;
+  color: rgb(242 240 235 / 0.54);
+  font-size: clamp(0.5rem, 0.75vw, 0.64rem);
+  letter-spacing: 0.22em;
+  text-align: center;
+}
+
+.accessButton {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  width: 100%;
+  min-height: clamp(6rem, 11vw, 8.25rem);
+  margin-top: 0.75rem;
+  padding: clamp(1rem, 2vw, 1.45rem) clamp(1rem, 2.6vw, 2rem);
+  overflow: hidden;
+  border: 1px solid rgb(242 240 235 / 0.55);
+  background: rgb(10 10 10 / 0.94);
+  color: var(--bone-white);
+  text-align: left;
+  clip-path: polygon(18px 0, 100% 0, 100% calc(100% - 18px), calc(100% - 18px) 100%, 0 100%, 0 18px);
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    color 180ms ease;
+  will-change: transform, opacity;
+}
+
+.accessButton::before,
+.accessButton::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.accessButton::before {
+  inset: 0;
+  border-top: 3px solid var(--blood-accent);
+  border-bottom: 3px solid var(--blood-accent);
+  transform: scaleX(0.13);
+  transform-origin: right center;
+  opacity: 0.5;
+  transition: transform 320ms cubic-bezier(0.16, 1, 0.3, 1), opacity 180ms ease;
+}
+
+.accessButton::after {
+  top: 0;
+  bottom: 0;
+  left: 20%;
+  width: 1px;
+  background: rgb(242 240 235 / 0.12);
+}
+
+.accessButton:hover,
+.accessButton:focus-visible {
+  border-color: var(--blood-accent);
+  background: rgb(138 3 3 / 0.13);
+  outline: none;
+}
+
+.accessButton:hover::before,
+.accessButton:focus-visible::before {
+  transform: scaleX(1);
+  opacity: 0.95;
+}
+
+.accessButton:disabled {
+  pointer-events: none;
+}
+
+.buttonSweep {
+  position: absolute;
+  inset: -25% auto -25% 0;
+  width: 32%;
+  pointer-events: none;
+  opacity: 0;
+  background: linear-gradient(90deg, transparent, rgb(242 240 235 / 0.13), rgb(138 3 3 / 0.2), transparent);
+  transform: skewX(-18deg);
+}
+
+.buttonNoise {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.12;
+  background: repeating-linear-gradient(
+    90deg,
+    transparent 0 13px,
+    rgb(242 240 235 / 0.15) 14px,
+    transparent 15px 29px
+  );
+  mask-image: linear-gradient(90deg, black, transparent 62%);
+}
+
+.buttonIndex {
+  position: relative;
+  z-index: 2;
+  padding-right: clamp(1rem, 2.2vw, 1.8rem);
+  font-family: "Special Elite", "Courier New", monospace;
+  font-size: clamp(0.55rem, 0.8vw, 0.68rem);
+  letter-spacing: 0.18em;
+  color: var(--blood-accent);
+}
+
+.buttonCopy {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  padding-left: clamp(0.9rem, 2vw, 1.5rem);
+}
+
+.buttonLabel {
+  font-size: clamp(1.85rem, 5.4vw, 4.8rem);
+  line-height: 0.84;
+  letter-spacing: -0.035em;
+  text-transform: uppercase;
+}
+
+.buttonSub {
+  margin-top: 0.72rem;
+  color: rgb(242 240 235 / 0.48);
+  font-size: clamp(0.47rem, 0.68vw, 0.58rem);
+  letter-spacing: 0.28em;
+}
+
+.buttonArrow {
+  position: relative;
+  z-index: 2;
+  padding-left: 1rem;
+  font-family: "Anton", sans-serif;
+  font-size: clamp(2.2rem, 5vw, 4.4rem);
+  line-height: 1;
+  transform: translateX(0);
+  transition: transform 260ms cubic-bezier(0.16, 1, 0.3, 1), color 160ms ease;
+}
+
+.accessButton:hover .buttonArrow,
+.accessButton:focus-visible .buttonArrow {
+  color: var(--blood-accent);
+  transform: translateX(0.22em);
+}
+
+.buttonGhost {
+  position: absolute;
+  right: 8%;
+  bottom: -0.18em;
+  z-index: 0;
+  pointer-events: none;
+  color: transparent;
+  -webkit-text-stroke: 1px rgb(242 240 235 / 0.055);
+  font-size: clamp(3.5rem, 9vw, 8rem);
+  line-height: 0.8;
+  white-space: nowrap;
+  transform: scaleX(1.08);
+  transform-origin: right bottom;
+}
+
+.accessFooter {
+  padding-top: 0.78rem;
+}
+
+.liveDot {
+  width: 6px;
+  height: 6px;
+  flex: 0 0 auto;
+  background: var(--blood-accent);
+  box-shadow: 0 0 0 4px rgb(138 3 3 / 0.12);
+  animation: live-pulse 1.2s steps(2, end) infinite;
+}
+
+.breach {
+  position: absolute;
+  z-index: 30;
+  top: 50%;
+  left: 0;
+  width: 100%;
+  height: 2px;
+  transform-origin: center;
+  background: var(--bone-white);
+  pointer-events: none;
+  will-change: transform, height, opacity;
+}
+
+.flash {
+  position: absolute;
+  inset: 0;
+  z-index: 31;
+  pointer-events: none;
+  background: var(--bone-white);
+  mix-blend-mode: difference;
+}
+
+@keyframes live-pulse {
+  0%, 45% { opacity: 1; }
+  46%, 100% { opacity: 0.25; }
+}
+
+@media (max-width: 767px) {
+  .leftRail,
+  .rightRail {
+    display: none;
+  }
+
+  .accessGate {
+    width: calc(100vw - 2.2rem);
+  }
+
+  .accessMeta {
+    align-items: flex-start;
+  }
+
+  .accessMeta > :last-child {
+    max-width: 55%;
+    text-align: right;
+  }
+
+  .accessTitle {
+    padding-block: 1.15rem 0.9rem;
+  }
+
+  .accessTitle > div:first-child span {
+    font-size: clamp(2.2rem, 11vw, 3.4rem);
+  }
+
+  .accessTitle > div:last-child span {
+    font-size: clamp(4rem, 22vw, 6.6rem);
+  }
+
+  .accessButton {
+    min-height: 6.6rem;
+    grid-template-columns: auto 1fr auto;
+  }
+
+  .accessButton::after {
+    left: 3.55rem;
+  }
+
+  .buttonIndex {
+    padding-right: 0.8rem;
+  }
+
+  .buttonCopy {
+    padding-left: 0.8rem;
+  }
+
+  .buttonLabel {
+    font-size: clamp(1.85rem, 9vw, 2.75rem);
+  }
+
+  .buttonArrow {
+    padding-left: 0.35rem;
+    font-size: 2.4rem;
+  }
+
+  .buttonGhost {
+    display: none;
+  }
+
+  .accessFooter {
+    font-size: 0.44rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liveDot {
+    animation: none;
+  }
+
+  .accessButton,
+  .accessButton::before,
+  .buttonArrow {
+    transition-duration: 0.01ms;
+  }
 }
