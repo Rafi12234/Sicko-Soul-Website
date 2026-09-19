@@ -58,7 +58,9 @@ export default function RouteTransition() {
       )
       .to(panel, { clipPath: "inset(0 0 100% 0)", duration: 0.58, ease: EASE.inOut }, "+=0.08");
 
-    return () => tl.kill();
+    return () => {
+  tl.kill();
+};
   }, [pathname]);
 
   return (
