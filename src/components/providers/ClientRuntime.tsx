@@ -1,25 +1,20 @@
 "use client";
 
 import { useLayoutEffect } from "react";
-import { usePathname } from "next/navigation";
-import { useAppStore } from "@/store/useAppStore";
 import { useCartStore } from "@/store/useCartStore";
 
 /**
- * Keeps route-level client state alive without turning individual pages into
- * special cases. Home still owns the cinematic preloader; every secondary
- * route is considered already "inside" the Sicko Soul world.
+ * Route-independent client boot work.
+ *
+ * Entry state is deliberately NOT inferred from pathname. The Preloader now
+ * lives in the root layout, so a hard load on /products, /cart, /buy-now, etc.
+ * gets the same branded entry/audio unlock ritual as the homepage. Internal
+ * Next.js navigation keeps the root layout alive, so the ritual does not replay.
  */
 export default function ClientRuntime() {
-  const pathname = usePathname();
-
   useLayoutEffect(() => {
     useCartStore.persist.rehydrate();
   }, []);
-
-  useLayoutEffect(() => {
-    if (pathname !== "/") useAppStore.getState().setHasEntered(true);
-  }, [pathname]);
 
   return null;
 }
