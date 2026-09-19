@@ -4,6 +4,7 @@ import Image from "next/image";
 import { useLayoutEffect, useRef, useState } from "react";
 import { Mesh, Program, Renderer, Texture, Triangle } from "ogl";
 import { gsap } from "@/lib/gsap";
+import { cloudinaryImageUrl } from "@/lib/media";
 
 const VERTEX = /* glsl */ `
   attribute vec2 uv;
@@ -123,19 +124,27 @@ export default function DistortionImage({ src, alt, velocityRef, className = "" 
       return;
     }
 
-    let renderer: Renderer;
-    try {
-      renderer = new Renderer({
-        dpr: Math.min(window.devicePixelRatio, 2),
-        alpha: false,
-        antialias: false,
-      });
-    } catch {
-      setUseFallback(true);
-      return;
-    }
+    let initialized = false;
+    let destroyRenderer: (() => void) | null = null;
 
-    const ctx = gsap.context(() => {
+    const initialize = () => {
+      if (initialized) return;
+      initialized = true;
+
+      let renderer: Renderer;
+      try {
+        // 1.5 DPR keeps the shader sharp on Retina screens without asking the
+        // GPU to shade 4x as many pixels as a 1x display.
+        renderer = new Renderer({
+          dpr: Math.min(window.devicePixelRatio, 1.5),
+          alpha: false,
+          antialias: false,
+        });
+      } catch {
+        setUseFallback(true);
+        return;
+      }
+
       const gl = renderer.gl;
       gl.canvas.classList.add("h-full", "w-full", "block");
       container.appendChild(gl.canvas);
@@ -159,13 +168,19 @@ export default function DistortionImage({ src, alt, velocityRef, className = "" 
 
       const image = new window.Image();
       image.crossOrigin = "anonymous";
+      image.decoding = "async";
       image.onload = () => {
         texture.image = image;
         program.uniforms.uImageSize.value = [image.naturalWidth, image.naturalHeight];
         gsap.to(program.uniforms.uReveal, { value: 1, duration: 1.1, ease: "expo.out" });
       };
-      image.onerror = () => setUseFallback(true);
-      image.src = src;
+      image.onerror = () => {
+        gl.canvas.style.display = "none";
+        setUseFallback(true);
+      };
+      // Raw WebGL images bypass Next/Image, so request an already resized,
+      // q_auto/f_auto Cloudinary derivative rather than the original master.
+      image.src = cloudinaryImageUrl(src, 1600);
 
       const resize = () => {
         const { clientWidth, clientHeight } = container;
@@ -175,8 +190,8 @@ export default function DistortionImage({ src, alt, velocityRef, className = "" 
       };
       resize();
 
-      const observer = new ResizeObserver(resize);
-      observer.observe(container);
+      const resizeObserver = new ResizeObserver(resize);
+      resizeObserver.observe(container);
 
       const pointer = { x: 0.5, y: 0.5 };
       const onMove = (event: PointerEvent) => {
@@ -189,33 +204,40 @@ export default function DistortionImage({ src, alt, velocityRef, className = "" 
       const onLeave = () =>
         gsap.to(program.uniforms.uHover, { value: 0, duration: 0.85, ease: "power3.out" });
 
-      container.addEventListener("pointermove", onMove);
-      container.addEventListener("pointerenter", onEnter);
-      container.addEventListener("pointerleave", onLeave);
+      container.addEventListener("pointermove", onMove, { passive: true });
+      container.addEventListener("pointerenter", onEnter, { passive: true });
+      container.addEventListener("pointerleave", onLeave, { passive: true });
 
-      // The page never unmounts off-screen sections, so without this every
-      // frame gallery keeps its shader looping (and the GPU paying for it)
-      // long after the user has scrolled away. Only render while visible.
-      let inView = false;
-      const visibility = new IntersectionObserver(([entry]) => {
-        inView = entry.isIntersecting;
-      }, { rootMargin: "200px 0px" });
-      visibility.observe(container);
-
-      // Driven off the shared ticker so it stays in step with Lenis/ScrollTrigger.
+      // Don't leave a callback on the global ticker for every gallery frame.
+      // The callback only exists while this transformed frame is near screen.
+      let rendering = false;
       const render = (time: number) => {
-        if (!inView) return;
         program.uniforms.uTime.value = time;
         program.uniforms.uPointer.value = [pointer.x, pointer.y];
         program.uniforms.uVelocity.value +=
           (velocityRef.current - program.uniforms.uVelocity.value) * 0.08;
         renderer.render({ scene: mesh });
       };
-      gsap.ticker.add(render);
-
-      return () => {
+      const startRendering = () => {
+        if (rendering) return;
+        rendering = true;
+        gsap.ticker.add(render);
+      };
+      const stopRendering = () => {
+        if (!rendering) return;
+        rendering = false;
         gsap.ticker.remove(render);
-        observer.disconnect();
+      };
+
+      const visibility = new IntersectionObserver(
+        ([entry]) => (entry.isIntersecting ? startRendering() : stopRendering()),
+        { rootMargin: "250px 300px" },
+      );
+      visibility.observe(container);
+
+      destroyRenderer = () => {
+        stopRendering();
+        resizeObserver.disconnect();
         visibility.disconnect();
         container.removeEventListener("pointermove", onMove);
         container.removeEventListener("pointerenter", onEnter);
@@ -225,9 +247,25 @@ export default function DistortionImage({ src, alt, velocityRef, className = "" 
         gl.getExtension("WEBGL_lose_context")?.loseContext();
         gl.canvas.remove();
       };
-    }, containerRef);
+    };
 
-    return () => ctx.revert();
+    // Creating eight WebGL contexts at page mount was one of the heaviest
+    // invisible costs on the landing page. Initialize each frame only as it
+    // approaches the viewport; 1000px gives the texture enough time to arrive.
+    const prewarm = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry.isIntersecting) return;
+        initialize();
+        prewarm.disconnect();
+      },
+      { rootMargin: "1000px 800px" },
+    );
+    prewarm.observe(container);
+
+    return () => {
+      prewarm.disconnect();
+      destroyRenderer?.();
+    };
   }, [src, velocityRef]);
 
   return (
