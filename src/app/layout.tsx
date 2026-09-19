@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import SmoothScroll from "@/components/providers/SmoothScroll";
 import ClientRuntime from "@/components/providers/ClientRuntime";
+import Preloader from "@/components/sections/Preloader";
 import CustomCursor from "@/components/ui/CustomCursor";
 import NoiseOverlay from "@/components/ui/NoiseOverlay";
 import SiteAudio from "@/components/ui/SiteAudio";
@@ -27,23 +28,44 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    // Extensions (QuillBot, Grammarly, password managers) stamp attributes onto
-    // html/body before hydration; only these two roots skip attribute diffing.
     <html lang="en" suppressHydrationWarning>
       <head>
-        {/* Preload the three faces the Preloader renders immediately — without
-            this, font-display: swap can substitute a fallback face mid-scramble
-            and the glyph-width swap reads as a jittery reflow. */}
-        <link rel="preload" href="/fonts/anton-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
-        <link rel="preload" href="/fonts/pirata-one-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
-        <link rel="preload" href="/fonts/special-elite-400.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        {/* Faces required by the entrance ritual before the rest of the page. */}
+        <link
+          rel="preload"
+          href="/fonts/anton-400.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/pirata-one-400.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
+        <link
+          rel="preload"
+          href="/fonts/special-elite-400.woff2"
+          as="font"
+          type="font/woff2"
+          crossOrigin="anonymous"
+        />
       </head>
       <body className="bg-black text-bone-white antialiased" suppressHydrationWarning>
         <ClientRuntime />
+
+        {/* Fresh document load = entry ritual. Internal routes keep this layout alive. */}
+        <Preloader />
+
         <SmoothScroll>{children}</SmoothScroll>
+
         <RouteTransition />
         <NoiseOverlay />
         <CustomCursor />
+
+        {/* Persistent across every client-side route. */}
         <SiteAudio />
       </body>
     </html>
