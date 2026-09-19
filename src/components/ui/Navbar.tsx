@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import { MEDIA } from "@/lib/media";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLayoutEffect, useRef } from "react";
@@ -180,7 +181,7 @@ export default function Navbar() {
             className={`${styles.logo} relative block h-9 w-[150px] overflow-hidden`}
           >
             <Image
-              src="/imgs/logo.jpg"
+              src={MEDIA.images.logo}
               alt="Sicko Soul"
               width={150}
               height={150}
@@ -189,7 +190,7 @@ export default function Navbar() {
             />
             <div ref={ghostRef} aria-hidden className="absolute inset-0 opacity-0">
               <Image
-                src="/imgs/logo.jpg"
+                src={MEDIA.images.logo}
                 alt=""
                 width={150}
                 height={150}
