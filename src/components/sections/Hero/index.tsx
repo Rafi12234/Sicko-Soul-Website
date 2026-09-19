@@ -1,10 +1,11 @@
 "use client";
 
 import { useLayoutEffect, useRef } from "react";
-import { gsap, SplitText } from "@/lib/gsap";
+import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { EASE, STAGGER } from "@/styles/theme";
 import { useAppStore } from "@/store/useAppStore";
 import { HERO_COPY } from "@/data/hero";
+import { HERO_POSTER, HERO_VIDEO, HERO_VIDEO_MOBILE, HERO_VIDEO_TABLET } from "@/lib/media";
 import styles from "./Hero.module.css";
 
 const formatTimecode = (totalSeconds: number) => {
@@ -19,6 +20,7 @@ export default function Hero() {
   const rootRef = useRef<HTMLElement>(null);
   const videoWrapRef = useRef<HTMLDivElement>(null);
   const videoInnerRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const cycleRef = useRef<HTMLSpanElement>(null);
   const taglineRef = useRef<HTMLSpanElement>(null);
   const marqueeRef = useRef<HTMLDivElement>(null);
@@ -68,11 +70,9 @@ export default function Hero() {
         .from(".hero-rec", { autoAlpha: 0, y: -12, duration: 0.6 }, "<0.1")
         .from(".hero-strip", { autoAlpha: 0, y: 24, duration: 0.7 }, "-=0.5");
 
-      // Hero holds until the Preloader panels have cleared.
+      // Hero holds until the Preloader panels have cleared. Ambient loops and
+      // video are synchronized below so nothing expensive runs behind the gate.
       if (useAppStore.getState().hasEntered) intro.play();
-      const unsubscribe = useAppStore.subscribe((state) => {
-        if (state.hasEntered) intro.play();
-      });
 
       /* ---- Signature device: the middle word keeps rewriting itself. ---- */
       const cycleTl = gsap.timeline({ repeat: -1, delay: 2.4 });
@@ -144,6 +144,60 @@ export default function Hero() {
         },
       });
 
+      /* ---- Runtime lifecycle. Same visuals, zero invisible work. ---- */
+      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      const ambient: gsap.core.Animation[] = prefersReducedMotion
+        ? [marquee, edge]
+        : [cycleTl, glitch, marquee, edge, rail, timecode];
+
+      if (prefersReducedMotion) {
+        marquee.timeScale(0.3);
+        edge.timeScale(0.3);
+        rail.pause(0);
+        glitch.pause(0).progress(0);
+        cycleTl.pause(0);
+        timecode.pause();
+      }
+
+      ambient.forEach((animation) => animation.pause());
+
+      let entered = useAppStore.getState().hasEntered;
+      let sectionActive = false;
+
+      const syncAmbient = () => {
+        const active = entered && sectionActive;
+        ambient.forEach((animation) => (active ? animation.resume() : animation.pause()));
+
+        const video = videoRef.current;
+        if (!video) return;
+        if (active) void video.play().catch(() => {});
+        else video.pause();
+      };
+
+      const visibilityTrigger = ScrollTrigger.create({
+        id: "hero-runtime",
+        trigger: rootRef.current,
+        start: "top bottom",
+        end: "bottom top",
+        onToggle: (self) => {
+          sectionActive = self.isActive;
+          syncAmbient();
+        },
+        onRefresh: (self) => {
+          sectionActive = self.isActive;
+          syncAmbient();
+        },
+      });
+      sectionActive = visibilityTrigger.isActive;
+      syncAmbient();
+
+      const unsubscribe = useAppStore.subscribe((state) => {
+        if (!state.hasEntered || entered) return;
+        entered = true;
+        intro.play();
+        syncAmbient();
+      });
+
       /* ---- Ken Burns + parallax lift, scrubbed. ---- */
       const mm = gsap.matchMedia();
 
@@ -182,26 +236,31 @@ export default function Hero() {
         const videoX = gsap.quickTo(videoInnerRef.current, "x", { duration: 1.4, ease: EASE.expo });
         const videoY = gsap.quickTo(videoInnerRef.current, "y", { duration: 1.4, ease: EASE.expo });
 
-        // Footage drifts toward the pointer; the type stays anchored.
+        // Footage drifts toward the pointer only while the pointer is actually
+        // inside Hero. The old window listener kept doing work on every page area.
+        const root = rootRef.current;
+        if (!root) return;
+
         const onMove = (event: PointerEvent) => {
+          // Same mapping as before, but without a layout read on every pointer event.
           const nx = event.clientX / window.innerWidth - 0.5;
           const ny = event.clientY / window.innerHeight - 0.5;
           videoX(nx * 46);
           videoY(ny * 30);
         };
+        const onLeave = () => {
+          videoX(0);
+          videoY(0);
+        };
 
-        window.addEventListener("pointermove", onMove, { passive: true });
-        return () => window.removeEventListener("pointermove", onMove);
+        root.addEventListener("pointermove", onMove, { passive: true });
+        root.addEventListener("pointerleave", onLeave, { passive: true });
+        return () => {
+          root.removeEventListener("pointermove", onMove);
+          root.removeEventListener("pointerleave", onLeave);
+        };
       });
 
-      mm.add("(prefers-reduced-motion: reduce)", () => {
-        marquee.timeScale(0.3);
-        edge.timeScale(0.3);
-        rail.pause(0);
-        glitch.pause(0).progress(0);
-        cycleTl.pause(0);
-        timecode.pause();
-      });
 
       return () => {
         unsubscribe();
@@ -221,15 +280,19 @@ export default function Hero() {
       <div ref={videoWrapRef} className={`${styles.videoWrap} absolute inset-0`}>
         <div ref={videoInnerRef} className={`${styles.videoInner} absolute inset-[-6%]`}>
           <video
+            ref={videoRef}
             className="media-treat h-full w-full object-cover"
-            src="/vids/hero-loop.mp4"
-            autoPlay
+            poster={HERO_POSTER}
             muted
             loop
             playsInline
             preload="auto"
             aria-hidden
-          />
+          >
+            <source media="(max-width: 767px)" src={HERO_VIDEO_MOBILE} />
+            <source media="(max-width: 1279px)" src={HERO_VIDEO_TABLET} />
+            <source src={HERO_VIDEO} />
+          </video>
         </div>
       </div>
 
