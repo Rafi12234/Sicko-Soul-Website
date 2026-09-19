@@ -5,14 +5,15 @@ import { useLayoutEffect, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER } from "@/styles/theme";
 import { DROP_COPY, DROP_DRAWERS } from "@/data/drop";
+import { DROP_POSTER, DROP_VIDEO, DROP_VIDEO_MOBILE, DROP_VIDEO_TABLET } from "@/lib/media";
 import styles from "./Drop.module.css";
 
-/** Filename carries a space; the encoded form is what the browser must request. */
-const DROP_VIDEO = "/vids/new%20drop.mp4";
 
 export default function Drop() {
   const rootRef = useRef<HTMLElement>(null);
   const videoWrapRef = useRef<HTMLDivElement>(null);
+  const backgroundVideoRef = useRef<HTMLVideoElement>(null);
+  const sectionActiveRef = useRef(false);
   const yearRef = useRef<HTMLSpanElement>(null);
   const statusRef = useRef<HTMLSpanElement>(null);
   const ctxRef = useRef<ReturnType<typeof gsap.context> | null>(null);
@@ -37,6 +38,7 @@ export default function Drop() {
       const ghost = bar.querySelector<HTMLElement>(".drop-ghost");
       const index = bar.querySelector<HTMLElement>(".drop-index");
       const cards = gsap.utils.toArray<HTMLElement>(".drop-card", bar);
+      const previewVideo = bar.querySelector<HTMLVideoElement>(".drop-window-video");
       const on = drawer.id === nextId;
       const duration = instant ? 0 : on ? 0.95 : 0.6;
 
@@ -77,6 +79,20 @@ export default function Drop() {
         duration: instant ? 0 : 0.35,
         overwrite: "auto",
       });
+
+      // Only the currently open drawer decodes video. Closed drawers keep the
+      // exact same DOM/window treatment but their decoder is completely idle.
+      if (previewVideo) {
+        if (on && sectionActiveRef.current) {
+          const masterTime = backgroundVideoRef.current?.currentTime;
+          if (typeof masterTime === "number" && Number.isFinite(masterTime)) {
+            try {
+              previewVideo.currentTime = masterTime;
+            } catch {}
+          }
+          void previewVideo.play().catch(() => {});
+        } else previewVideo.pause();
+      }
 
       if (on && !instant && cards.length) {
         // Pieces are thrown in from the right as the drawer clears them.
@@ -247,27 +263,77 @@ export default function Drop() {
       });
 
       loops.forEach((loop) => loop.pause());
-      ScrollTrigger.create({
+
+      const drawerVideos = () =>
+        gsap.utils.toArray<HTMLVideoElement>(".drop-window-video", rootRef.current ?? undefined);
+
+      const syncVideos = (active: boolean) => {
+        sectionActiveRef.current = active;
+        const background = backgroundVideoRef.current;
+        if (background) {
+          if (active) void background.play().catch(() => {});
+          else background.pause();
+        }
+
+        drawerVideos().forEach((video) => {
+          const drawer = video.closest<HTMLElement>("[data-drawer]");
+          const shouldPlay = active && drawer?.dataset.drawer === openRef.current;
+          if (shouldPlay) void video.play().catch(() => {});
+          else video.pause();
+        });
+      };
+
+      const runtimeTrigger = ScrollTrigger.create({
         id: "drop-loops",
         trigger: rootRef.current,
         start: "top bottom",
         end: "bottom top",
-        onToggle: (self) => loops.forEach((loop) => (self.isActive ? loop.play() : loop.pause())),
+        onToggle: (self) => {
+          loops.forEach((loop) => (self.isActive ? loop.play() : loop.pause()));
+          syncVideos(self.isActive);
+        },
+        onRefresh: (self) => syncVideos(self.isActive),
       });
+      syncVideos(runtimeTrigger.isActive);
+
+      // Warm the optimized Cloudinary video before the section arrives without
+      // decoding it. The background request populates the browser/CDN cache used
+      // by the drawer instances because every window shares the same source.
+      const prewarm = new IntersectionObserver(
+        ([entry]) => {
+          if (!entry.isIntersecting || !backgroundVideoRef.current) return;
+          backgroundVideoRef.current.preload = "auto";
+          if (!sectionActiveRef.current) backgroundVideoRef.current.load();
+          prewarm.disconnect();
+        },
+        { rootMargin: "1000px 0px" },
+      );
+      if (rootRef.current) prewarm.observe(rootRef.current);
 
       /* ---- Closed bars preview the plate on hover. ---- */
       const barCleanups = q(".drop-bar").map((bar) => {
         const id = bar.dataset.drawer;
         const preview = bar.querySelector<HTMLElement>(".drop-window");
+        const previewVideo = bar.querySelector<HTMLVideoElement>(".drop-window-video");
         const name = bar.querySelector<HTMLElement>(".drop-name");
 
         const onOver = () => {
           if (id === openRef.current) return;
+          if (sectionActiveRef.current && previewVideo) {
+            const masterTime = backgroundVideoRef.current?.currentTime;
+            if (typeof masterTime === "number" && Number.isFinite(masterTime)) {
+              try {
+                previewVideo.currentTime = masterTime;
+              } catch {}
+            }
+            void previewVideo.play().catch(() => {});
+          }
           gsap.to(preview, { autoAlpha: 0.32, duration: 0.5, ease: EASE.expo, overwrite: "auto" });
           gsap.to(name, { x: 14, color: COLOR.boneWhite, duration: 0.5, ease: EASE.expo, overwrite: "auto" });
         };
         const onOut = () => {
           if (id === openRef.current) return;
+          previewVideo?.pause();
           gsap.to(preview, { autoAlpha: 0, duration: 0.4, ease: EASE.inOut, overwrite: "auto" });
           gsap.to(name, { x: 0, color: COLOR.concreteGray, duration: 0.45, ease: EASE.inOut, overwrite: "auto" });
         };
@@ -280,8 +346,12 @@ export default function Drop() {
         };
       });
 
-      const onResize = () => applyOpen(openRef.current, true);
-      window.addEventListener("resize", onResize);
+      let resizeFrame = 0;
+      const onResize = () => {
+        cancelAnimationFrame(resizeFrame);
+        resizeFrame = requestAnimationFrame(() => applyOpen(openRef.current, true));
+      };
+      window.addEventListener("resize", onResize, { passive: true });
 
       /* ---- Piece tiles: blood flash, torn bands, chip drop, name scramble. */
       const tileCleanups = q(".drop-tile").map((tile) => {
@@ -408,6 +478,10 @@ export default function Drop() {
         barCleanups.forEach((fn) => fn());
         tileCleanups.forEach((fn) => fn());
         enterCleanups.forEach((fn) => fn());
+        prewarm.disconnect();
+        backgroundVideoRef.current?.pause();
+        drawerVideos().forEach((video) => video.pause());
+        cancelAnimationFrame(resizeFrame);
         window.removeEventListener("resize", onResize);
       };
     }, rootRef);
@@ -434,15 +508,19 @@ export default function Drop() {
       {/* Plate sits behind everything and is only uncovered by an open drawer. */}
       <div ref={videoWrapRef} className="pointer-events-none absolute inset-0 z-0">
         <video
+          ref={backgroundVideoRef}
           className="media-treat h-full w-full object-cover opacity-[0.22]"
-          src={DROP_VIDEO}
-          autoPlay
+          poster={DROP_POSTER}
           muted
           loop
           playsInline
-          preload="auto"
+          preload="metadata"
           aria-hidden
-        />
+        >
+          <source media="(max-width: 767px)" src={DROP_VIDEO_MOBILE} />
+          <source media="(max-width: 1279px)" src={DROP_VIDEO_TABLET} />
+          <source src={DROP_VIDEO} />
+        </video>
       </div>
       <div className={`${styles.vignette} pointer-events-none absolute inset-0 z-0`} />
       <div className={`${styles.scanlines} pointer-events-none absolute inset-0 z-0 opacity-40`} />
@@ -510,15 +588,18 @@ export default function Drop() {
               <div className="pointer-events-none absolute inset-0 overflow-hidden">
                 <div className={`${styles.window} drop-window absolute inset-0 opacity-0`}>
                   <video
-                    className="media-treat h-full w-full object-cover opacity-60"
-                    src={DROP_VIDEO}
-                    autoPlay
+                    className="drop-window-video media-treat h-full w-full object-cover opacity-60"
+                    poster={DROP_POSTER}
                     muted
                     loop
                     playsInline
-                    preload="auto"
+                    preload="metadata"
                     aria-hidden
-                  />
+                  >
+                    <source media="(max-width: 767px)" src={DROP_VIDEO_MOBILE} />
+                    <source media="(max-width: 1279px)" src={DROP_VIDEO_TABLET} />
+                    <source src={DROP_VIDEO} />
+                  </video>
                   <span className="absolute inset-0 bg-black/45" />
                   <span
                     aria-hidden
