@@ -1,3 +1,5 @@
+import { MEDIA } from "@/lib/media";
+
 /** Voice per docs/BRAND_BIBLE.md: cold, blunt, exclusionary. No exclamations. */
 
 export const SEGMENTS_COPY = {
@@ -12,7 +14,7 @@ export const SEGMENTS = [
     id: "shirt",
     index: "01",
     name: "SHIRT",
-    image: "/imgs/shirt.jpg",
+    image: MEDIA.images.shirt,
     spec: "STIFF COTTON · CUT SHARP",
     line: "Buttoned to the throat, or not at all.",
   },
@@ -20,7 +22,7 @@ export const SEGMENTS = [
     id: "tshirt",
     index: "02",
     name: "T-SHIRT",
-    image: "/imgs/tshirt.jpg",
+    image: MEDIA.images.tshirt,
     spec: "240 GSM · BOXY",
     line: "Built to outlive whoever wears it.",
   },
@@ -28,7 +30,7 @@ export const SEGMENTS = [
     id: "baggy",
     index: "03",
     name: "BAGGY PANT",
-    image: "/imgs/baggy.jpg",
+    image: MEDIA.images.baggy,
     spec: "WIDE LEG · HEAVY DRAPE",
     line: "Room to run. Not that you will.",
   },
@@ -36,7 +38,7 @@ export const SEGMENTS = [
     id: "dropshoulder",
     index: "04",
     name: "DROP SHOULDER",
-    image: "/imgs/dropsholder.jpg",
+    image: MEDIA.images.dropsholder,
     spec: "OVERSIZED · SEAM DROPPED",
     line: "Cut wrong on purpose. That's the point.",
   },
@@ -44,7 +46,7 @@ export const SEGMENTS = [
     id: "hoodie",
     index: "05",
     name: "HOODIE",
-    image: "/imgs/hoodie.jpg",
+    image: MEDIA.images.hoodie,
     spec: "FLEECE LINED · HOOD DEEP",
     line: "The only face you'll need.",
   },
