@@ -1,3 +1,5 @@
+import { MEDIA } from "@/lib/media";
+
 /** Voice per docs/BRAND_BIBLE.md: cold, blunt, exclusionary. No exclamations. */
 
 export const LOOKBOOK_COPY = {
@@ -32,7 +34,7 @@ export const LOOKBOOK_FRAMES: readonly LookbookFrame[] = [
   {
     id: "watched",
     index: "01",
-    src: "/imgs/image_1.jpg",
+    src: MEDIA.images.image1,
     alt: "Overhead surveillance frame of a hooded figure standing still in a moving crowd",
     title: "UNDER WATCH",
     spec: "CAM 01 · 03:41",
@@ -45,7 +47,7 @@ export const LOOKBOOK_FRAMES: readonly LookbookFrame[] = [
   {
     id: "boot",
     index: "02",
-    src: "/imgs/image_2.jpg",
+    src: MEDIA.images.image2,
     alt: "Two masked figures loading a car boot at dusk",
     title: "THE HANDOFF",
     spec: "NO PLATE · NO NAMES",
@@ -58,7 +60,7 @@ export const LOOKBOOK_FRAMES: readonly LookbookFrame[] = [
   {
     id: "rollcall",
     index: "03",
-    src: "/imgs/image_3.jpg",
+    src: MEDIA.images.image3,
     alt: "Four figures walking a road in graphic tees, shot from above",
     title: "ROLL CALL",
     spec: "BLOCK 09 · DUSK",
@@ -71,7 +73,7 @@ export const LOOKBOOK_FRAMES: readonly LookbookFrame[] = [
   {
     id: "deck",
     index: "04",
-    src: "/imgs/image_5.jpg",
+    src: MEDIA.images.image5,
     alt: "Masked crew standing on a lower parking deck",
     title: "LOWER DECK",
     spec: "LEVEL -2 · 01:12",
@@ -84,7 +86,7 @@ export const LOOKBOOK_FRAMES: readonly LookbookFrame[] = [
   {
     id: "stairwell",
     index: "05",
-    src: "/imgs/image_4.jpg",
+    src: MEDIA.images.image4,
     alt: "Three figures standing on a stairwell at night",
     title: "THE STAIRWELL",
     spec: "NO EXIT · 03:40",
@@ -97,7 +99,7 @@ export const LOOKBOOK_FRAMES: readonly LookbookFrame[] = [
   {
     id: "kerb",
     index: "06",
-    src: "/imgs/man_dropsholder_1.jpg",
+    src: MEDIA.images.manDropsholder1,
     alt: "Model wearing an oversized drop-shoulder tee on the street",
     title: "OFF THE KERB",
     spec: "DROP SHOULDER · WORN",
@@ -110,7 +112,7 @@ export const LOOKBOOK_FRAMES: readonly LookbookFrame[] = [
   {
     id: "wall",
     index: "07",
-    src: "/imgs/man_shirt_3.png",
+    src: MEDIA.images.manShirt3,
     alt: "Model in an open pinstripe shirt against a concrete pillar",
     title: "AGAINST THE WALL",
     spec: "NO RETOUCH · DAYLIGHT",
@@ -123,7 +125,7 @@ export const LOOKBOOK_FRAMES: readonly LookbookFrame[] = [
   {
     id: "lastframe",
     index: "08",
-    src: "/imgs/man_dropsholder_4.jpg",
+    src: MEDIA.images.manDropsholder4,
     alt: "Model in a drop-shoulder tee turning away from the camera",
     title: "LAST FRAME",
     spec: "ROLL ENDS · 04:02",
