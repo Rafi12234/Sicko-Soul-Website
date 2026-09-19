@@ -1,9 +1,11 @@
+import { MEDIA } from "@/lib/media";
+
 /**
  * Product archive data.
  *
- * Asset paths deliberately reuse files that already exist in the landing page
- * data. The real project keeps those files under public/, so no duplicate
- * product media is introduced here.
+ * Product media is resolved through the canonical Cloudinary manifest in
+ * src/lib/media.ts so the landing page, archive, detail, cart and order flow
+ * all request the same CDN-backed assets without duplicate local files.
  */
 
 export type ArchiveProduct = {
@@ -69,7 +71,7 @@ export const PRODUCT_CATEGORIES: readonly ArchiveCategory[] = [
     index: "01",
     name: "SHIRT",
     ghost: "SHIRT",
-    cover: "/imgs/shirt.jpg",
+    cover: MEDIA.images.shirt,
     coverAlt: "Sicko Soul shirt category",
     spec: "STIFF COTTON · CUT SHARP",
     line: "Buttoned to the throat, or not at all.",
@@ -88,8 +90,8 @@ export const PRODUCT_CATEGORIES: readonly ArchiveCategory[] = [
         details: ["Structured poplin hand", "Boxed shoulder line", "Straight hem", "Limited archive run"],
         sizes: TOP_SIZES,
         defaultSize: "M",
-        still: "/imgs/shirt_1.png",
-        worn: "/imgs/man_shirt_1.png",
+        still: MEDIA.images.shirt1,
+        worn: MEDIA.images.manShirt1,
         alt: "The Informant shirt",
       },
       {
@@ -105,8 +107,8 @@ export const PRODUCT_CATEGORIES: readonly ArchiveCategory[] = [
         details: ["Heavy twill body", "Boxed shoulder", "Reinforced seams", "Limited archive run"],
         sizes: TOP_SIZES,
         defaultSize: "M",
-        still: "/imgs/shirt_2.png",
-        worn: "/imgs/man_shirt_2.png",
+        still: MEDIA.images.shirt2,
+        worn: MEDIA.images.manShirt2,
         alt: "Second Offense shirt",
       },
       {
@@ -122,8 +124,8 @@ export const PRODUCT_CATEGORIES: readonly ArchiveCategory[] = [
         details: ["Matte woven surface", "Blunt collar profile", "Relaxed straight cut", "Limited archive run"],
         sizes: TOP_SIZES,
         defaultSize: "M",
-        still: "/imgs/shirt_3.png",
-        worn: "/imgs/man_shirt_3.png",
+        still: MEDIA.images.shirt3,
+        worn: MEDIA.images.manShirt3,
         alt: "No Witness shirt",
       },
       {
@@ -139,8 +141,8 @@ export const PRODUCT_CATEGORIES: readonly ArchiveCategory[] = [
         details: ["Extended body length", "Double-stitch construction", "Relaxed fit", "Limited archive run"],
         sizes: TOP_SIZES,
         defaultSize: "M",
-        still: "/imgs/shirt_4.png",
-        worn: "/imgs/man_shirt_4.png",
+        still: MEDIA.images.shirt4,
+        worn: MEDIA.images.manShirt4,
         alt: "House Arrest shirt",
       },
     ],
@@ -150,7 +152,7 @@ export const PRODUCT_CATEGORIES: readonly ArchiveCategory[] = [
     index: "02",
     name: "T-SHIRT",
     ghost: "TEE",
-    cover: "/imgs/tshirt.jpg",
+    cover: MEDIA.images.tshirt,
     coverAlt: "Sicko Soul T-shirt category",
     spec: "240 GSM · BOXY",
     line: "Built to outlive whoever wears it.",
@@ -169,7 +171,7 @@ export const PRODUCT_CATEGORIES: readonly ArchiveCategory[] = [
         details: ["240 GSM jersey", "Boxy silhouette", "Dropped shoulder", "Limited archive run"],
         sizes: TOP_SIZES,
         defaultSize: "M",
-        still: "/imgs/tshirt.jpg",
+        still: MEDIA.images.tshirt,
         alt: "Sicko Soul boxy T-shirt",
       },
     ],
@@ -179,7 +181,7 @@ export const PRODUCT_CATEGORIES: readonly ArchiveCategory[] = [
     index: "03",
     name: "BAGGY PANT",
     ghost: "BAGGY",
-    cover: "/imgs/baggy.jpg",
+    cover: MEDIA.images.baggy,
     coverAlt: "Sicko Soul baggy pant category",
     spec: "WIDE LEG · HEAVY DRAPE",
     line: "Room to run. Not that you will.",
@@ -198,7 +200,7 @@ export const PRODUCT_CATEGORIES: readonly ArchiveCategory[] = [
         details: ["Wide-leg pattern", "Heavy drape", "Relaxed rise", "Limited archive run"],
         sizes: PANT_SIZES,
         defaultSize: "30",
-        still: "/imgs/baggy.jpg",
+        still: MEDIA.images.baggy,
         alt: "Wide Sentence baggy pant",
       },
     ],
@@ -208,7 +210,7 @@ export const PRODUCT_CATEGORIES: readonly ArchiveCategory[] = [
     index: "04",
     name: "DROP SHOULDER",
     ghost: "DROP",
-    cover: "/imgs/dropsholder.jpg",
+    cover: MEDIA.images.dropsholder,
     coverAlt: "Sicko Soul drop shoulder category",
     spec: "OVERSIZED · SEAM DROPPED",
     line: "Cut wrong on purpose. That's the point.",
@@ -227,8 +229,8 @@ export const PRODUCT_CATEGORIES: readonly ArchiveCategory[] = [
         details: ["Dropped shoulder seam", "Oversized body", "Heavy cotton hand", "Limited archive run"],
         sizes: TOP_SIZES,
         defaultSize: "M",
-        still: "/imgs/dropsholder_1.jpg",
-        worn: "/imgs/man_dropsholder_1.jpg",
+        still: MEDIA.images.dropsholder1,
+        worn: MEDIA.images.manDropsholder1,
         alt: "Blackout Ritual drop shoulder",
       },
       {
@@ -244,8 +246,8 @@ export const PRODUCT_CATEGORIES: readonly ArchiveCategory[] = [
         details: ["Heavyweight knit", "Boxed fit", "Dropped shoulder", "Limited archive run"],
         sizes: TOP_SIZES,
         defaultSize: "M",
-        still: "/imgs/dropsholder_2.jpg",
-        worn: "/imgs/man_dropsholder_2.jpg",
+        still: MEDIA.images.dropsholder2,
+        worn: MEDIA.images.manDropsholder2,
         alt: "Bad Omen drop shoulder",
       },
       {
@@ -261,8 +263,8 @@ export const PRODUCT_CATEGORIES: readonly ArchiveCategory[] = [
         details: ["Double-panel build", "Dropped seam", "Wide body", "Limited archive run"],
         sizes: TOP_SIZES,
         defaultSize: "M",
-        still: "/imgs/dropsholder_3.jpg",
-        worn: "/imgs/man_dropsholder_3.jpg",
+        still: MEDIA.images.dropsholder3,
+        worn: MEDIA.images.manDropsholder3,
         alt: "Cold Blooded drop shoulder",
       },
       {
@@ -278,8 +280,8 @@ export const PRODUCT_CATEGORIES: readonly ArchiveCategory[] = [
         details: ["Heavy cotton body", "Boxed silhouette", "Wide sleeve", "Limited archive run"],
         sizes: TOP_SIZES,
         defaultSize: "M",
-        still: "/imgs/dropsholder_4.jpg",
-        worn: "/imgs/man_dropsholder_4.jpg",
+        still: MEDIA.images.dropsholder4,
+        worn: MEDIA.images.manDropsholder4,
         alt: "Under The Hood drop shoulder",
       },
     ],
@@ -289,7 +291,7 @@ export const PRODUCT_CATEGORIES: readonly ArchiveCategory[] = [
     index: "05",
     name: "HOODIE",
     ghost: "HOOD",
-    cover: "/imgs/hoodie.jpg",
+    cover: MEDIA.images.hoodie,
     coverAlt: "Sicko Soul hoodie category",
     spec: "FLEECE LINED · HOOD DEEP",
     line: "The only face you'll need.",
@@ -308,7 +310,7 @@ export const PRODUCT_CATEGORIES: readonly ArchiveCategory[] = [
         details: ["Fleece-lined body", "Deep hood profile", "Relaxed fit", "Limited archive run"],
         sizes: TOP_SIZES,
         defaultSize: "M",
-        still: "/imgs/hoodie.jpg",
+        still: MEDIA.images.hoodie,
         alt: "No Face Sicko Soul hoodie",
       },
     ],
