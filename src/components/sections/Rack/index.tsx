@@ -103,11 +103,16 @@ export default function Rack() {
           }),
       });
 
-      const onResize = () => placeMarker(true);
-      window.addEventListener("resize", onResize);
+      let resizeFrame = 0;
+      const onResize = () => {
+        cancelAnimationFrame(resizeFrame);
+        resizeFrame = requestAnimationFrame(() => placeMarker(true));
+      };
+      window.addEventListener("resize", onResize, { passive: true });
 
       return () => {
         headingSplit.revert();
+        cancelAnimationFrame(resizeFrame);
         window.removeEventListener("resize", onResize);
       };
     }, rootRef);
