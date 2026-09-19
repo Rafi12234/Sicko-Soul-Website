@@ -98,6 +98,22 @@ export default function Lookbook() {
         const distance = () => Math.max(0, track.scrollWidth - window.innerWidth);
         let shown = -1;
 
+        // Velocity has to decay on its own or the last flick never settles, but
+        // there is no reason to keep that callback alive outside this pinned scene.
+        const decay = () => {
+          velocityRef.current *= 0.92;
+        };
+        let decaying = false;
+        const setDecayActive = (active: boolean) => {
+          if (active === decaying) return;
+          decaying = active;
+          if (active) gsap.ticker.add(decay);
+          else {
+            gsap.ticker.remove(decay);
+            velocityRef.current = 0;
+          }
+        };
+
         gsap.to(track, {
           x: () => -distance(),
           ease: "none",
@@ -111,6 +127,7 @@ export default function Lookbook() {
             scrub: 1,
             anticipatePin: 1,
             invalidateOnRefresh: true,
+            onToggle: (self) => setDecayActive(self.isActive),
             onUpdate: (self) => {
               // Feeds the shaders; clamped so a flick never tears the image apart.
               velocityRef.current = gsap.utils.clamp(-1, 1, self.getVelocity() / 3000);
@@ -136,12 +153,7 @@ export default function Lookbook() {
           },
         });
 
-        // Velocity has to decay on its own or the last flick never settles.
-        const decay = () => {
-          velocityRef.current *= 0.92;
-        };
-        gsap.ticker.add(decay);
-        return () => gsap.ticker.remove(decay);
+        return () => setDecayActive(false);
       });
 
       /* ---- Below md the row becomes a normal vertical stack. ---- */
