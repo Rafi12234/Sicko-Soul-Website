@@ -276,18 +276,23 @@ export default function Cred() {
         onToggle: (self) => loops.forEach((loop) => (self.isActive ? loop.play() : loop.pause())),
       });
 
+      let resizeFrame = 0;
       const onResize = () => {
-        lanes.forEach((lane) => {
-          lane.half = lane.track.scrollWidth / 2;
+        cancelAnimationFrame(resizeFrame);
+        resizeFrame = requestAnimationFrame(() => {
+          lanes.forEach((lane) => {
+            lane.half = lane.track.scrollWidth / 2;
+          });
         });
       };
-      window.addEventListener("resize", onResize);
+      window.addEventListener("resize", onResize, { passive: true });
 
       return () => {
         stop();
         headingSplit.revert();
         plateCleanups.forEach((fn) => fn());
         laneCleanups.forEach((fn) => fn());
+        cancelAnimationFrame(resizeFrame);
         window.removeEventListener("resize", onResize);
       };
     }, rootRef);
