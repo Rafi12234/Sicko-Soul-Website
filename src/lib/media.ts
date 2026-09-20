@@ -44,9 +44,10 @@ export const MEDIA = {
     heroVideo: `${CLOUDINARY_ORIGIN}/video/upload/v1789785536/hero-loop_i2kzjv.mp4`,
     dropVideo: `${CLOUDINARY_ORIGIN}/video/upload/v1789785530/new_drop_lolbzp.mp4`,
   },
-  audio: {
-    soundtrack: `${CLOUDINARY_ORIGIN}/video/upload/v1789785591/Hell_Let_Loose_rbcsku.mp3`,
-  },
+audio: {
+  soundtrack:
+    `${CLOUDINARY_ORIGIN}/video/upload/v1789931041/FREE_DRAKE_X_TRAVIS_SCOTT_TYPE_BEAT_-_CHARIOT_DREAMS_jq4hk5.mp3`,
+},
 } as const;
 
 /**
