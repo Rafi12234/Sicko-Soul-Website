@@ -500,7 +500,7 @@ export default function Preloader() {
 
         <div className={styles.accessTitle}>
           <div className={styles.accessMask}>
-            <span className="pre-access-copy font-blackletter">{PRELOADER_COPY.access.titleTop}</span>
+            <span className="pre-access-copy font-display tracking-crushed">{PRELOADER_COPY.access.titleTop}</span>
           </div>
           <div className={styles.accessMask}>
             <span className="pre-access-copy font-display">{PRELOADER_COPY.access.titleBottom}</span>
