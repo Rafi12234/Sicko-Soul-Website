@@ -204,7 +204,7 @@ export default function Navbar() {
             <Link
               href="/cart"
               data-cursor="hover"
-              className="group flex items-center gap-2 font-stencil text-[0.52rem] tracking-stencil text-concrete-gray transition-colors duration-300 hover:text-bone-white"
+              className="group flex items-center gap-2 font-body text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-concrete-gray transition-colors duration-300 hover:text-bone-white"
               aria-label={`Cart with ${cartCount} item${cartCount === 1 ? "" : "s"}`}
             >
               <span className="hidden sm:inline">CART</span>
@@ -217,7 +217,7 @@ export default function Navbar() {
               type="button"
               onClick={toggleMenu}
               aria-expanded={isMenuOpen}
-              className="group flex items-center gap-3 font-stencil text-stamp text-bone-white"
+              className="group flex items-center gap-3 font-body text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-bone-white"
             >
               <span className="h-px w-8 bg-bone-white/50 transition-colors ease-hard group-hover:bg-blood-accent" />
               <span ref={triggerLabelRef} className="min-w-[5ch] text-left">
@@ -247,7 +247,7 @@ export default function Navbar() {
                 {link.index}
               </span>
 
-              <span className="split-mask pb-[0.14em] pl-14 font-gothic text-nav-link text-bone-white transition-transform duration-500 ease-hard group-hover:translate-x-3">
+              <span className="split-mask pb-[0.14em] pl-14 font-display text-nav-link uppercase tracking-crushed text-bone-white transition-transform duration-500 ease-hard group-hover:translate-x-3">
                 <span className="nav-link-label">{link.label}</span>
               </span>
 
