@@ -3,11 +3,27 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type FormEvent,
+} from "react";
 import { gsap, SplitText } from "@/lib/gsap";
 import { EASE } from "@/styles/theme";
+import {
+  getProductGallery,
+  getProductVariants,
+  type ArchiveCategory,
+  type ArchiveProduct,
+} from "@/data/products";
+import { listReviews, submitReview } from "@/lib/customerApi";
+import { money } from "@/lib/commerce";
 import { useCartStore } from "@/store/useCartStore";
-import type { ArchiveCategory, ArchiveProduct } from "@/data/products";
+import type { ProductReview } from "@/types/commerce";
+import SickoButton from "@/components/ui/SickoButton";
 import styles from "./ProductDetail.module.css";
 
 type ProductDetailProps = {
@@ -19,14 +35,45 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
-  const [size, setSize] = useState(product.defaultSize);
+  const gallery = useMemo(() => getProductGallery(product), [product]);
+  const variants = useMemo(() => getProductVariants(product), [product]);
+
+  const defaultVariant =
+    variants.find(
+      (variant) => variant.isDefault && variant.status === "ACTIVE" && variant.availableQty > 0,
+    ) ??
+    variants.find((variant) => variant.status === "ACTIVE" && variant.availableQty > 0) ??
+    variants[0];
+
+  const [selectedVariantId, setSelectedVariantId] = useState(defaultVariant?.id ?? "");
   const [quantity, setQuantity] = useState(1);
-  const [activeImage, setActiveImage] = useState<"still" | "worn">("still");
-  const [cartSignal, setCartSignal] = useState("ADD TO CART");
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [cartSignal, setCartSignal] = useState("ADD TO HOLDING CELL");
+  const [reviews, setReviews] = useState<ProductReview[]>([]);
+  const [reviewSignal, setReviewSignal] = useState("");
   const addItem = useCartStore((state) => state.addItem);
 
-  const imageSrc = activeImage === "worn" && product.worn ? product.worn : product.still;
-  const imageAlt = activeImage === "worn" ? `${product.name} worn` : product.alt;
+  const selectedVariant = variants.find((variant) => variant.id === selectedVariantId) ?? null;
+  const activeImage = gallery[activeImageIndex] ?? gallery[0];
+  const soldOut =
+    !selectedVariant || selectedVariant.status !== "ACTIVE" || selectedVariant.availableQty <= 0;
+  const unitPrice = selectedVariant?.price ?? product.priceValue;
+
+  useEffect(() => {
+    let alive = true;
+    listReviews(product.id).then((next) => {
+      if (alive) setReviews(next);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [product.id]);
+
+  useEffect(() => {
+    setQuantity((current) =>
+      Math.max(1, Math.min(current, Math.max(1, selectedVariant?.availableQty ?? 1))),
+    );
+  }, [selectedVariant]);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -34,47 +81,24 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
 
     const ctx = gsap.context(() => {
       const titleSplit = new SplitText(".detail-title", { type: "chars" });
-      const tl = gsap.timeline({ defaults: { ease: EASE.expo } });
-
-      tl.from(".detail-kicker", { y: 18, autoAlpha: 0, duration: 0.55 })
+      gsap
+        .timeline({ defaults: { ease: EASE.expo } })
+        .from(".detail-kicker", { y: 18, autoAlpha: 0, duration: 0.55 })
         .from(
           titleSplit.chars,
           { yPercent: 120, rotate: 5, autoAlpha: 0, duration: 0.95, stagger: 0.025 },
           "-=0.2",
         )
-        .from(".detail-viewer", { clipPath: "inset(0 0 100% 0)", duration: 1.0 }, "-=0.72")
+        .from(
+          ".detail-viewer",
+          { clipPath: "inset(0 0 100% 0)", duration: 1 },
+          "-=0.72",
+        )
         .from(
           ".detail-panel > *",
           { y: 24, autoAlpha: 0, duration: 0.65, stagger: 0.055 },
           "-=0.7",
         );
-
-      const mm = gsap.matchMedia();
-      mm.add("(min-width: 768px) and (prefers-reduced-motion: no-preference)", () => {
-        const viewer = viewerRef.current;
-        if (!viewer) return;
-        const moveX = gsap.quickTo(viewer, "x", { duration: 0.8, ease: EASE.expo });
-        const moveY = gsap.quickTo(viewer, "y", { duration: 0.8, ease: EASE.expo });
-
-        const onMove = (event: PointerEvent) => {
-          const rect = viewer.getBoundingClientRect();
-          const x = (event.clientX - rect.left) / rect.width - 0.5;
-          const y = (event.clientY - rect.top) / rect.height - 0.5;
-          moveX(x * 9);
-          moveY(y * 6);
-        };
-        const onLeave = () => {
-          moveX(0);
-          moveY(0);
-        };
-
-        viewer.addEventListener("pointermove", onMove);
-        viewer.addEventListener("pointerleave", onLeave);
-        return () => {
-          viewer.removeEventListener("pointermove", onMove);
-          viewer.removeEventListener("pointerleave", onLeave);
-        };
-      });
 
       return () => titleSplit.revert();
     }, root);
@@ -82,61 +106,91 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
     return () => ctx.revert();
   }, [product.id]);
 
-  const swapImage = (next: "still" | "worn") => {
-    if (next === "worn" && !product.worn) return;
-    if (next === activeImage) return;
-    gsap.to(viewerRef.current, {
-      autoAlpha: 0.3,
-      x: next === "worn" ? 16 : -16,
-      duration: 0.22,
-      ease: EASE.inOut,
-      onComplete: () => {
-        setActiveImage(next);
-        gsap.fromTo(
-          viewerRef.current,
-          { autoAlpha: 0.3, x: next === "worn" ? -16 : 16 },
-          { autoAlpha: 1, x: 0, duration: 0.5, ease: EASE.expo },
-        );
-      },
-    });
-  };
+  function changeImage(index: number) {
+    if (index === activeImageIndex || !viewerRef.current) return;
+    gsap
+      .timeline()
+      .to(viewerRef.current, { x: 15, autoAlpha: 0.25, duration: 0.18, ease: EASE.inOut })
+      .add(() => setActiveImageIndex(index))
+      .fromTo(
+        viewerRef.current,
+        { x: -15, autoAlpha: 0.25 },
+        { x: 0, autoAlpha: 1, duration: 0.5, ease: EASE.expo },
+      );
+  }
 
-  const addToCart = () => {
-    addItem(product.id, size, quantity);
+  function handleAdd() {
+    if (!selectedVariant || soldOut) return;
+    addItem(product.id, selectedVariant.size, quantity);
     setCartSignal(`FILED / +${quantity}`);
-    window.setTimeout(() => setCartSignal("ADD TO CART"), 1400);
-  };
+    window.setTimeout(() => setCartSignal("ADD TO HOLDING CELL"), 1300);
+  }
 
-  const buyNow = () => {
+  function handleBuyNow() {
+    if (!selectedVariant || soldOut) return;
     router.push(
-      `/buy-now?product=${encodeURIComponent(product.id)}&size=${encodeURIComponent(size)}&qty=${quantity}`,
+      `/buy-now?product=${encodeURIComponent(product.id)}&size=${encodeURIComponent(
+        selectedVariant.size,
+      )}&qty=${quantity}`,
     );
-  };
+  }
+
+  async function handleReview(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formElement = event.currentTarget;
+    const form = new FormData(formElement);
+    const displayName = String(form.get("displayName") ?? "").trim();
+    const email = String(form.get("email") ?? "").trim();
+    const title = String(form.get("title") ?? "").trim();
+    const text = String(form.get("text") ?? "").trim();
+    const orderReference = String(form.get("orderReference") ?? "").trim();
+    const rating = Number(form.get("rating") ?? 5);
+
+    if (!displayName || !email || text.length < 10) {
+      setReviewSignal("NAME, EMAIL AND A REAL REVIEW ARE REQUIRED.");
+      return;
+    }
+
+    try {
+      await submitReview({
+        productId: product.id,
+        displayName,
+        email,
+        rating,
+        title: title || undefined,
+        text,
+        orderReference: orderReference || undefined,
+      });
+      setReviewSignal("TESTIMONY RECEIVED / PENDING CLEARANCE");
+      formElement.reset();
+    } catch (error) {
+      setReviewSignal(error instanceof Error ? error.message : "TESTIMONY COULD NOT BE FILED.");
+    }
+  }
+
+  const rating =
+    reviews.length > 0
+      ? reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length
+      : 0;
 
   const related = category.products.filter((entry) => entry.id !== product.id).slice(0, 3);
 
   return (
     <div ref={rootRef} className="relative overflow-hidden bg-black text-bone-white">
-      <section className={`${styles.hero} relative min-h-screen border-b border-bone-white/15 px-gutter pb-[10vh] pt-32`}>
+      <section className="relative min-h-screen border-b border-bone-white/15 px-gutter pb-[10vh] pt-32">
         <span aria-hidden className={`${styles.grid} pointer-events-none absolute inset-0`} />
-        <span
-          aria-hidden
-          className={`${styles.fileNumber} text-distress pointer-events-none absolute font-display text-outline-2`}
-        >
+        <span aria-hidden className={`${styles.fileNumber} text-distress pointer-events-none absolute font-display text-outline-2`}>
           {product.index}
         </span>
 
         <div className="relative z-10 mb-[8vh] flex flex-wrap items-center justify-between gap-4 border-b border-bone-white/15 pb-4">
           <div className="detail-kicker flex items-center gap-3">
             <span className="h-px w-10 bg-blood-accent" />
-            <span className="font-stencil text-[0.52rem] tracking-stencil text-blood-accent">
+            <span className="font-body text-[0.72rem] font-semibold uppercase tracking-[0.22em] text-blood-accent">
               PRODUCT FILE / {category.index}.{product.index}
             </span>
           </div>
-          <Link
-            href="/products"
-            className="detail-kicker font-stencil text-[0.5rem] tracking-stencil text-concrete-gray transition-colors hover:text-bone-white"
-          >
+          <Link href="/products" className="detail-kicker font-body text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-concrete-gray transition-colors hover:text-bone-white">
             ← BACK TO ARCHIVE
           </Link>
         </div>
@@ -150,120 +204,120 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
             </div>
 
             <div className="mt-8 flex items-center gap-4">
-              <span className="font-stencil text-[0.52rem] tracking-stencil text-concrete-gray">
-                {category.name}
-              </span>
+              <span className="font-body text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-concrete-gray">{category.name}</span>
               <span className="h-px flex-1 bg-bone-white/15" />
-              <span className="font-stencil text-[0.52rem] tracking-stencil text-blood-accent">
-                {product.spec}
-              </span>
+              <span className="font-body text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-blood-accent">{product.spec}</span>
             </div>
 
             <div className={`${styles.viewerWrap} detail-viewer relative mt-8`}>
-              <div
-                ref={viewerRef}
-                className={`${styles.viewer} theme-light relative w-[92%] bg-black p-2 shadow-print md:w-[82%]`}
-              >
+              <div ref={viewerRef} className={`${styles.viewer} theme-light relative w-[92%] bg-black p-2 shadow-print md:w-[82%]`}>
                 <div className="relative aspect-[4/5] overflow-hidden bg-off-black">
                   <Image
-                    key={imageSrc}
-                    src={imageSrc}
-                    alt={imageAlt}
+                    key={activeImage.id}
+                    src={activeImage.url}
+                    alt={activeImage.alt}
                     fill
-                    priority
+                    priority={activeImageIndex === 0}
                     sizes="(max-width: 768px) 92vw, 58vw"
-                    className={`media-product object-cover ${activeImage === "worn" ? "object-[50%_10%]" : ""}`}
+                    className={`media-product object-cover ${activeImage.type === "WORN" ? "object-[50%_10%]" : ""}`}
                   />
                   <span aria-hidden className={`${styles.vignette} absolute inset-0`} />
-                  <span className="absolute left-4 top-4 bg-black/70 px-2 py-1 font-stencil text-[0.48rem] tracking-stencil text-bone-white/75">
-                    FRAME / {activeImage === "worn" ? "ON BODY" : "OBJECT"}
+                  <span className="absolute left-4 top-4 bg-black/75 px-3 py-2 font-body text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-bone-white">
+                    FRAME / {activeImage.label ?? activeImage.type}
                   </span>
                   <span className={`${styles.scan} pointer-events-none absolute inset-x-0 top-[22%] h-px bg-blood-accent/70`} />
                 </div>
               </div>
 
-              <div className="absolute bottom-[-1.2rem] right-0 z-20 flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => swapImage("still")}
-                  aria-pressed={activeImage === "still"}
-                  className={`${styles.frameButton} border border-bone-white/20 bg-black px-3 py-3 font-stencil text-[0.48rem] tracking-stencil ${
-                    activeImage === "still" ? "text-blood-accent" : "text-concrete-gray"
-                  }`}
-                >
-                  01 / OBJECT
-                </button>
-                {product.worn && (
+              <div className="mt-7 grid grid-cols-2 gap-2 md:absolute md:bottom-[-1.35rem] md:right-0 md:z-20 md:mt-0 md:flex md:max-w-[78%] md:flex-wrap md:justify-end">
+                {gallery.map((image, index) => (
                   <button
+                    key={image.id}
                     type="button"
-                    onClick={() => swapImage("worn")}
-                    aria-pressed={activeImage === "worn"}
-                    className={`${styles.frameButton} border border-bone-white/20 bg-black px-3 py-3 font-stencil text-[0.48rem] tracking-stencil ${
-                      activeImage === "worn" ? "text-blood-accent" : "text-concrete-gray"
+                    onClick={() => changeImage(index)}
+                    aria-pressed={activeImageIndex === index}
+                    className={`${styles.frameButton} border px-4 py-3 font-body text-[0.72rem] font-semibold uppercase tracking-[0.15em] ${
+                      activeImageIndex === index
+                        ? "border-blood-accent bg-blood-accent text-paper"
+                        : "border-bone-white/25 bg-black text-concrete-gray hover:border-bone-white/60 hover:text-bone-white"
                     }`}
                   >
-                    02 / ON BODY
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <aside className={`${styles.panel} detail-panel self-end xl:col-span-5 xl:pb-[4vh]`}>
-            <div className="flex items-center justify-between gap-4 border-b border-bone-white/15 pb-4">
-              <span className="font-stencil text-[0.5rem] tracking-stencil text-concrete-gray">ASKING PRICE</span>
-              <span className="font-body text-[1.35rem] font-semibold text-bone-white">{product.price}</span>
-            </div>
-
-            <p className="mt-7 font-blackletter text-[clamp(2.2rem,4vw,4rem)] leading-[0.92] text-bone-white">
-              {product.line}
-            </p>
-            <p className="mt-6 max-w-[39ch] font-body text-body-lg text-bone-white/65">
-              {product.description}
-            </p>
-
-            <div className="mt-8 border-y border-bone-white/15 py-6">
-              <div className="flex items-center justify-between gap-5">
-                <span className="font-stencil text-[0.52rem] tracking-stencil text-concrete-gray">SELECT SIZE</span>
-                <span className="font-stencil text-[0.48rem] tracking-stencil text-blood-accent">REQUIRED</span>
-              </div>
-              <div className="mt-4 grid grid-cols-4 gap-2">
-                {product.sizes.map((entry) => (
-                  <button
-                    key={entry}
-                    type="button"
-                    onClick={() => setSize(entry)}
-                    aria-pressed={size === entry}
-                    className={`${styles.sizeButton} border px-3 py-3 font-display text-xl ${
-                      size === entry
-                        ? "border-blood-accent bg-blood-accent text-bone-white"
-                        : "border-bone-white/20 text-concrete-gray"
-                    }`}
-                  >
-                    {entry}
+                    {String(index + 1).padStart(2, "0")} / {image.label ?? image.type}
                   </button>
                 ))}
               </div>
             </div>
+          </div>
 
-            <div className="mt-6 flex items-center justify-between border-b border-bone-white/15 pb-6">
-              <span className="font-stencil text-[0.52rem] tracking-stencil text-concrete-gray">QUANTITY</span>
+          <aside className="detail-panel self-end xl:col-span-5 xl:pb-[4vh]">
+            <div className="flex items-center justify-between gap-4 border-b border-bone-white/15 pb-4">
+              <span className="font-body text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-concrete-gray">ASKING PRICE</span>
+              <span className="font-body text-[1.45rem] font-semibold text-bone-white">{money(unitPrice)}</span>
+            </div>
+
+            <p className="mt-7 max-w-[15ch] font-display text-[clamp(2.6rem,5vw,4.8rem)] uppercase leading-[0.86] tracking-crushed text-bone-white">
+              {product.line}
+            </p>
+            <p className="mt-6 max-w-[39ch] font-body text-body-lg text-bone-white/65">{product.description}</p>
+
+            <div className="mt-8 border-y border-bone-white/15 py-6">
+              <div className="flex items-center justify-between gap-5">
+                <span className="font-body text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-bone-white">SELECT SIZE</span>
+                <span className="font-body text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-blood-accent">REQUIRED</span>
+              </div>
+
+              <div className="mt-4 grid grid-cols-4 gap-2">
+                {variants.map((variant) => {
+                  const unavailable = variant.status !== "ACTIVE" || variant.availableQty <= 0;
+                  const selected = variant.id === selectedVariantId;
+                  return (
+                    <button
+                      key={variant.id}
+                      type="button"
+                      disabled={unavailable}
+                      onClick={() => {
+                        setSelectedVariantId(variant.id);
+                        setQuantity(1);
+                      }}
+                      className={`${styles.sizeButton} relative border px-3 py-4 font-body text-[0.82rem] font-semibold uppercase tracking-[0.1em] ${
+                        selected
+                          ? "border-blood-accent bg-blood-accent text-paper"
+                          : unavailable
+                            ? "border-bone-white/10 text-concrete-gray/35"
+                            : "border-bone-white/25 text-bone-white hover:border-bone-white/70"
+                      }`}
+                    >
+                      {variant.size}
+                      {unavailable && <span className="absolute inset-x-1 top-1/2 h-px rotate-[-12deg] bg-blood-accent" />}
+                    </button>
+                  );
+                })}
+              </div>
+
+              {selectedVariant && (
+                <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+                  <span className="font-body text-[0.68rem] uppercase tracking-[0.17em] text-concrete-gray">SKU / {selectedVariant.sku}</span>
+                  <span className={`font-body text-[0.7rem] font-semibold uppercase tracking-[0.16em] ${selectedVariant.availableQty <= 3 ? "text-blood-accent" : "text-bone-white/60"}`}>
+                    {selectedVariant.availableQty === 0
+                      ? "SOLD OUT"
+                      : selectedVariant.availableQty <= 3
+                        ? `ONLY ${selectedVariant.availableQty} LEFT`
+                        : `${selectedVariant.availableQty} AVAILABLE`}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-6 flex items-center justify-between gap-6 border-b border-bone-white/15 pb-6">
+              <span className="font-body text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-concrete-gray">QUANTITY</span>
               <div className="flex items-center border border-bone-white/20">
+                <button type="button" onClick={() => setQuantity(Math.max(1, quantity - 1))} className="grid h-11 w-11 place-items-center font-body text-xl text-bone-white hover:bg-bone-white hover:text-ink" aria-label="Decrease quantity">−</button>
+                <span className="grid h-11 min-w-12 place-items-center border-x border-bone-white/20 font-body text-base font-semibold">{String(quantity).padStart(2, "0")}</span>
                 <button
                   type="button"
-                  onClick={() => setQuantity((value) => Math.max(1, value - 1))}
-                  className="h-10 w-10 font-display text-xl text-bone-white hover:bg-bone-white hover:text-black"
-                  aria-label="Decrease quantity"
-                >
-                  −
-                </button>
-                <span className="flex h-10 min-w-12 items-center justify-center border-x border-bone-white/20 font-stencil text-[0.58rem] tracking-stencil">
-                  {String(quantity).padStart(2, "0")}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setQuantity((value) => Math.min(9, value + 1))}
-                  className="h-10 w-10 font-display text-xl text-bone-white hover:bg-bone-white hover:text-black"
+                  disabled={!selectedVariant || quantity >= selectedVariant.availableQty}
+                  onClick={() => setQuantity(Math.min(selectedVariant?.availableQty ?? quantity, quantity + 1))}
+                  className="grid h-11 w-11 place-items-center font-body text-xl text-bone-white hover:bg-bone-white hover:text-ink disabled:opacity-25"
                   aria-label="Increase quantity"
                 >
                   +
@@ -271,40 +325,22 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
               </div>
             </div>
 
-            <div className="mt-6 grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={addToCart}
-                className={`${styles.cta} group relative overflow-hidden border border-bone-white/25 px-5 py-4 text-left`}
-              >
-                <span className="relative z-10 font-stencil text-[0.55rem] tracking-stencil text-bone-white group-hover:text-black">
-                  {cartSignal}
-                </span>
-                <span className="relative z-10 float-right font-display text-xl text-blood-accent">+</span>
-              </button>
-              <button
-                type="button"
-                onClick={buyNow}
-                className={`${styles.ctaBlood} clip-cut group relative overflow-hidden bg-blood-accent px-5 py-4 text-left`}
-              >
-                <span className="relative z-10 font-stencil text-[0.55rem] tracking-stencil text-bone-white group-hover:text-black">
-                  BUY NOW
-                </span>
-                <span className="relative z-10 float-right font-display text-xl">→</span>
-              </button>
+            <div className="mt-7 grid gap-3 sm:grid-cols-2">
+              <SickoButton type="button" tone="paper" full disabled={soldOut} onClick={handleAdd}>
+                {soldOut ? "UNAVAILABLE" : cartSignal}
+              </SickoButton>
+              <SickoButton type="button" tone="blood" full disabled={soldOut} onClick={handleBuyNow}>
+                TAKE THIS ORDER
+              </SickoButton>
             </div>
 
-            <div className="mt-8">
-              <p className="font-stencil text-[0.5rem] tracking-stencil text-blood-accent">FILE NOTES</p>
-              <ul className="mt-4 border-t border-bone-white/15">
+            <div className="mt-8 border-t border-bone-white/15 pt-6">
+              <p className="font-body text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-blood-accent">GARMENT RECORD</p>
+              <ul className="mt-4 space-y-2">
                 {product.details.map((detail, index) => (
-                  <li key={detail} className="flex gap-4 border-b border-bone-white/15 py-3">
-                    <span className="font-stencil text-[0.46rem] tracking-stencil text-concrete-gray">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-                    <span className="font-body text-[0.95rem] uppercase tracking-[0.08em] text-bone-white/75">
-                      {detail}
-                    </span>
+                  <li key={detail} className="flex gap-4 border-b border-bone-white/10 pb-2 font-body text-[0.92rem] text-bone-white/65">
+                    <span className="text-blood-accent">{String(index + 1).padStart(2, "0")}</span>
+                    {detail}
                   </li>
                 ))}
               </ul>
@@ -313,53 +349,81 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
         </div>
       </section>
 
-      {related.length > 0 && (
-        <section className="relative border-b border-bone-white/15 bg-off-black px-gutter py-[11vh]">
-          <div className="flex flex-col justify-between gap-6 md:flex-row md:items-end">
+      <section className="border-b border-bone-white/15 px-gutter py-[10vh]">
+        <div className="mx-auto max-w-[1500px]">
+          <div className="flex flex-wrap items-end justify-between gap-6">
             <div>
-              <p className="font-stencil text-[0.52rem] tracking-stencil text-blood-accent">SAME FILE / OTHER EVIDENCE</p>
-              <h2 className="mt-3 font-blackletter text-[clamp(2.8rem,6vw,6rem)] leading-[0.85]">OTHER RECORDS</h2>
+              <span className="font-body text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-blood-accent">PUBLIC TESTIMONY</span>
+              <h2 className="mt-3 font-display text-[clamp(3.5rem,8vw,8rem)] leading-[0.8] tracking-crushed">STREET<br />RECORD</h2>
             </div>
-            <Link href="/products" className="font-stencil text-[0.5rem] tracking-stencil text-concrete-gray hover:text-bone-white">
-              OPEN COMPLETE ARCHIVE →
-            </Link>
+            <div className="border-l border-blood-accent pl-5">
+              <div className="font-display text-[clamp(3rem,6vw,6rem)] leading-none">{reviews.length ? rating.toFixed(1) : "—"}</div>
+              <div className="mt-2 font-body text-[0.7rem] font-semibold uppercase tracking-[0.17em] text-concrete-gray">{reviews.length} CLEARED TESTIMONIES</div>
+            </div>
           </div>
 
-          <div className="mt-10 grid gap-4 md:grid-cols-3">
-            {related.map((entry) => (
-              <Link
-                key={entry.id}
-                href={`/products/${entry.id}`}
-                className={`${styles.related} group relative overflow-hidden border border-bone-white/15 bg-black p-2`}
-              >
-                <div className="relative aspect-[4/5] overflow-hidden bg-off-black">
-                  <Image src={entry.still} alt={entry.alt} fill sizes="(max-width: 768px) 92vw, 30vw" className="media-product object-cover transition-transform duration-700 ease-hard group-hover:scale-[1.035]" />
-                  <span className={`${styles.vignette} absolute inset-0`} />
-                </div>
-                <div className="flex items-end justify-between gap-4 px-2 pb-2 pt-4">
-                  <div>
-                    <span className="font-stencil text-[0.45rem] tracking-stencil text-blood-accent">FILE {entry.index}</span>
-                    <h3 className="mt-1 font-display text-[clamp(1.6rem,3vw,3rem)] leading-[0.85] tracking-crushed">{entry.name}</h3>
+          <div className="mt-10 grid gap-10 xl:grid-cols-12">
+            <div className="space-y-3 xl:col-span-7">
+              {reviews.length === 0 && (
+                <div className="border border-bone-white/15 p-6 font-body text-lg text-bone-white/50">NO TESTIMONY HAS BEEN CLEARED FOR THIS FILE.</div>
+              )}
+              {reviews.map((review) => (
+                <article key={review.id} className="border border-bone-white/15 bg-off-black p-6">
+                  <div className="flex flex-wrap items-center justify-between gap-4">
+                    <span className="font-body text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-blood-accent">{"★".repeat(review.rating)}</span>
+                    {review.verifiedPurchase && <span className="border border-bone-white/20 px-2 py-1 font-body text-[0.62rem] font-semibold uppercase tracking-[0.16em] text-bone-white/60">VERIFIED PURCHASE</span>}
                   </div>
-                  <span className="font-stencil text-[0.48rem] tracking-stencil text-concrete-gray">{entry.price}</span>
-                </div>
-              </Link>
-            ))}
+                  {review.title && <h3 className="mt-5 font-display text-[2rem] leading-[0.9] tracking-crushed">{review.title}</h3>}
+                  <p className="mt-4 max-w-[55ch] font-body text-[1.05rem] leading-[1.55] text-bone-white/65">“{review.text}”</p>
+                  <p className="mt-5 font-body text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-concrete-gray">{review.displayName}</p>
+                </article>
+              ))}
+            </div>
+
+            <form onSubmit={handleReview} className="border-l-2 border-blood-accent bg-off-black p-6 xl:col-span-5">
+              <span className="font-body text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-blood-accent">ADD TESTIMONY</span>
+              <h3 className="mt-4 font-display text-[clamp(2.5rem,5vw,4.5rem)] leading-[0.84] tracking-crushed">PUT IT<br />ON RECORD</h3>
+              <div className="mt-7 grid gap-4">
+                <input required name="displayName" placeholder="DISPLAY NAME" className={styles.formInput} />
+                <input required type="email" name="email" placeholder="EMAIL" className={styles.formInput} />
+                <select name="rating" defaultValue="5" className={styles.formInput}>
+                  <option value="5">5 / NO COMPLAINTS</option>
+                  <option value="4">4 / STRONG</option>
+                  <option value="3">3 / MIXED</option>
+                  <option value="2">2 / ROUGH</option>
+                  <option value="1">1 / FAILED</option>
+                </select>
+                <input name="orderReference" placeholder="ORDER REFERENCE / OPTIONAL" className={styles.formInput} />
+                <input name="title" placeholder="HEADLINE / OPTIONAL" className={styles.formInput} />
+                <textarea required name="text" rows={5} placeholder="WHAT HAPPENED?" className={`${styles.formInput} resize-none`} />
+              </div>
+              <div className="mt-5">
+                <SickoButton type="submit" tone="blood" full>SUBMIT TESTIMONY</SickoButton>
+              </div>
+              {reviewSignal && <p className="mt-4 border-l border-blood-accent pl-3 font-body text-[0.78rem] font-semibold uppercase tracking-[0.13em] text-bone-white/65">{reviewSignal}</p>}
+            </form>
+          </div>
+        </div>
+      </section>
+
+      {related.length > 0 && (
+        <section className="px-gutter py-[10vh]">
+          <div className="mx-auto max-w-[1500px]">
+            <span className="font-body text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-blood-accent">RELATED FILES</span>
+            <div className="mt-7 grid gap-4 md:grid-cols-3">
+              {related.map((entry) => (
+                <Link key={entry.id} href={`/products/${entry.id}`} className="group border border-bone-white/15 p-5 transition-colors hover:border-blood-accent">
+                  <div className="relative aspect-[4/5] overflow-hidden bg-off-black">
+                    <Image src={entry.still} alt={entry.alt} fill sizes="33vw" className="media-product object-cover transition-transform duration-700 group-hover:scale-[1.035]" />
+                  </div>
+                  <p className="mt-5 font-display text-3xl leading-[0.9] tracking-crushed">{entry.name}</p>
+                  <p className="mt-2 font-body text-sm font-semibold uppercase tracking-[0.15em] text-concrete-gray">OPEN FILE →</p>
+                </Link>
+              ))}
+            </div>
           </div>
         </section>
       )}
-
-      <section className="relative overflow-hidden px-gutter py-[11vh]">
-        <p className="font-stencil text-[0.5rem] tracking-stencil text-blood-accent">PRODUCT FILE / END</p>
-        <div className="mt-5 flex flex-col justify-between gap-8 border-t border-bone-white/15 pt-7 lg:flex-row lg:items-end">
-          <p className="max-w-[11ch] font-display text-[clamp(3.5rem,9vw,9rem)] leading-[0.78] tracking-crushed">
-            WE DON'T HOLD IT FOREVER.
-          </p>
-          <Link href="/cart" className={`${styles.cartLink} clip-cut group relative min-w-[15rem] overflow-hidden border border-bone-white/20 px-5 py-4`}>
-            <span className="relative z-10 font-stencil text-[0.55rem] tracking-stencil group-hover:text-black">OPEN CART / HOLDING CELL</span>
-          </Link>
-        </div>
-      </section>
     </div>
   );
 }
