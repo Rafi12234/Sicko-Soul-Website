@@ -4,7 +4,7 @@ import OrderIntake from "@/components/commerce/OrderIntake";
 
 export const metadata: Metadata = {
   title: "Order Intake — SICKO SOUL",
-  description: "Submit the details for a Sicko Soul order request. No online payment is collected on this page.",
+  description: "Submit a Sicko Soul order request. Stock and pricing are validated again by the order backend.",
 };
 
 type BuyNowPageProps = {
@@ -28,7 +28,7 @@ export default async function BuyNowPage({ searchParams }: BuyNowPageProps) {
           source={params.source}
           productId={params.product}
           size={params.size}
-          quantity={Number.isFinite(parsedQuantity) ? parsedQuantity : 1}
+          quantity={Number.isFinite(parsedQuantity) ? Math.max(1, parsedQuantity) : 1}
         />
       </main>
     </>
