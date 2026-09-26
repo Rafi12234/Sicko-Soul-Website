@@ -16,6 +16,7 @@ export const FOOTER_COPY = {
       links: [
         { label: "Products", href: "/products" },
         { label: "Cart", href: "/cart" },
+        { label: "Track Order", href: "/track-order" },
         { label: "The Arsenal", href: "#segments" },
         { label: "The Rack", href: "#rack" },
         { label: "The Streets", href: "#the-streets" },
@@ -26,7 +27,7 @@ export const FOOTER_COPY = {
       id: "vault",
       title: "VAULT",
       links: [
-        { label: "Drop 002", href: "#drop" },
+        { label: "Drops", href: "/drops" },
         { label: "Street Cred", href: "#street-cred" },
         { label: "The Creed", href: "#manifesto" },
         { label: "Complaints", href: "#complaints" },
