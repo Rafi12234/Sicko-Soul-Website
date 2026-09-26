@@ -257,7 +257,7 @@ export default function Lookbook() {
 
           {/* Sign-off rides at the end of the row, not under it. */}
           <div className="shrink-0 self-center md:w-[24vw]">
-            <p className="font-blackletter text-[clamp(1.6rem,2.6vw,2.4rem)] leading-tight text-bone-white">
+            <p className="font-body text-[clamp(1.2rem,2vw,1.8rem)] font-semibold uppercase leading-[1.08] tracking-[-0.01em] text-bone-white">
               {LOOKBOOK_COPY.outro}
             </p>
             <div className="hairline mt-5" />
