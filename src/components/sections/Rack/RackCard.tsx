@@ -1,10 +1,13 @@
 "use client";
 
 import Image from "next/image";
+import { useRouter } from "next/navigation";
 import { useLayoutEffect, useRef } from "react";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
 import { COLOR, EASE, themeColor } from "@/styles/theme";
 import { RACK_COPY, type RackProduct } from "@/data/rack";
+import { findProductById } from "@/data/products";
+import { useCartStore } from "@/store/useCartStore";
 import styles from "./Rack.module.css";
 
 /** Rest / swept states of the blade wipe — point counts must match to tween. */
@@ -20,6 +23,10 @@ type Props = {
 };
 
 export default function RackCard({ product, offsetClass }: Props) {
+  const router = useRouter();
+  const addItem = useCartStore((state) => state.addItem);
+  const lookup = findProductById(product.id);
+  const defaultSize = lookup?.product.defaultSize ?? "M";
   const cardRef = useRef<HTMLElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const stillRef = useRef<HTMLDivElement>(null);
@@ -270,6 +277,16 @@ export default function RackCard({ product, offsetClass }: Props) {
     return () => ctx.revert();
   }, [product.id]);
 
+  const handleAddToCart = () => {
+    addItem(product.id, defaultSize, 1);
+  };
+
+  const handleBuyNow = () => {
+    router.push(
+      `/buy-now?product=${encodeURIComponent(product.id)}&size=${encodeURIComponent(defaultSize)}&qty=1`,
+    );
+  };
+
   return (
     <article
       ref={cardRef}
@@ -385,13 +402,14 @@ export default function RackCard({ product, offsetClass }: Props) {
       <div className="mt-4 grid grid-cols-1 gap-2 xl:grid-cols-2">
         <button
           type="button"
-          className="rack-action clip-cut relative overflow-hidden border border-bone-white/30 py-3"
+          onClick={handleAddToCart}
+          className="rack-action clip-cut relative min-h-[3.45rem] overflow-hidden border border-bone-white/45 px-4 py-3"
         >
           <span
             aria-hidden
             className={`${styles.actionFill} rack-action-fill absolute inset-0 bg-bone-white`}
           />
-          <span className="rack-action-label relative block font-stencil text-[0.55rem] tracking-[0.16em] text-bone-white">
+          <span className="rack-action-label relative block font-body text-[0.78rem] font-semibold uppercase tracking-[0.14em] text-bone-white">
             {RACK_COPY.addToCart}
           </span>
         </button>
@@ -399,13 +417,14 @@ export default function RackCard({ product, offsetClass }: Props) {
         <button
           type="button"
           data-ink="paper"
-          className="rack-action clip-cut relative overflow-hidden border border-blood-accent bg-blood-accent py-3"
+          onClick={handleBuyNow}
+          className="rack-action clip-cut relative min-h-[3.45rem] overflow-hidden border border-blood-accent bg-blood-accent px-4 py-3"
         >
           <span
             aria-hidden
             className={`${styles.actionFill} rack-action-fill absolute inset-0 bg-ink`}
           />
-          <span className="rack-action-label relative block font-stencil text-[0.55rem] tracking-[0.16em] text-paper">
+          <span className="rack-action-label relative block font-body text-[0.78rem] font-semibold uppercase tracking-[0.14em] text-paper">
             {RACK_COPY.buyNow}
           </span>
         </button>
