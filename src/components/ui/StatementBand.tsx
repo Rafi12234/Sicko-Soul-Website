@@ -9,7 +9,7 @@ import styles from "./StatementBand.module.css";
 const FACE: Record<StatementFace, string> = {
   display: "font-display",
   gothic: "font-gothic",
-  blackletter: "font-blackletter",
+  blackletter: "font-display",
   script: "font-script",
   spray: "font-spray",
 };
@@ -197,7 +197,7 @@ export default function StatementBand({ statement }: { statement: Statement }) {
       <span
         ref={ghostRef}
         aria-hidden
-        className={`${styles.ghost} pointer-events-none absolute right-[3vw] top-1/2 z-0 hidden -translate-y-1/2 font-blackletter text-[16vw] leading-none text-outline-2 opacity-[0.06] lg:block`}
+        className={`${styles.ghost} pointer-events-none absolute right-[3vw] top-1/2 z-0 hidden -translate-y-1/2 font-display text-[16vw] leading-none tracking-crushed text-outline-2 opacity-[0.06] lg:block`}
       >
         {statement.ghost}
       </span>
