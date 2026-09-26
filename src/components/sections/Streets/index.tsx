@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { MEDIA } from "@/lib/media";
 import { useLayoutEffect, useRef } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
@@ -432,7 +433,7 @@ export default function Streets() {
               </span>
             </span>
             <span className="split-mask -mt-[0.34em] block pb-[0.14em] pl-[6%]">
-              <span className="streets-heading text-distress block whitespace-nowrap font-blackletter text-[clamp(1.75rem,3.5vw,3rem)] leading-[1] text-bone-white">
+              <span className="streets-heading text-distress block whitespace-nowrap font-display text-[clamp(1.75rem,3.5vw,3rem)] leading-[0.9] tracking-crushed text-bone-white">
                 {STREETS_COPY.headingLarge}
               </span>
             </span>
@@ -482,18 +483,18 @@ export default function Streets() {
             ))}
           </div>
 
-          <button
-            type="button"
-            className="streets-meta streets-cta clip-cut relative mt-11 overflow-hidden border border-bone-white/30 px-10 py-4"
+          <Link
+            href="/products"
+            className="streets-meta streets-cta clip-cut relative mt-11 inline-flex min-h-[3.55rem] items-center overflow-hidden border border-bone-white/45 px-10 py-4"
           >
             <span
               aria-hidden
               className={`${styles.ctaFill} streets-cta-fill absolute inset-0 bg-bone-white`}
             />
-            <span className="streets-cta-label relative block font-stencil text-[0.6rem] tracking-stencil text-bone-white">
+            <span className="streets-cta-label relative block font-body text-[0.8rem] font-semibold uppercase tracking-[0.14em] text-bone-white">
               {STREETS_COPY.cta}
             </span>
-          </button>
+          </Link>
         </div>
       </div>
     </section>
