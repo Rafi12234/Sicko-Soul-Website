@@ -175,3 +175,26 @@
     opacity: 0;
   }
 }
+
+.formInput {
+  width: 100%;
+  border: 1px solid rgba(242, 240, 235, 0.16);
+  background: #0a0a0a;
+  padding: 0.95rem 1rem;
+  color: #f2f0eb;
+  font-family: "Archivo Narrow", "Arial Narrow", sans-serif;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  transition: border-color 220ms ease, background 220ms ease;
+}
+
+.formInput:focus { outline: none; border-color: #8a0303; background: #111; }
+.formInput::placeholder {
+  color: rgba(138, 138, 133, 0.8);
+  font-family: "Archivo Narrow", "Arial Narrow", sans-serif;
+  font-size: 0.76rem;
+  font-weight: 600;
+  letter-spacing: 0.15em;
+}
+.formInput option { background: #0a0a0a; color: #f2f0eb; }
