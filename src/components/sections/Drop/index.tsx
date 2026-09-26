@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useLayoutEffect, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER } from "@/styles/theme";
@@ -556,7 +557,7 @@ export default function Drop() {
           </h2>
           <span
             ref={yearRef}
-            className="drop-year -ml-2 block font-blackletter text-[clamp(2.5rem,7vw,6rem)] leading-[0.9] text-outline-blood sm:-ml-6"
+            className="drop-year -ml-2 block font-display text-[clamp(2.5rem,7vw,6rem)] leading-[0.82] tracking-crushed text-outline-blood sm:-ml-6"
           >
             {DROP_COPY.year}
           </span>
@@ -750,16 +751,16 @@ export default function Drop() {
                         </p>
                       </div>
                     ) : (
-                      <button
-                        type="button"
-                        className={`${styles.hatch} drop-card drop-enter group relative flex aspect-[4/5] w-[58vw] shrink-0 flex-col justify-between overflow-hidden border border-blood-accent/50 bg-black/70 p-5 text-left sm:w-[40vw] md:w-auto`}
+                      <Link
+                        href="/drops"
+                        className={`${styles.hatch} drop-card drop-enter group relative flex aspect-[4/5] w-[58vw] shrink-0 flex-col justify-between overflow-hidden border border-blood-accent/60 bg-black/70 p-5 text-left sm:w-[40vw] md:w-auto`}
                       >
                         <span
                           aria-hidden
                           className={`${styles.enterFill} drop-enter-fill absolute inset-0 bg-blood-accent`}
                         />
 
-                        <span className="drop-enter-ink relative font-stencil text-[0.52rem] tracking-stencil text-blood-accent">
+                        <span className="drop-enter-ink relative font-body text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-blood-accent">
                           {DROP_COPY.catalogue.stamp}
                         </span>
 
@@ -767,20 +768,20 @@ export default function Drop() {
                           <span className="drop-enter-ink block font-display text-[clamp(2.4rem,4.5vw,3.6rem)] leading-none tracking-crushed text-bone-white">
                             {String(drawer.pieces.length).padStart(2, "0")}
                           </span>
-                          <span className="drop-enter-ink mt-2 block max-w-[12ch] font-stencil text-[0.5rem] leading-relaxed tracking-stencil text-concrete-gray">
+                          <span className="drop-enter-ink mt-2 block max-w-[14ch] font-body text-[0.72rem] font-semibold uppercase leading-relaxed tracking-[0.12em] text-concrete-gray">
                             {DROP_COPY.catalogue.unit}
                           </span>
                         </span>
 
                         <span className="relative flex items-center gap-3">
-                          <span className="drop-enter-ink font-stencil text-[0.52rem] tracking-stencil text-bone-white">
+                          <span className="drop-enter-ink font-body text-[0.78rem] font-semibold uppercase tracking-[0.14em] text-bone-white">
                             {DROP_COPY.catalogue.cta}
                           </span>
-                          <span className="drop-enter-arrow font-stencil text-[0.7rem] text-blood-accent">
+                          <span className="drop-enter-arrow font-display text-xl text-blood-accent">
                             →
                           </span>
                         </span>
-                      </button>
+                      </Link>
                     )}
                   </div>
                 </div>
