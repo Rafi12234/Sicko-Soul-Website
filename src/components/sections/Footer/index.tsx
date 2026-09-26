@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useLayoutEffect, useRef } from "react";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
 import { COLOR, EASE } from "@/styles/theme";
@@ -8,9 +9,15 @@ import { FOOTER_COPY } from "@/data/footer";
 import styles from "./Footer.module.css";
 
 export default function Footer() {
+  const pathname = usePathname();
   const rootRef = useRef<HTMLElement>(null);
   const wordmarkRef = useRef<HTMLDivElement>(null);
   const clockRef = useRef<HTMLSpanElement>(null);
+
+  const resolveHref = (href: string) => {
+    if (!href.startsWith("#") || pathname === "/") return href;
+    return `/${href}`;
+  };
 
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
@@ -236,7 +243,7 @@ export default function Footer() {
             <span className="footer-top-arrow block font-stencil text-[0.8rem] text-blood-accent">
               ↑
             </span>
-            <span className="footer-top-label font-stencil text-[0.55rem] tracking-stencil text-bone-white">
+            <span className="footer-top-label font-body text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-bone-white">
               {FOOTER_COPY.toTop}
             </span>
           </button>
@@ -255,7 +262,7 @@ export default function Footer() {
               {column.links.map((link) => (
                 <li key={link.label}>
                   <Link
-                    href={link.href}
+                    href={resolveHref(link.href)}
                     className="footer-link relative flex items-center gap-2 py-1"
                   >
                     <span className="relative block">
