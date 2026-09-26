@@ -1,9 +1,12 @@
 "use client";
 
+import Link from "next/link";
 import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER, themeColor } from "@/styles/theme";
 import { FEEDBACK_COPY } from "@/data/feedback";
+import { createComplaint } from "@/lib/customerApi";
+import type { ComplaintCategoryCode } from "@/types/commerce";
 import styles from "./Feedback.module.css";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -12,7 +15,9 @@ export default function Feedback() {
   const rootRef = useRef<HTMLElement>(null);
   const watchRef = useRef<HTMLSpanElement>(null);
   const ghostRef = useRef<HTMLSpanElement>(null);
+  const nameRef = useRef<HTMLInputElement>(null);
   const emailRef = useRef<HTMLInputElement>(null);
+  const orderRef = useRef<HTMLInputElement>(null);
   const messageRef = useRef<HTMLTextAreaElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const receiptRef = useRef<HTMLDivElement>(null);
@@ -21,6 +26,7 @@ export default function Feedback() {
   const [category, setCategory] = useState<string>(FEEDBACK_COPY.categories[0].id);
   const [error, setError] = useState<string>("");
   const [caseRef, setCaseRef] = useState<string>("");
+  const [submitting, setSubmitting] = useState(false);
 
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
@@ -212,46 +218,65 @@ export default function Feedback() {
     });
   };
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    if (submitting) return;
+
+    const name = nameRef.current?.value.trim() ?? "";
     const email = emailRef.current?.value.trim() ?? "";
+    const orderReference = orderRef.current?.value.trim() ?? "";
     const message = messageRef.current?.value.trim() ?? "";
 
     if (!EMAIL.test(email)) return reject(FEEDBACK_COPY.errors.email);
     if (message.length < 10) return reject(FEEDBACK_COPY.errors.message);
 
+    setSubmitting(true);
     setError("");
-    // Client-only, so it cannot desync between server and client render.
-    setCaseRef(String(Date.now()).slice(-6));
 
-    ctxRef.current?.add(() => {
-      gsap.to(".fb-error", { autoAlpha: 0, duration: 0.2 });
-      gsap
-        .timeline()
-        .to(formRef.current, { autoAlpha: 0, yPercent: -12, duration: 0.45, ease: EASE.expo })
-        .fromTo(
-          receiptRef.current,
-          { autoAlpha: 0, yPercent: 26, scale: 0.95 },
-          { autoAlpha: 1, yPercent: 0, scale: 1, duration: 0.75, ease: EASE.overshoot },
-          "-=0.1",
-        )
-        .to(
-          ".fb-receipt-head",
-          {
-            duration: 0.9,
-            ease: "power2.inOut",
-            scrambleText: { text: FEEDBACK_COPY.done.head, chars: "upperCase", speed: 0.7 },
-          },
-          "-=0.45",
-        )
-        .fromTo(
-          ".fb-stamp",
-          { autoAlpha: 0, scale: 1.9, rotate: -22 },
-          { autoAlpha: 1, scale: 1, rotate: -11, duration: 0.5, ease: EASE.overshoot },
-          "-=0.3",
-        );
-      gsap.to(watchRef.current, { autoAlpha: 0, duration: 0.6, ease: EASE.inOut });
-    });
+    try {
+      const complaint = await createComplaint({
+        category: category as ComplaintCategoryCode,
+        contactName: name || undefined,
+        contactEmail: email,
+        orderReference: orderReference || undefined,
+        subject: `${category.toUpperCase()} / WEB COMPLAINT`,
+        message,
+      });
+
+      setCaseRef(complaint.reference);
+
+      ctxRef.current?.add(() => {
+        gsap.to(".fb-error", { autoAlpha: 0, duration: 0.2 });
+        gsap
+          .timeline()
+          .to(formRef.current, { autoAlpha: 0, yPercent: -12, duration: 0.45, ease: EASE.expo })
+          .fromTo(
+            receiptRef.current,
+            { autoAlpha: 0, yPercent: 26, scale: 0.95 },
+            { autoAlpha: 1, yPercent: 0, scale: 1, duration: 0.75, ease: EASE.overshoot },
+            "-=0.1",
+          )
+          .to(
+            ".fb-receipt-head",
+            {
+              duration: 0.9,
+              ease: "power2.inOut",
+              scrambleText: { text: FEEDBACK_COPY.done.head, chars: "upperCase", speed: 0.7 },
+            },
+            "-=0.45",
+          )
+          .fromTo(
+            ".fb-stamp",
+            { autoAlpha: 0, scale: 1.9, rotate: -22 },
+            { autoAlpha: 1, scale: 1, rotate: -11, duration: 0.5, ease: EASE.overshoot },
+            "-=0.3",
+          );
+        gsap.to(watchRef.current, { autoAlpha: 0, duration: 0.6, ease: EASE.inOut });
+      });
+    } catch (exception) {
+      reject(exception instanceof Error ? exception.message : "THE CASE COULD NOT BE FILED");
+      setSubmitting(false);
+    }
   };
 
   const armChip = (id: string) => {
@@ -295,7 +320,7 @@ export default function Feedback() {
       <span
         ref={ghostRef}
         aria-hidden
-        className={`${styles.ghost} pointer-events-none absolute -bottom-[6vh] right-[3vw] z-0 hidden font-blackletter text-[15vw] leading-none opacity-[0.5] lg:block`}
+        className={`${styles.ghost} pointer-events-none absolute -bottom-[6vh] right-[3vw] z-0 hidden font-display text-[15vw] leading-none tracking-crushed opacity-[0.5] lg:block`}
       >
         {FEEDBACK_COPY.ghost}
       </span>
@@ -324,7 +349,7 @@ export default function Feedback() {
                   {FEEDBACK_COPY.heading}
                 </span>
               </h2>
-              <span className="fb-heading-alt block pb-[0.1em] font-blackletter text-[clamp(1.7rem,4.4vw,3.6rem)] leading-[0.85] text-ink">
+              <span className="fb-heading-alt block pb-[0.1em] font-display text-[clamp(1.7rem,4.4vw,3.6rem)] leading-[0.82] tracking-crushed text-ink">
                 {FEEDBACK_COPY.headingAlt}
               </span>
             </div>
@@ -354,11 +379,11 @@ export default function Feedback() {
           {/* ── The form, on paper ────────────────────────────────────── */}
           <div className="fb-sheet theme-light relative bg-black px-[6vw] py-[5vh] shadow-print lg:px-[2.8vw]">
           <div className="mb-7 flex items-center gap-3">
-            <span className="font-stencil text-[0.5rem] tracking-stencil text-concrete-gray">
+            <span className="font-body text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-concrete-gray">
               {FEEDBACK_COPY.sheetRef}
             </span>
             <span className="h-px flex-1 bg-bone-white/15" />
-            <span className="fb-watching font-stencil text-[0.48rem] tracking-stencil text-blood-accent opacity-0">
+            <span className="fb-watching font-body text-[0.66rem] font-semibold uppercase tracking-[0.15em] text-blood-accent opacity-0">
               {FEEDBACK_COPY.watching}
             </span>
           </div>
@@ -369,13 +394,13 @@ export default function Feedback() {
                 <div key={key}>
                   <label
                     htmlFor={`fb-${key}`}
-                    className="font-stencil text-[0.5rem] tracking-stencil text-concrete-gray"
+                    className="font-body text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-concrete-gray"
                   >
                     {FEEDBACK_COPY.fields[key].label}
                   </label>
                   <div className="relative mt-2">
                     <input
-                      ref={key === "email" ? emailRef : undefined}
+                      ref={key === "email" ? emailRef : nameRef}
                       id={`fb-${key}`}
                       type={key === "email" ? "email" : "text"}
                       autoComplete={key === "email" ? "email" : "name"}
@@ -395,12 +420,13 @@ export default function Feedback() {
             <div className="mt-7">
               <label
                 htmlFor="fb-order"
-                className="font-stencil text-[0.5rem] tracking-stencil text-concrete-gray"
+                className="font-body text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-concrete-gray"
               >
                 {FEEDBACK_COPY.fields.order.label}
               </label>
               <div className="relative mt-2 max-w-[22rem]">
                 <input
+                  ref={orderRef}
                   id="fb-order"
                   type="text"
                   spellCheck={false}
@@ -416,7 +442,7 @@ export default function Feedback() {
 
             {/* Category is armed, not selected from a dropdown. */}
             <fieldset className="mt-8">
-              <legend className="font-stencil text-[0.5rem] tracking-stencil text-concrete-gray">
+              <legend className="font-body text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-concrete-gray">
                 {FEEDBACK_COPY.categoryLabel}
               </legend>
               <div className="mt-3 flex flex-wrap gap-2">
@@ -438,7 +464,7 @@ export default function Feedback() {
                         style={armed ? { clipPath: "inset(0 0% 0 0)" } : undefined}
                       />
                       <span
-                        className={`relative block font-stencil text-[0.5rem] tracking-stencil ${
+                        className={`relative block font-body text-[0.7rem] font-semibold uppercase tracking-[0.15em] ${
                           armed ? "text-paper" : "text-bone-white"
                         }`}
                       >
@@ -453,7 +479,7 @@ export default function Feedback() {
             <div className="mt-8">
               <label
                 htmlFor="fb-message"
-                className="font-stencil text-[0.5rem] tracking-stencil text-concrete-gray"
+                className="font-body text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-concrete-gray"
               >
                 {FEEDBACK_COPY.fields.message.label}
               </label>
@@ -473,27 +499,28 @@ export default function Feedback() {
             </div>
 
             <div className="mt-8 flex flex-wrap items-center justify-between gap-y-4">
-              <span className="fb-error font-stencil text-[0.5rem] tracking-stencil text-blood-accent opacity-0">
+              <span className="fb-error font-body text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-blood-accent opacity-0">
                 {error}
               </span>
 
               <div className="relative ml-auto p-5">
                 <button
                   type="submit"
-                  className={`${styles.magnet} fb-magnet clip-cut relative block overflow-hidden border-2 border-bone-white px-10 py-4`}
+                  disabled={submitting}
+                  className={`${styles.magnet} fb-magnet clip-cut relative block min-h-[3.6rem] overflow-hidden border-2 border-bone-white px-10 py-4 disabled:opacity-45`}
                 >
                   <span
                     aria-hidden
                     className={`${styles.magnetFill} fb-magnet-fill absolute inset-0 bg-blood-accent`}
                   />
-                  <span className="fb-magnet-label relative block whitespace-nowrap font-display text-[0.95rem] uppercase tracking-crushed text-bone-white">
-                    {FEEDBACK_COPY.submit}
+                  <span className="fb-magnet-label relative block whitespace-nowrap font-body text-[0.82rem] font-semibold uppercase tracking-[0.16em] text-bone-white">
+                    {submitting ? "FILING..." : FEEDBACK_COPY.submit}
                   </span>
                 </button>
               </div>
             </div>
 
-            <p className="mt-2 font-stencil text-[0.48rem] tracking-stencil text-concrete-gray">
+            <p className="mt-2 font-body text-[0.66rem] font-semibold uppercase tracking-[0.15em] text-concrete-gray">
               {FEEDBACK_COPY.terms}
             </p>
           </form>
@@ -502,7 +529,7 @@ export default function Feedback() {
           <div
             ref={receiptRef}
             aria-live="polite"
-            className={`${styles.receipt} ${styles.hatch} pointer-events-none absolute inset-x-6 top-[9vh] border-2 border-blood-accent bg-black p-8`}
+            className={`${styles.receipt} ${styles.hatch} absolute inset-x-6 top-[9vh] border-2 border-blood-accent bg-black p-8`}
           >
             <p className="fb-receipt-head font-display text-[clamp(1.5rem,3.2vw,2.6rem)] uppercase leading-none tracking-crushed text-bone-white">
               {FEEDBACK_COPY.done.head}
@@ -510,9 +537,18 @@ export default function Feedback() {
             <p className="mt-4 max-w-[38ch] font-body text-[1rem] text-concrete-gray">
               {FEEDBACK_COPY.done.line}
             </p>
-            <p className="mt-6 font-stencil text-[0.55rem] tracking-stencil text-blood-accent">
-              {`${FEEDBACK_COPY.done.ref} #${caseRef}`}
+            <p className="mt-6 font-body text-[0.72rem] font-semibold uppercase tracking-[0.16em] text-blood-accent">
+              {`${FEEDBACK_COPY.done.ref} / ${caseRef}`}
             </p>
+
+            {caseRef && (
+              <Link
+                href={`/support/case/${encodeURIComponent(caseRef)}`}
+                className="mt-6 inline-flex min-h-[3.25rem] items-center justify-between gap-6 border border-bone-white/35 bg-bone-white px-5 py-3 font-body text-[0.76rem] font-semibold uppercase tracking-[0.15em] text-black transition-colors hover:border-blood-accent hover:bg-blood-accent hover:text-paper"
+              >
+                OPEN CASE FILE <span className="font-display text-lg">→</span>
+              </Link>
+            )}
 
             <span
               className={`${styles.stamp} fb-stamp absolute -right-3 -top-6 border-2 border-blood-accent bg-black px-5 py-2 font-stencil text-[0.6rem] tracking-stencil text-blood-accent opacity-0`}
