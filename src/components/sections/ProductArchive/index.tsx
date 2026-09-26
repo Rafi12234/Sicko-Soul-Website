@@ -5,8 +5,7 @@ import Link from "next/link";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { EASE, STAGGER } from "@/styles/theme";
-import { useAppStore } from "@/store/useAppStore";
-import { PRODUCT_CATEGORIES, PRODUCTS_COPY } from "@/data/products";
+import { PRODUCT_CATEGORIES, PRODUCTS_COPY, getProductGallery } from "@/data/products";
 import ProductRecord from "./ProductRecord";
 import styles from "./ProductArchive.module.css";
 
@@ -31,7 +30,7 @@ export default function ProductArchive() {
     () =>
       1 +
       activeCategory.products.reduce(
-        (sum, product) => sum + 1 + (product.worn ? 1 : 0),
+        (sum, product) => sum + getProductGallery(product).length,
         0,
       ),
     [activeCategory],
@@ -53,12 +52,6 @@ export default function ProductArchive() {
       overwrite: "auto",
     });
   };
-
-  useLayoutEffect(() => {
-    // /products has no cinematic Preloader. Release the root Lenis gate before
-    // SmoothScroll's parent layout effect runs.
-    useAppStore.getState().setHasEntered(true);
-  }, []);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -240,7 +233,7 @@ export default function ProductArchive() {
     switchingRef.current = true;
 
     const nextImageCount =
-      1 + next.products.reduce((sum, product) => sum + 1 + (product.worn ? 1 : 0), 0);
+      1 + next.products.reduce((sum, product) => sum + getProductGallery(product).length, 0);
 
     const tl = gsap.timeline({ defaults: { ease: EASE.inOut } });
     tl.to(".archive-record", {
@@ -350,18 +343,18 @@ export default function ProductArchive() {
           <div>
             <div className="flex items-center gap-4">
               <span className="h-px w-10 bg-blood-accent" />
-              <p className="font-stencil text-[0.55rem] tracking-stencil text-blood-accent">
+              <p className="font-body text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-blood-accent">
                 CATEGORY INDEX
               </p>
             </div>
             <h2
               id="products-index-heading"
-              className="mt-4 font-blackletter text-[clamp(2.8rem,6vw,6.2rem)] leading-[0.85] text-bone-white"
+              className="mt-4 font-display text-[clamp(3rem,7vw,7rem)] leading-[0.8] tracking-crushed text-bone-white"
             >
               {PRODUCTS_COPY.select}
             </h2>
           </div>
-          <p className="max-w-[31ch] font-stencil text-[0.52rem] leading-[1.8] tracking-stencil text-concrete-gray md:text-right">
+          <p className="max-w-[34ch] font-body text-[0.76rem] font-semibold uppercase leading-[1.7] tracking-[0.12em] text-concrete-gray md:text-right">
             {PRODUCTS_COPY.selectAside}
           </p>
         </div>
