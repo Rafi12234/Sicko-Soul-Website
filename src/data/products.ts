@@ -1,4 +1,5 @@
 import { MEDIA } from "@/lib/media";
+import type { ProductImageRecord, ProductVariantRecord } from "@/types/commerce";
 
 /**
  * Product archive data.
@@ -23,6 +24,10 @@ export type ArchiveProduct = {
   still: string;
   worn?: string;
   alt: string;
+  /** Backend-ready image records. Legacy still/worn are normalized by getProductGallery(). */
+  gallery?: readonly ProductImageRecord[];
+  /** Backend-ready size/SKU/stock records. Static products fall back to seeded demo variants. */
+  variants?: readonly ProductVariantRecord[];
 };
 
 export type ArchiveCategory = {
@@ -322,14 +327,62 @@ export type ProductLookup = {
   category: ArchiveCategory;
 };
 
-export function findProductById(productId: string): ProductLookup | undefined {
-  for (const category of PRODUCT_CATEGORIES) {
-    const product = category.products.find((entry) => entry.id === productId);
-    if (product) return { product, category };
-  }
-  return undefined;
-}
-
 export const ALL_PRODUCTS = PRODUCT_CATEGORIES.flatMap((category) =>
   category.products.map((product) => ({ product, category })),
 );
+
+export function findProductById(productId: string): ProductLookup | undefined {
+  return ALL_PRODUCTS.find(({ product }) => product.id === productId);
+}
+
+export function getProductGallery(product: ArchiveProduct): ProductImageRecord[] {
+  if (product.gallery?.length) {
+    return [...product.gallery].sort((a, b) => a.sortOrder - b.sortOrder);
+  }
+
+  const fallback: ProductImageRecord[] = [
+    {
+      id: `${product.id}-still`,
+      type: "STILL",
+      url: product.still,
+      alt: product.alt,
+      label: "OBJECT",
+      sortOrder: 10,
+    },
+  ];
+
+  if (product.worn) {
+    fallback.push({
+      id: `${product.id}-worn`,
+      type: "WORN",
+      url: product.worn,
+      alt: `${product.name} worn`,
+      label: "ON BODY",
+      sortOrder: 20,
+    });
+  }
+
+  return fallback;
+}
+
+export function getProductVariants(product: ArchiveProduct): ProductVariantRecord[] {
+  if (product.variants?.length) {
+    return product.variants.filter((variant) => variant.status !== "ARCHIVED");
+  }
+
+  // Demo inventory mirrors the production variant shape. The API can replace
+  // this array without changing the product-detail/cart components.
+  return product.sizes.map((size, index) => ({
+    id: `${product.id}-${size}`,
+    size,
+    sku: `${product.id.toUpperCase()}-${size}`,
+    price: product.priceValue,
+    availableQty: index === product.sizes.length - 1 ? 3 : 8,
+    status: "ACTIVE" as const,
+    isDefault: size === product.defaultSize,
+  }));
+}
+
+export function getVariantBySize(product: ArchiveProduct, size: string) {
+  return getProductVariants(product).find((variant) => variant.size === size);
+}
