@@ -1,0 +1,798 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+model audit_logs {
+  audit_log_id  BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  staff_user_id BigInt?      @db.UnsignedBigInt
+  action        String       @db.VarChar(120)
+  entity_type   String       @db.VarChar(80)
+  entity_id     BigInt?      @db.UnsignedBigInt
+  old_data      String?      @db.LongText
+  new_data      String?      @db.LongText
+  ip_address    String?      @db.VarChar(45)
+  user_agent    String?      @db.VarChar(500)
+  created_at    DateTime     @default(now()) @db.DateTime(0)
+  staff_users   staff_users? @relation(fields: [staff_user_id], references: [staff_user_id], map: "fk_audit_logs_staff")
+
+  @@index([entity_type, entity_id, created_at], map: "idx_audit_logs_entity")
+  @@index([staff_user_id, created_at], map: "idx_audit_logs_staff_date")
+}
+
+model cart_items {
+  cart_item_id     BigInt           @id @default(autoincrement()) @db.UnsignedBigInt
+  cart_id          BigInt           @db.UnsignedBigInt
+  variant_id       BigInt           @db.UnsignedBigInt
+  quantity         Int              @default(1) @db.UnsignedInt
+  price_when_added Decimal          @db.Decimal(12, 2)
+  created_at       DateTime         @default(now()) @db.DateTime(0)
+  updated_at       DateTime         @default(now()) @db.DateTime(0)
+  carts            carts            @relation(fields: [cart_id], references: [cart_id], onDelete: Cascade, map: "fk_cart_items_cart")
+  product_variants product_variants @relation(fields: [variant_id], references: [variant_id], map: "fk_cart_items_variant")
+
+  @@unique([cart_id, variant_id], map: "uq_cart_items_cart_variant")
+  @@index([variant_id], map: "idx_cart_items_variant")
+}
+
+model carts {
+  cart_id     BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  cart_token  String       @unique(map: "uq_carts_token") @db.Char(36)
+  customer_id BigInt?      @db.UnsignedBigInt
+  status      carts_status @default(ACTIVE)
+  expires_at  DateTime?    @db.DateTime(0)
+  created_at  DateTime     @default(now()) @db.DateTime(0)
+  updated_at  DateTime     @default(now()) @db.DateTime(0)
+  cart_items  cart_items[]
+  customers   customers?   @relation(fields: [customer_id], references: [customer_id], map: "fk_carts_customer")
+  orders      orders?
+
+  @@index([customer_id, status], map: "idx_carts_customer_status")
+  @@index([status, expires_at], map: "idx_carts_status_expiry")
+}
+
+model collection_products {
+  collection_id BigInt      @db.UnsignedBigInt
+  product_id    BigInt      @db.UnsignedBigInt
+  sort_order    Int         @default(0) @db.UnsignedInt
+  is_sealed     Boolean     @default(false)
+  created_at    DateTime    @default(now()) @db.DateTime(0)
+  collections   collections @relation(fields: [collection_id], references: [collection_id], onDelete: Cascade, map: "fk_collection_products_collection")
+  products      products    @relation(fields: [product_id], references: [product_id], onDelete: Cascade, map: "fk_collection_products_product")
+
+  @@id([collection_id, product_id])
+  @@index([product_id], map: "idx_collection_products_product")
+}
+
+model collections {
+  collection_id       BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  code                String                @unique(map: "uq_collections_code") @db.VarChar(80)
+  slug                String                @unique(map: "uq_collections_slug") @db.VarChar(120)
+  name                String                @db.VarChar(160)
+  tagline             String?               @db.VarChar(255)
+  release_year        Int?                  @db.UnsignedSmallInt
+  status              collections_status    @default(DRAFT)
+  opens_at            DateTime?             @db.DateTime(0)
+  closes_at           DateTime?             @db.DateTime(0)
+  created_at          DateTime              @default(now()) @db.DateTime(0)
+  updated_at          DateTime              @default(now()) @db.DateTime(0)
+  collection_products collection_products[]
+
+  @@index([status, opens_at, closes_at], map: "idx_collections_status_dates")
+}
+
+model complaint_categories {
+  complaint_category_id BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  code                  String       @unique(map: "uq_complaint_categories_code") @db.VarChar(64)
+  label                 String       @db.VarChar(120)
+  is_active             Boolean      @default(true)
+  sort_order            Int          @default(0) @db.UnsignedInt
+  complaints            complaints[]
+}
+
+model complaint_messages {
+  complaint_message_id BigInt                         @id @default(autoincrement()) @db.UnsignedBigInt
+  complaint_id         BigInt                         @db.UnsignedBigInt
+  sender_type          complaint_messages_sender_type
+  customer_id          BigInt?                        @db.UnsignedBigInt
+  staff_user_id        BigInt?                        @db.UnsignedBigInt
+  message              String                         @db.Text
+  created_at           DateTime                       @default(now()) @db.DateTime(0)
+  complaints           complaints                     @relation(fields: [complaint_id], references: [complaint_id], onDelete: Cascade, map: "fk_complaint_messages_complaint")
+  customers            customers?                     @relation(fields: [customer_id], references: [customer_id], map: "fk_complaint_messages_customer")
+  staff_users          staff_users?                   @relation(fields: [staff_user_id], references: [staff_user_id], map: "fk_complaint_messages_staff")
+
+  @@index([customer_id], map: "fk_complaint_messages_customer")
+  @@index([staff_user_id], map: "fk_complaint_messages_staff")
+  @@index([complaint_id, created_at], map: "idx_complaint_messages_complaint_date")
+}
+
+model complaints {
+  complaint_id          BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  case_reference        String               @unique(map: "uq_complaints_case_reference") @db.VarChar(32)
+  customer_id           BigInt?              @db.UnsignedBigInt
+  order_id              BigInt?              @db.UnsignedBigInt
+  complaint_category_id BigInt               @db.UnsignedBigInt
+  contact_name          String?              @db.VarChar(150)
+  contact_email         String               @db.VarChar(255)
+  subject               String?              @db.VarChar(255)
+  message               String               @db.Text
+  priority              complaints_priority  @default(NORMAL)
+  status                complaints_status    @default(OPEN)
+  assigned_to_staff_id  BigInt?              @db.UnsignedBigInt
+  closed_at             DateTime?            @db.DateTime(0)
+  created_at            DateTime             @default(now()) @db.DateTime(0)
+  updated_at            DateTime             @default(now()) @db.DateTime(0)
+  complaint_messages    complaint_messages[]
+  staff_users           staff_users?         @relation(fields: [assigned_to_staff_id], references: [staff_user_id], map: "fk_complaints_assigned_staff")
+  complaint_categories  complaint_categories @relation(fields: [complaint_category_id], references: [complaint_category_id], map: "fk_complaints_category")
+  customers             customers?           @relation(fields: [customer_id], references: [customer_id], map: "fk_complaints_customer")
+  orders                orders?              @relation(fields: [order_id], references: [order_id], map: "fk_complaints_order")
+  email_outbox          email_outbox[]
+
+  @@index([complaint_category_id], map: "fk_complaints_category")
+  @@index([assigned_to_staff_id, status], map: "idx_complaints_assigned_staff")
+  @@index([customer_id], map: "idx_complaints_customer")
+  @@index([order_id], map: "idx_complaints_order")
+  @@index([status, priority, created_at], map: "idx_complaints_status_priority")
+}
+
+model customer_addresses {
+  address_id      BigInt    @id @default(autoincrement()) @db.UnsignedBigInt
+  customer_id     BigInt    @db.UnsignedBigInt
+  label           String?   @db.VarChar(50)
+  recipient_name  String    @db.VarChar(150)
+  recipient_phone String    @db.VarChar(32)
+  address_line    String    @db.VarChar(500)
+  city            String    @db.VarChar(120)
+  district        String    @db.VarChar(120)
+  postal_code     String?   @db.VarChar(30)
+  landmark        String?   @db.VarChar(255)
+  is_default      Boolean   @default(false)
+  created_at      DateTime  @default(now()) @db.DateTime(0)
+  updated_at      DateTime  @default(now()) @db.DateTime(0)
+  customers       customers @relation(fields: [customer_id], references: [customer_id], onDelete: Cascade, map: "fk_customer_addresses_customer")
+  orders          orders[]
+
+  @@index([customer_id], map: "idx_customer_addresses_customer")
+}
+
+model customers {
+  customer_id        BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  full_name          String               @db.VarChar(150)
+  email              String               @unique(map: "uq_customers_email") @db.VarChar(255)
+  phone              String               @db.VarChar(32)
+  status             customers_status     @default(ACTIVE)
+  first_order_at     DateTime?            @db.DateTime(0)
+  last_order_at      DateTime?            @db.DateTime(0)
+  created_at         DateTime             @default(now()) @db.DateTime(0)
+  updated_at         DateTime             @default(now()) @db.DateTime(0)
+  carts              carts[]
+  complaint_messages complaint_messages[]
+  complaints         complaints[]
+  customer_addresses customer_addresses[]
+  email_outbox       email_outbox[]
+  orders             orders[]
+  product_reviews    product_reviews[]
+
+  @@index([phone], map: "idx_customers_phone")
+  @@index([status], map: "idx_customers_status")
+}
+
+model email_delivery_events {
+  email_delivery_event_id BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  email_outbox_id         BigInt       @db.UnsignedBigInt
+  provider_event_id       String?      @unique(map: "uq_email_delivery_provider_event")
+  event_type              String       @db.VarChar(40)
+  payload                 String?      @db.LongText
+  occurred_at             DateTime     @default(now()) @db.DateTime(0)
+  email_outbox            email_outbox @relation(fields: [email_outbox_id], references: [email_outbox_id], onDelete: Cascade, map: "fk_email_delivery_outbox")
+
+  @@index([email_outbox_id, occurred_at], map: "idx_email_delivery_outbox_date")
+}
+
+model email_outbox {
+  email_outbox_id       BigInt                  @id @default(autoincrement()) @db.UnsignedBigInt
+  dedupe_key            String                  @unique(map: "uq_email_outbox_dedupe")
+  event_type            email_outbox_event_type
+  order_id              BigInt?                 @db.UnsignedBigInt
+  complaint_id          BigInt?                 @db.UnsignedBigInt
+  customer_id           BigInt?                 @db.UnsignedBigInt
+  recipient_name        String?                 @db.VarChar(150)
+  recipient_email       String                  @db.VarChar(255)
+  subject               String                  @db.VarChar(255)
+  template_key          String                  @db.VarChar(120)
+  payload               String                  @db.LongText
+  status                email_outbox_status     @default(PENDING)
+  attempt_count         Int                     @default(0) @db.UnsignedInt
+  max_attempts          Int                     @default(5) @db.UnsignedInt
+  available_at          DateTime                @default(now()) @db.DateTime(0)
+  locked_at             DateTime?               @db.DateTime(0)
+  sent_at               DateTime?               @db.DateTime(0)
+  last_error            String?                 @db.Text
+  provider_message_id   String?
+  created_at            DateTime                @default(now()) @db.DateTime(0)
+  updated_at            DateTime                @default(now()) @db.DateTime(0)
+  email_delivery_events email_delivery_events[]
+  complaints            complaints?             @relation(fields: [complaint_id], references: [complaint_id], map: "fk_email_outbox_complaint")
+  customers             customers?              @relation(fields: [customer_id], references: [customer_id], map: "fk_email_outbox_customer")
+  orders                orders?                 @relation(fields: [order_id], references: [order_id], map: "fk_email_outbox_order")
+
+  @@index([customer_id], map: "fk_email_outbox_customer")
+  @@index([complaint_id], map: "idx_email_outbox_complaint")
+  @@index([order_id], map: "idx_email_outbox_order")
+  @@index([status, available_at, email_outbox_id], map: "idx_email_outbox_worker")
+}
+
+model inventory_movements {
+  movement_id         BigInt                             @id @default(autoincrement()) @db.UnsignedBigInt
+  variant_id          BigInt                             @db.UnsignedBigInt
+  movement_type       inventory_movements_movement_type
+  on_hand_delta       Int                                @default(0)
+  reserved_delta      Int                                @default(0)
+  reference_type      inventory_movements_reference_type @default(SYSTEM)
+  reference_id        BigInt?                            @db.UnsignedBigInt
+  note                String?                            @db.VarChar(500)
+  created_by_staff_id BigInt?                            @db.UnsignedBigInt
+  created_at          DateTime                           @default(now()) @db.DateTime(0)
+  staff_users         staff_users?                       @relation(fields: [created_by_staff_id], references: [staff_user_id], map: "fk_inventory_movements_staff")
+  product_variants    product_variants                   @relation(fields: [variant_id], references: [variant_id], map: "fk_inventory_movements_variant")
+
+  @@index([reference_type, reference_id], map: "idx_inventory_movements_reference")
+  @@index([created_by_staff_id], map: "idx_inventory_movements_staff")
+  @@index([variant_id, created_at], map: "idx_inventory_movements_variant_date")
+}
+
+model inventory_stock {
+  variant_id       BigInt           @id @db.UnsignedBigInt
+  on_hand_qty      Int              @default(0) @db.UnsignedInt
+  reserved_qty     Int              @default(0) @db.UnsignedInt
+  reorder_level    Int              @default(0) @db.UnsignedInt
+  updated_at       DateTime         @default(now()) @db.DateTime(0)
+  product_variants product_variants @relation(fields: [variant_id], references: [variant_id], onDelete: Cascade, map: "fk_inventory_stock_variant")
+}
+
+model order_items {
+  order_item_id              BigInt            @id @default(autoincrement()) @db.UnsignedBigInt
+  order_id                   BigInt            @db.UnsignedBigInt
+  product_id                 BigInt            @db.UnsignedBigInt
+  variant_id                 BigInt?           @db.UnsignedBigInt
+  product_public_id_snapshot String            @db.VarChar(64)
+  sku_snapshot               String            @db.VarChar(100)
+  product_name_snapshot      String            @db.VarChar(160)
+  size_snapshot              String            @db.VarChar(50)
+  image_url_snapshot         String?           @db.VarChar(1000)
+  unit_price                 Decimal           @db.Decimal(12, 2)
+  quantity                   Int               @db.UnsignedInt
+  line_total                 Decimal           @db.Decimal(12, 2)
+  created_at                 DateTime          @default(now()) @db.DateTime(0)
+  orders                     orders            @relation(fields: [order_id], references: [order_id], onDelete: Cascade, map: "fk_order_items_order")
+  products                   products          @relation(fields: [product_id], references: [product_id], map: "fk_order_items_product")
+  product_variants           product_variants? @relation(fields: [variant_id], references: [variant_id], map: "fk_order_items_variant")
+  product_reviews            product_reviews?
+
+  @@index([order_id], map: "idx_order_items_order")
+  @@index([product_id], map: "idx_order_items_product")
+  @@index([variant_id], map: "idx_order_items_variant")
+}
+
+model order_status_history {
+  history_id          BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  order_id            BigInt       @db.UnsignedBigInt
+  from_status         String?      @db.VarChar(40)
+  to_status           String       @db.VarChar(40)
+  changed_by_staff_id BigInt?      @db.UnsignedBigInt
+  note                String?      @db.VarChar(500)
+  changed_at          DateTime     @default(now()) @db.DateTime(0)
+  orders              orders       @relation(fields: [order_id], references: [order_id], onDelete: Cascade, map: "fk_order_status_history_order")
+  staff_users         staff_users? @relation(fields: [changed_by_staff_id], references: [staff_user_id], map: "fk_order_status_history_staff")
+
+  @@index([order_id, changed_at], map: "idx_order_status_history_order_date")
+  @@index([changed_by_staff_id], map: "idx_order_status_history_staff")
+}
+
+model orders {
+  order_id                                                        BigInt                 @id @default(autoincrement()) @db.UnsignedBigInt
+  order_reference                                                 String                 @unique(map: "uq_orders_reference") @db.VarChar(32)
+  idempotency_key                                                 String                 @unique(map: "uq_orders_idempotency") @db.VarChar(100)
+  customer_id                                                     BigInt                 @db.UnsignedBigInt
+  shipping_address_id                                             BigInt?                @db.UnsignedBigInt
+  source_cart_id                                                  BigInt?                @unique(map: "uq_orders_source_cart") @db.UnsignedBigInt
+  source                                                          orders_source
+  customer_name                                                   String                 @db.VarChar(150)
+  customer_phone                                                  String                 @db.VarChar(32)
+  customer_email                                                  String                 @db.VarChar(255)
+  shipping_address                                                String                 @db.VarChar(500)
+  shipping_city                                                   String                 @db.VarChar(120)
+  shipping_district                                               String                 @db.VarChar(120)
+  shipping_postal_code                                            String?                @db.VarChar(30)
+  shipping_landmark                                               String?                @db.VarChar(255)
+  order_note                                                      String?                @db.Text
+  payment_method                                                  orders_payment_method  @default(COD)
+  subtotal                                                        Decimal                @db.Decimal(12, 2)
+  delivery_charge                                                 Decimal                @default(0.00) @db.Decimal(12, 2)
+  grand_total                                                     Decimal                @db.Decimal(12, 2)
+  currency                                                        String                 @default("BDT") @db.Char(3)
+  order_status                                                    orders_order_status    @default(PENDING_CONFIRMATION)
+  payment_status                                                  orders_payment_status  @default(UNPAID)
+  confirmed_by_staff_id                                           BigInt?                @db.UnsignedBigInt
+  last_status_changed_by_staff_id                                 BigInt?                @db.UnsignedBigInt
+  confirmed_at                                                    DateTime?              @db.DateTime(0)
+  cancelled_at                                                    DateTime?              @db.DateTime(0)
+  cancellation_reason                                             String?                @db.VarChar(500)
+  placed_at                                                       DateTime               @default(now()) @db.DateTime(0)
+  created_at                                                      DateTime               @default(now()) @db.DateTime(0)
+  updated_at                                                      DateTime               @default(now()) @db.DateTime(0)
+  complaints                                                      complaints[]
+  email_outbox                                                    email_outbox[]
+  order_items                                                     order_items[]
+  order_status_history                                            order_status_history[]
+  staff_users_orders_confirmed_by_staff_idTostaff_users           staff_users?           @relation("orders_confirmed_by_staff_idTostaff_users", fields: [confirmed_by_staff_id], references: [staff_user_id], map: "fk_orders_confirmed_staff")
+  customers                                                       customers              @relation(fields: [customer_id], references: [customer_id], map: "fk_orders_customer")
+  staff_users_orders_last_status_changed_by_staff_idTostaff_users staff_users?           @relation("orders_last_status_changed_by_staff_idTostaff_users", fields: [last_status_changed_by_staff_id], references: [staff_user_id], map: "fk_orders_last_status_staff")
+  customer_addresses                                              customer_addresses?    @relation(fields: [shipping_address_id], references: [address_id], map: "fk_orders_shipping_address")
+  carts                                                           carts?                 @relation(fields: [source_cart_id], references: [cart_id], map: "fk_orders_source_cart")
+  payments                                                        payments[]
+  refunds                                                         refunds[]
+  shipments                                                       shipments[]
+
+  @@index([confirmed_by_staff_id], map: "fk_orders_confirmed_staff")
+  @@index([last_status_changed_by_staff_id], map: "fk_orders_last_status_staff")
+  @@index([shipping_address_id], map: "fk_orders_shipping_address")
+  @@index([customer_id, created_at], map: "idx_orders_customer_date")
+  @@index([customer_email], map: "idx_orders_email")
+  @@index([payment_status, created_at], map: "idx_orders_payment_status")
+  @@index([customer_phone], map: "idx_orders_phone")
+  @@index([order_status, created_at], map: "idx_orders_status_date")
+}
+
+model payments {
+  payment_id           BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  order_id             BigInt          @db.UnsignedBigInt
+  method               payments_method
+  amount               Decimal         @db.Decimal(12, 2)
+  currency             String          @default("BDT") @db.Char(3)
+  status               payments_status @default(PENDING)
+  provider             String?         @db.VarChar(100)
+  provider_reference   String?
+  received_by_staff_id BigInt?         @db.UnsignedBigInt
+  paid_at              DateTime?       @db.DateTime(0)
+  created_at           DateTime        @default(now()) @db.DateTime(0)
+  updated_at           DateTime        @default(now()) @db.DateTime(0)
+  orders               orders          @relation(fields: [order_id], references: [order_id], map: "fk_payments_order")
+  staff_users          staff_users?    @relation(fields: [received_by_staff_id], references: [staff_user_id], map: "fk_payments_staff")
+  refunds              refunds[]
+
+  @@index([received_by_staff_id], map: "fk_payments_staff")
+  @@index([order_id, status], map: "idx_payments_order_status")
+  @@index([provider, provider_reference], map: "idx_payments_provider_reference")
+}
+
+model product_categories {
+  category_id BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
+  code        String     @unique(map: "uq_product_categories_code") @db.VarChar(64)
+  slug        String     @unique(map: "uq_product_categories_slug") @db.VarChar(120)
+  index_code  String?    @db.VarChar(20)
+  name        String     @db.VarChar(120)
+  ghost_name  String?    @db.VarChar(120)
+  spec        String?    @db.VarChar(255)
+  tagline     String?    @db.VarChar(255)
+  registry    String?    @db.VarChar(255)
+  cover_url   String?    @db.VarChar(1000)
+  cover_alt   String?    @db.VarChar(255)
+  sort_order  Int        @default(0) @db.UnsignedInt
+  is_active   Boolean    @default(true)
+  created_at  DateTime   @default(now()) @db.DateTime(0)
+  updated_at  DateTime   @default(now()) @db.DateTime(0)
+  products    products[]
+
+  @@index([is_active, sort_order], map: "idx_product_categories_active_sort")
+}
+
+model product_features {
+  feature_id   BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  product_id   BigInt   @db.UnsignedBigInt
+  feature_text String   @db.VarChar(255)
+  sort_order   Int      @default(0) @db.UnsignedInt
+  products     products @relation(fields: [product_id], references: [product_id], onDelete: Cascade, map: "fk_product_features_product")
+
+  @@index([product_id, sort_order], map: "idx_product_features_product_sort")
+}
+
+model product_images {
+  image_id   BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
+  product_id BigInt                    @db.UnsignedBigInt
+  image_type product_images_image_type @default(GALLERY)
+  image_url  String                    @db.VarChar(1000)
+  alt_text   String?                   @db.VarChar(255)
+  sort_order Int                       @default(0) @db.UnsignedInt
+  created_at DateTime                  @default(now()) @db.DateTime(0)
+  products   products                  @relation(fields: [product_id], references: [product_id], onDelete: Cascade, map: "fk_product_images_product")
+
+  @@index([product_id, sort_order], map: "idx_product_images_product_sort")
+}
+
+model product_review_status_history {
+  review_status_history_id BigInt          @id @default(autoincrement()) @db.UnsignedBigInt
+  review_id                BigInt          @db.UnsignedBigInt
+  from_status              String?         @db.VarChar(20)
+  to_status                String          @db.VarChar(20)
+  changed_by_staff_id      BigInt?         @db.UnsignedBigInt
+  note                     String?         @db.VarChar(500)
+  changed_at               DateTime        @default(now()) @db.DateTime(0)
+  product_reviews          product_reviews @relation(fields: [review_id], references: [review_id], onDelete: Cascade, map: "fk_review_status_history_review")
+  staff_users              staff_users?    @relation(fields: [changed_by_staff_id], references: [staff_user_id], map: "fk_review_status_history_staff")
+
+  @@index([review_id, changed_at], map: "idx_review_status_history_review_date")
+  @@index([changed_by_staff_id, changed_at], map: "idx_review_status_history_staff")
+}
+
+model product_reviews {
+  review_id                     BigInt                          @id @default(autoincrement()) @db.UnsignedBigInt
+  product_id                    BigInt                          @db.UnsignedBigInt
+  customer_id                   BigInt?                         @db.UnsignedBigInt
+  order_item_id                 BigInt?                         @unique(map: "uq_product_reviews_order_item") @db.UnsignedBigInt
+  reviewer_display_name         String                          @db.VarChar(120)
+  reviewer_email                String                          @db.VarChar(255)
+  rating                        Int                             @db.UnsignedTinyInt
+  title                         String?                         @db.VarChar(160)
+  review_text                   String                          @db.Text
+  is_verified_purchase          Boolean                         @default(false)
+  status                        product_reviews_status          @default(PENDING)
+  moderated_by_staff_id         BigInt?                         @db.UnsignedBigInt
+  moderation_note               String?                         @db.VarChar(500)
+  submitted_at                  DateTime                        @default(now()) @db.DateTime(0)
+  published_at                  DateTime?                       @db.DateTime(0)
+  updated_at                    DateTime                        @default(now()) @db.DateTime(0)
+  product_review_status_history product_review_status_history[]
+  customers                     customers?                      @relation(fields: [customer_id], references: [customer_id], map: "fk_product_reviews_customer")
+  staff_users                   staff_users?                    @relation(fields: [moderated_by_staff_id], references: [staff_user_id], map: "fk_product_reviews_moderator")
+  order_items                   order_items?                    @relation(fields: [order_item_id], references: [order_item_id], map: "fk_product_reviews_order_item")
+  products                      products                        @relation(fields: [product_id], references: [product_id], map: "fk_product_reviews_product")
+
+  @@index([moderated_by_staff_id], map: "fk_product_reviews_moderator")
+  @@index([customer_id, submitted_at], map: "idx_product_reviews_customer_date")
+  @@index([status, moderated_by_staff_id, submitted_at], map: "idx_product_reviews_moderation")
+  @@index([product_id, status, submitted_at], map: "idx_product_reviews_product_status_date")
+  @@index([product_id, status, rating], map: "idx_product_reviews_product_status_rating")
+}
+
+model product_variants {
+  variant_id          BigInt                  @id @default(autoincrement()) @db.UnsignedBigInt
+  product_id          BigInt                  @db.UnsignedBigInt
+  size_id             BigInt                  @db.UnsignedBigInt
+  sku                 String                  @unique(map: "uq_product_variants_sku") @db.VarChar(100)
+  price_override      Decimal?                @db.Decimal(12, 2)
+  is_default          Boolean                 @default(false)
+  status              product_variants_status @default(ACTIVE)
+  created_at          DateTime                @default(now()) @db.DateTime(0)
+  updated_at          DateTime                @default(now()) @db.DateTime(0)
+  cart_items          cart_items[]
+  inventory_movements inventory_movements[]
+  inventory_stock     inventory_stock?
+  order_items         order_items[]
+  products            products                @relation(fields: [product_id], references: [product_id], map: "fk_product_variants_product")
+  sizes               sizes                   @relation(fields: [size_id], references: [size_id], map: "fk_product_variants_size")
+
+  @@unique([product_id, size_id], map: "uq_product_variants_product_size")
+  @@index([size_id], map: "fk_product_variants_size")
+  @@index([product_id, status], map: "idx_product_variants_product_status")
+}
+
+model products {
+  product_id          BigInt                @id @default(autoincrement()) @db.UnsignedBigInt
+  category_id         BigInt                @db.UnsignedBigInt
+  public_id           String                @unique(map: "uq_products_public_id") @db.VarChar(64)
+  slug                String                @unique(map: "uq_products_slug") @db.VarChar(160)
+  index_code          String?               @db.VarChar(20)
+  sku_base            String                @unique(map: "uq_products_sku_base") @db.VarChar(80)
+  name                String                @db.VarChar(160)
+  base_price          Decimal               @db.Decimal(12, 2)
+  currency            String                @default("BDT") @db.Char(3)
+  spec                String?               @db.VarChar(255)
+  tagline             String?               @db.VarChar(255)
+  description         String?               @db.Text
+  status              products_status       @default(DRAFT)
+  published_at        DateTime?             @db.DateTime(0)
+  created_at          DateTime              @default(now()) @db.DateTime(0)
+  updated_at          DateTime              @default(now()) @db.DateTime(0)
+  collection_products collection_products[]
+  order_items         order_items[]
+  product_features    product_features[]
+  product_images      product_images[]
+  product_reviews     product_reviews[]
+  product_variants    product_variants[]
+  product_categories  product_categories    @relation(fields: [category_id], references: [category_id], map: "fk_products_category")
+
+  @@index([category_id, status], map: "idx_products_category_status")
+  @@index([status, created_at], map: "idx_products_status_created")
+}
+
+model refunds {
+  refund_id             BigInt         @id @default(autoincrement()) @db.UnsignedBigInt
+  order_id              BigInt         @db.UnsignedBigInt
+  payment_id            BigInt?        @db.UnsignedBigInt
+  amount                Decimal        @db.Decimal(12, 2)
+  reason                String         @db.VarChar(500)
+  status                refunds_status @default(REQUESTED)
+  processed_by_staff_id BigInt?        @db.UnsignedBigInt
+  processed_at          DateTime?      @db.DateTime(0)
+  created_at            DateTime       @default(now()) @db.DateTime(0)
+  updated_at            DateTime       @default(now()) @db.DateTime(0)
+  orders                orders         @relation(fields: [order_id], references: [order_id], map: "fk_refunds_order")
+  payments              payments?      @relation(fields: [payment_id], references: [payment_id], map: "fk_refunds_payment")
+  staff_users           staff_users?   @relation(fields: [processed_by_staff_id], references: [staff_user_id], map: "fk_refunds_staff")
+
+  @@index([processed_by_staff_id], map: "fk_refunds_staff")
+  @@index([order_id, status], map: "idx_refunds_order_status")
+  @@index([payment_id], map: "idx_refunds_payment")
+}
+
+model shipment_status_history {
+  history_id          BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
+  shipment_id         BigInt       @db.UnsignedBigInt
+  from_status         String?      @db.VarChar(40)
+  to_status           String       @db.VarChar(40)
+  note                String?      @db.VarChar(500)
+  changed_by_staff_id BigInt?      @db.UnsignedBigInt
+  changed_at          DateTime     @default(now()) @db.DateTime(0)
+  shipments           shipments    @relation(fields: [shipment_id], references: [shipment_id], onDelete: Cascade, map: "fk_shipment_history_shipment")
+  staff_users         staff_users? @relation(fields: [changed_by_staff_id], references: [staff_user_id], map: "fk_shipment_history_staff")
+
+  @@index([changed_by_staff_id], map: "fk_shipment_history_staff")
+  @@index([shipment_id, changed_at], map: "idx_shipment_history_shipment_date")
+}
+
+model shipments {
+  shipment_id                     BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
+  order_id                        BigInt                    @db.UnsignedBigInt
+  courier_name                    String?                   @db.VarChar(120)
+  courier_service                 String?                   @db.VarChar(120)
+  tracking_code                   String?
+  status                          shipments_status          @default(PENDING)
+  shipping_cost                   Decimal                   @default(0.00) @db.Decimal(12, 2)
+  last_status_changed_by_staff_id BigInt?                   @db.UnsignedBigInt
+  shipped_at                      DateTime?                 @db.DateTime(0)
+  delivered_at                    DateTime?                 @db.DateTime(0)
+  created_at                      DateTime                  @default(now()) @db.DateTime(0)
+  updated_at                      DateTime                  @default(now()) @db.DateTime(0)
+  shipment_status_history         shipment_status_history[]
+  orders                          orders                    @relation(fields: [order_id], references: [order_id], map: "fk_shipments_order")
+  staff_users                     staff_users?              @relation(fields: [last_status_changed_by_staff_id], references: [staff_user_id], map: "fk_shipments_status_staff")
+
+  @@index([last_status_changed_by_staff_id], map: "fk_shipments_status_staff")
+  @@index([order_id, status], map: "idx_shipments_order_status")
+  @@index([tracking_code], map: "idx_shipments_tracking")
+}
+
+model sizes {
+  size_id          BigInt             @id @default(autoincrement()) @db.UnsignedBigInt
+  code             String             @db.VarChar(20)
+  label            String             @db.VarChar(50)
+  size_group       sizes_size_group   @default(GENERAL)
+  sort_order       Int                @default(0) @db.UnsignedInt
+  is_active        Boolean            @default(true)
+  product_variants product_variants[]
+
+  @@unique([code, size_group], map: "uq_sizes_code_group")
+  @@index([is_active, sort_order], map: "idx_sizes_active_sort")
+}
+
+model staff_users {
+  staff_user_id                                              BigInt                          @id @default(autoincrement()) @db.UnsignedBigInt
+  full_name                                                  String                          @db.VarChar(150)
+  email                                                      String                          @unique(map: "uq_staff_users_email") @db.VarChar(255)
+  password_hash                                              String                          @db.VarChar(255)
+  role                                                       staff_users_role                @default(ADMIN)
+  is_active                                                  Boolean                         @default(true)
+  last_login_at                                              DateTime?                       @db.DateTime(0)
+  created_at                                                 DateTime                        @default(now()) @db.DateTime(0)
+  updated_at                                                 DateTime                        @default(now()) @db.DateTime(0)
+  audit_logs                                                 audit_logs[]
+  complaint_messages                                         complaint_messages[]
+  complaints                                                 complaints[]
+  inventory_movements                                        inventory_movements[]
+  order_status_history                                       order_status_history[]
+  orders_orders_confirmed_by_staff_idTostaff_users           orders[]                        @relation("orders_confirmed_by_staff_idTostaff_users")
+  orders_orders_last_status_changed_by_staff_idTostaff_users orders[]                        @relation("orders_last_status_changed_by_staff_idTostaff_users")
+  payments                                                   payments[]
+  product_review_status_history                              product_review_status_history[]
+  product_reviews                                            product_reviews[]
+  refunds                                                    refunds[]
+  shipment_status_history                                    shipment_status_history[]
+  shipments                                                  shipments[]
+
+  @@index([role, is_active], map: "idx_staff_users_role_active")
+}
+
+enum complaint_messages_sender_type {
+  CUSTOMER
+  STAFF
+  SYSTEM
+}
+
+enum email_outbox_event_type {
+  ORDER_CONFIRMED
+  ORDER_SHIPPED
+  ORDER_DELIVERED
+  ORDER_CANCELLED
+  COMPLAINT_REPLY
+}
+
+enum inventory_movements_movement_type {
+  INITIAL
+  RESTOCK
+  RESERVE
+  RELEASE
+  SALE
+  RETURN
+  ADJUSTMENT
+}
+
+enum payments_method {
+  COD
+  MANUAL
+  MOBILE_FINANCIAL_SERVICE
+  BANK_TRANSFER
+  CARD
+}
+
+enum product_images_image_type {
+  STILL
+  WORN
+  GALLERY
+  OTHER
+}
+
+enum carts_status {
+  ACTIVE
+  CONVERTED
+  ABANDONED
+  EXPIRED
+}
+
+enum sizes_size_group {
+  TOP
+  PANT
+  GENERAL
+}
+
+enum customers_status {
+  ACTIVE
+  BLOCKED
+  ARCHIVED
+}
+
+enum staff_users_role {
+  SUPER_ADMIN
+  ADMIN
+  ORDER_MANAGER
+  INVENTORY_MANAGER
+  SUPPORT
+}
+
+enum inventory_movements_reference_type {
+  ORDER
+  CART
+  PURCHASE
+  RETURN
+  MANUAL
+  SYSTEM
+}
+
+enum payments_status {
+  INITIATED
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
+
+enum refunds_status {
+  REQUESTED
+  APPROVED
+  PROCESSING
+  COMPLETED
+  REJECTED
+}
+
+enum shipments_status {
+  PENDING
+  READY
+  DISPATCHED
+  IN_TRANSIT
+  DELIVERED
+  FAILED
+  RETURNED
+  CANCELLED
+}
+
+enum collections_status {
+  DRAFT
+  SCHEDULED
+  LIVE
+  SEALED
+  ARCHIVED
+}
+
+enum orders_source {
+  CART
+  BUY_NOW
+}
+
+enum product_variants_status {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+}
+
+enum complaints_priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum complaints_status {
+  OPEN
+  IN_REVIEW
+  WAITING_CUSTOMER
+  RESOLVED
+  CLOSED
+  REJECTED
+}
+
+enum product_reviews_status {
+  PENDING
+  APPROVED
+  REJECTED
+  HIDDEN
+}
+
+enum email_outbox_status {
+  PENDING
+  PROCESSING
+  SENT
+  FAILED
+  DEAD
+}
+
+enum products_status {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum orders_payment_method {
+  COD
+  MANUAL
+  MOBILE_FINANCIAL_SERVICE
+  BANK_TRANSFER
+  CARD
+}
+
+enum orders_order_status {
+  PENDING_CONFIRMATION
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REJECTED
+  RETURNED
+}
+
+enum orders_payment_status {
+  UNPAID
+  PENDING
+  PAID
+  FAILED
+  PARTIALLY_REFUNDED
+  REFUNDED
+}
