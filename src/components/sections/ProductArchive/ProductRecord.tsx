@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useLayoutEffect, useRef, useState } from "react";
 import { gsap } from "@/lib/gsap";
 import { EASE } from "@/styles/theme";
-import { PRODUCTS_COPY, type ArchiveProduct } from "@/data/products";
+import { PRODUCTS_COPY, getProductGallery, type ArchiveProduct } from "@/data/products";
 import { useCartStore } from "@/store/useCartStore";
 import styles from "./ProductArchive.module.css";
 
@@ -25,6 +25,7 @@ export default function ProductRecord({ product, ordinal }: ProductRecordProps) 
   const [cartSignal, setCartSignal] = useState("ADD TO CART");
   const addItem = useCartStore((state) => state.addItem);
   const isReverse = ordinal % 2 === 1;
+  const galleryCount = getProductGallery(product).length;
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -247,7 +248,7 @@ export default function ProductRecord({ product, ordinal }: ProductRecordProps) 
               ref={statusRef}
               className="border border-blood-accent px-3 py-2 font-stencil text-[0.48rem] tracking-stencil text-blood-accent"
             >
-              {product.worn ? `02 ${PRODUCTS_COPY.recoveredPlural}` : `01 ${PRODUCTS_COPY.recovered}`}
+              {galleryCount > 1 ? `${String(galleryCount).padStart(2, "0")} ${PRODUCTS_COPY.recoveredPlural}` : `01 ${PRODUCTS_COPY.recovered}`}
             </span>
             <span className="hidden font-stencil text-[0.48rem] tracking-stencil text-concrete-gray xl:block">
               {PRODUCTS_COPY.inspect}
@@ -257,9 +258,9 @@ export default function ProductRecord({ product, ordinal }: ProductRecordProps) 
           <div className="mt-7 grid gap-2">
             <Link
               href={`/products/${product.id}`}
-              className={`${styles.recordAction} group relative flex items-center justify-between overflow-hidden border border-bone-white/20 px-4 py-3`}
+              className={`${styles.recordAction} group relative flex min-h-[3.35rem] items-center justify-between overflow-hidden border border-bone-white/35 px-4 py-3`}
             >
-              <span className="relative z-10 font-stencil text-[0.52rem] tracking-stencil text-bone-white">
+              <span className="relative z-10 font-body text-[0.76rem] font-semibold uppercase tracking-[0.14em] text-bone-white">
                 OPEN FULL FILE
               </span>
               <span className="relative z-10 font-display text-lg text-blood-accent">↗</span>
@@ -268,23 +269,23 @@ export default function ProductRecord({ product, ordinal }: ProductRecordProps) 
               <button
                 type="button"
                 onClick={addToCart}
-                className={`${styles.recordAction} group relative overflow-hidden border border-bone-white/20 px-3 py-3 text-left`}
+                className={`${styles.recordAction} group relative min-h-[3.35rem] overflow-hidden border border-bone-white/35 px-4 py-3 text-left`}
               >
-                <span className="relative z-10 font-stencil text-[0.47rem] tracking-stencil text-bone-white">
+                <span className="relative z-10 font-body text-[0.74rem] font-semibold uppercase tracking-[0.12em] text-bone-white">
                   {cartSignal}
                 </span>
               </button>
               <button
                 type="button"
                 onClick={buyNow}
-                className={`${styles.buyAction} clip-cut group relative overflow-hidden bg-blood-accent px-3 py-3 text-left`}
+                className={`${styles.buyAction} clip-cut group relative min-h-[3.35rem] overflow-hidden border border-blood-accent bg-blood-accent px-4 py-3 text-left`}
               >
-                <span className="relative z-10 font-stencil text-[0.47rem] tracking-stencil text-bone-white">
+                <span className="relative z-10 font-body text-[0.74rem] font-semibold uppercase tracking-[0.12em] text-bone-white">
                   BUY NOW
                 </span>
               </button>
             </div>
-            <p className="font-stencil text-[0.43rem] leading-[1.7] tracking-stencil text-concrete-gray">
+            <p className="font-body text-[0.68rem] font-semibold uppercase leading-[1.55] tracking-[0.1em] text-concrete-gray">
               QUICK ACTION SIZE / {product.defaultSize} · CHANGE SIZE IN CART OR PRODUCT FILE
             </p>
           </div>
