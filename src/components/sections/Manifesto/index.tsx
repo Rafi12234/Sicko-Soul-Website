@@ -142,7 +142,7 @@ export default function Manifesto() {
         <span
           ref={ghostRef}
           aria-hidden
-          className={`${styles.ghost} pointer-events-none absolute -right-[4vw] top-[6vh] z-0 hidden font-blackletter text-[22vw] leading-none text-outline-2 opacity-[0.09] lg:block`}
+          className={`${styles.ghost} pointer-events-none absolute -right-[4vw] top-[6vh] z-0 hidden font-display text-[22vw] leading-none tracking-crushed text-outline-2 opacity-[0.09] lg:block`}
         >
           {MANIFESTO_COPY.ghost}
         </span>
@@ -200,7 +200,7 @@ export default function Manifesto() {
               </p>
             ))}
 
-            <p className="manifesto-verdict mt-7 font-blackletter text-[clamp(1.15rem,2.4vw,2.05rem)] leading-[1.2] text-blood-accent">
+            <p className="manifesto-verdict mt-7 font-body text-[clamp(1rem,1.8vw,1.45rem)] font-semibold uppercase leading-[1.25] tracking-[0.04em] text-blood-accent">
               {MANIFESTO_COPY.verdict}
               <span
                 aria-hidden
