@@ -11,8 +11,13 @@ import Streets from "@/components/sections/Streets";
 import Navbar from "@/components/ui/Navbar";
 import StatementBand from "@/components/ui/StatementBand";
 import { STATEMENTS } from "@/data/statements";
+import { getCatalogArchive } from "@/lib/catalogApi";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function Home() {
+  const catalogCategories = await getCatalogArchive();
+
   return (
     <>
       <Navbar />
@@ -21,7 +26,7 @@ export default function Home() {
         <Segments />
         <Manifesto />
         <StatementBand statement={STATEMENTS.entry} />
-        <Rack />
+        <Rack catalogCategories={catalogCategories} />
         <Streets />
         <StatementBand statement={STATEMENTS.seen} />
         <Lookbook />

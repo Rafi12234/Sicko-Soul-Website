@@ -144,17 +144,52 @@ export async function createOrder(input: CreateOrderInput) {
     });
 
     let sourceCartId: bigint | null = null;
-    if (input.cartToken) {
-      const cart = await tx.carts.findUnique({ where: { cart_token: input.cartToken } });
-
-      // The current storefront still has a legacy local/Zustand cart. Its cartToken
-      // may not exist in the server carts table yet. Checkout remains safe because
-      // every submitted item, price and stock row is independently resolved and
-      // validated by the server below. If a real backend cart exists, preserve the
-      // relationship and convert it after successful checkout.
-      if (cart?.status === "ACTIVE") {
-        sourceCartId = cart.cart_id;
+    if (input.source === "CART") {
+      if (!input.cartToken) {
+        throw new AppError({
+          statusCode: 422,
+          code: "CART_TOKEN_REQUIRED",
+          message: "A backend cart token is required for cart checkout.",
+        });
       }
+
+      const cart = await tx.carts.findUnique({
+        where: { cart_token: input.cartToken },
+        include: { cart_items: true },
+      });
+      if (!cart || cart.status !== "ACTIVE") {
+        throw new AppError({
+          statusCode: 409,
+          code: "CART_NOT_ACTIVE",
+          message: "This cart is no longer active.",
+        });
+      }
+      if (cart.expires_at && cart.expires_at.getTime() <= Date.now()) {
+        throw new AppError({
+          statusCode: 409,
+          code: "CART_EXPIRED",
+          message: "This cart has expired.",
+        });
+      }
+
+      const submitted = new Map(
+        [...resolved.entries()].map(([variantId, entry]) => [variantId, entry.quantity]),
+      );
+      const cartMatchesSubmission =
+        cart.cart_items.length === submitted.size &&
+        cart.cart_items.every(
+          (item) => submitted.get(item.variant_id.toString()) === item.quantity,
+        );
+
+      if (!cartMatchesSubmission) {
+        throw new AppError({
+          statusCode: 409,
+          code: "CART_CHANGED",
+          message: "The cart changed before checkout. Refresh it and try again.",
+        });
+      }
+
+      sourceCartId = cart.cart_id;
     }
 
     const subtotal = snapshots.reduce((sum, entry) => sum + entry.lineTotal, 0);

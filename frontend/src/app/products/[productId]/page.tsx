@@ -2,19 +2,27 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Navbar from "@/components/ui/Navbar";
 import ProductDetail from "@/components/commerce/ProductDetail";
-import { ALL_PRODUCTS, findProductById } from "@/data/products";
+import { ApiError } from "@/lib/apiClient";
+import { getCatalogProduct } from "@/lib/catalogApi";
 
 type ProductPageProps = {
   params: Promise<{ productId: string }>;
 };
 
-export function generateStaticParams() {
-  return ALL_PRODUCTS.map(({ product }) => ({ productId: product.id }));
+export const dynamic = "force-dynamic";
+
+async function loadProduct(productId: string) {
+  try {
+    return await getCatalogProduct(productId);
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 404) return null;
+    throw error;
+  }
 }
 
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { productId } = await params;
-  const lookup = findProductById(productId);
+  const lookup = await loadProduct(productId);
   if (!lookup) return { title: "Product File — SICKO SOUL" };
 
   return {
@@ -30,7 +38,7 @@ export async function generateMetadata({ params }: ProductPageProps): Promise<Me
 
 export default async function ProductPage({ params }: ProductPageProps) {
   const { productId } = await params;
-  const lookup = findProductById(productId);
+  const lookup = await loadProduct(productId);
   if (!lookup) notFound();
 
   return (

@@ -5,11 +5,11 @@ import Link from "next/link";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { EASE, STAGGER } from "@/styles/theme";
-import { PRODUCT_CATEGORIES, PRODUCTS_COPY, getProductGallery } from "@/data/products";
+import { PRODUCTS_COPY, getProductGallery, type ArchiveCategory } from "@/data/products";
 import ProductRecord from "./ProductRecord";
 import styles from "./ProductArchive.module.css";
 
-export default function ProductArchive() {
+export default function ProductArchive({ categories }: { categories: readonly ArchiveCategory[] }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLElement>(null);
   const selectorRef = useRef<HTMLElement>(null);
@@ -20,10 +20,10 @@ export default function ProductArchive() {
   const firstRenderRef = useRef(true);
   const switchingRef = useRef(false);
 
-  const [activeId, setActiveId] = useState<string>(PRODUCT_CATEGORIES[0].id);
+  const [activeId, setActiveId] = useState<string>(categories[0].id);
   const activeCategory = useMemo(
-    () => PRODUCT_CATEGORIES.find((category) => category.id === activeId) ?? PRODUCT_CATEGORIES[0],
-    [activeId],
+    () => categories.find((category) => category.id === activeId) ?? categories[0],
+    [activeId, categories],
   );
 
   const imageCount = useMemo(
@@ -209,7 +209,7 @@ export default function ProductArchive() {
   }, [activeId]);
 
   const switchCategory = (id: string) => {
-    const next = PRODUCT_CATEGORIES.find((category) => category.id === id);
+    const next = categories.find((category) => category.id === id);
     if (!next) return;
 
     const target = stageRef.current;
@@ -366,7 +366,7 @@ export default function ProductArchive() {
             className={`${styles.categoryMarker} pointer-events-none absolute inset-x-0 top-0 hidden bg-blood-accent md:block`}
           />
 
-          {PRODUCT_CATEGORIES.map((category) => {
+          {categories.map((category) => {
             const active = category.id === activeId;
             return (
               <button

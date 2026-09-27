@@ -9,9 +9,24 @@ import type { CollectionRecord } from "@/types/commerce";
 
 export default function DropsArchive() {
   const [collections, setCollections] = useState<CollectionRecord[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    listCollections().then(setCollections);
+    let alive = true;
+    listCollections()
+      .then((next) => {
+        if (alive) setCollections(next);
+      })
+      .catch((cause) => {
+        if (alive) setError(cause instanceof Error ? cause.message : "DROP ARCHIVE COULD NOT BE LOADED.");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
+    return () => {
+      alive = false;
+    };
   }, []);
 
   return (
@@ -21,6 +36,13 @@ export default function DropsArchive() {
       title="THE VAULT"
       subtitle="Live, scheduled and sealed Sicko Soul collections. What is closed stays closed."
     >
+      {loading ? (
+        <div className="h-px animate-pulse bg-blood-accent" />
+      ) : error ? (
+        <div className="border-l-2 border-blood-accent bg-blood-accent/10 p-6 font-body text-sm font-semibold uppercase tracking-[0.12em] text-blood-accent">{error}</div>
+      ) : collections.length === 0 ? (
+        <div className="border border-bone-white/15 bg-off-black p-6 font-body text-sm uppercase tracking-[0.12em] text-concrete-gray">NO CUSTOMER-VISIBLE COLLECTIONS ARE AVAILABLE.</div>
+      ) : (
       <div className="grid gap-5">
         {collections.map((collection, index) => (
           <Link
@@ -48,6 +70,7 @@ export default function DropsArchive() {
           </Link>
         ))}
       </div>
+      )}
     </RecordShell>
   );
 }

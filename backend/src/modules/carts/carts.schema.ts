@@ -18,6 +18,11 @@ export const addCartItemSchema = z.object({
   quantity: z.number().int().min(1).max(20).default(1),
 });
 
-export const updateCartItemSchema = z.object({
-  quantity: z.number().int().min(1).max(20),
-});
+export const updateCartItemSchema = z
+  .object({
+    quantity: z.number().int().min(1).max(20).optional(),
+    variantId: z.string().regex(/^\d+$/).optional(),
+  })
+  .refine((input) => input.quantity !== undefined || input.variantId !== undefined, {
+    message: "At least one cart item field must be updated.",
+  });

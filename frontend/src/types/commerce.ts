@@ -21,7 +21,111 @@ export type ProductVariantRecord = {
   isDefault?: boolean;
 };
 
+export type PublicProductImageRecord = {
+  id: string;
+  type: ProductImageType;
+  url: string;
+  alt: string | null;
+  sortOrder: number;
+};
+
+export type PublicProductFeatureRecord = {
+  id: string;
+  text: string;
+  sortOrder: number;
+};
+
+export type PublicProductVariantRecord = {
+  id: string;
+  size: string;
+  sizeLabel: string;
+  sizeGroup: "TOP" | "PANT" | "GENERAL";
+  sku: string;
+  price: number;
+  availableQty: number;
+  onHandQty: number;
+  reservedQty: number;
+  status: VariantStatus;
+  isDefault: boolean;
+};
+
+export type PublicProductRecord = {
+  id: string;
+  slug: string;
+  indexCode: string | null;
+  skuBase: string;
+  name: string;
+  basePrice: number;
+  currency: string;
+  spec: string | null;
+  tagline: string | null;
+  description: string | null;
+  category: {
+    id: string;
+    code: string;
+    slug: string;
+    name: string;
+  };
+  images: PublicProductImageRecord[];
+  features: PublicProductFeatureRecord[];
+  variants: PublicProductVariantRecord[];
+  defaultVariantId: string | null;
+  primaryImage: PublicProductImageRecord | null;
+  wornImage: PublicProductImageRecord | null;
+  availability: {
+    status: "IN_STOCK" | "OUT_OF_STOCK";
+    availableQty: number;
+  };
+};
+
+export type PublicCategoryRecord = {
+  id: string;
+  code: string;
+  slug: string;
+  indexCode: string | null;
+  name: string;
+  ghostName: string | null;
+  spec: string | null;
+  tagline: string | null;
+  registry: string | null;
+  coverUrl: string | null;
+  coverAlt: string | null;
+  sortOrder: number;
+  productCount: number;
+};
+
 export type CartStatus = "ACTIVE" | "CONVERTED" | "ABANDONED" | "EXPIRED";
+
+export type ServerCartItemRecord = {
+  id: string;
+  variantId: string;
+  productId: string;
+  productName: string;
+  productIndex?: string | null;
+  categoryName?: string | null;
+  categoryIndex?: string | null;
+  productSpec?: string | null;
+  size: string;
+  sku: string;
+  imageUrl: string | null;
+  quantity: number;
+  priceWhenAdded: number;
+  currentPrice: number;
+  availableQty: number;
+  variantStatus: VariantStatus;
+  lineTotal: number;
+};
+
+export type ServerCartRecord = {
+  token: string;
+  status: CartStatus;
+  expiresAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  items: ServerCartItemRecord[];
+  subtotal: number;
+  currency: "BDT";
+};
 
 export type PaymentMethod =
   | "COD"
@@ -212,6 +316,7 @@ export type CollectionProductRecord = {
   productId: string;
   sealed: boolean;
   sortOrder: number;
+  product?: PublicProductRecord;
 };
 
 export type CollectionRecord = {
@@ -219,10 +324,11 @@ export type CollectionRecord = {
   code: string;
   slug: string;
   name: string;
-  tagline?: string;
-  releaseYear?: number;
+  tagline?: string | null;
+  releaseYear?: number | null;
   status: CollectionStatus;
   opensAt?: string | null;
   closesAt?: string | null;
+  productCount?: number;
   products: CollectionProductRecord[];
 };

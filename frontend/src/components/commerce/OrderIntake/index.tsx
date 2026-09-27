@@ -12,7 +12,7 @@ import {
 } from "react";
 import { gsap, SplitText } from "@/lib/gsap";
 import { EASE } from "@/styles/theme";
-import { findProductById, getProductVariants, getVariantBySize } from "@/data/products";
+import { getVariantBySize, type ProductLookup } from "@/data/products";
 import { createIdempotencyKey, money } from "@/lib/commerce";
 import { createOrder } from "@/lib/customerApi";
 import { useCartStore } from "@/store/useCartStore";
@@ -25,9 +25,25 @@ type OrderIntakeProps = {
   productId?: string;
   size?: string;
   quantity?: number;
+  buyNowProduct?: ProductLookup | null;
 };
 
-export default function OrderIntake({ source, productId, size, quantity = 1 }: OrderIntakeProps) {
+type CheckoutLine = {
+  productId: string;
+  variantId: string;
+  productName: string;
+  productIndex: string;
+  categoryName: string;
+  imageUrl: string | null;
+  imageAlt: string;
+  size: string;
+  sku: string;
+  unitPrice: number;
+  availableQty: number;
+  quantity: number;
+};
+
+export default function OrderIntake({ source, productId, size, quantity = 1, buyNowProduct }: OrderIntakeProps) {
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -39,36 +55,50 @@ export default function OrderIntake({ source, productId, size, quantity = 1 }: O
   const markConverted = useCartStore((state) => state.markConverted);
   const isCart = source === "cart";
 
-  const lines = useMemo(() => {
+  const lines = useMemo<CheckoutLine[]>(() => {
     if (isCart) {
-      return cartItems.flatMap((item) => {
-        const lookup = findProductById(item.productId);
-        if (!lookup) return [];
-        const variant =
-          getProductVariants(lookup.product).find((entry) => entry.id === item.variantId) ??
-          getVariantBySize(lookup.product, item.size);
-        if (!variant) return [];
-        return [{ product: lookup.product, category: lookup.category, variant, quantity: item.quantity }];
-      });
+      return cartItems.map((item) => ({
+        productId: item.productId,
+        variantId: item.variantId,
+        productName: item.productName,
+        productIndex: item.productIndex ?? "—",
+        categoryName: item.categoryName ?? "PRODUCT",
+        imageUrl: item.imageUrl,
+        imageAlt: item.productName,
+        size: item.size,
+        sku: item.sku,
+        unitPrice: item.unitPrice,
+        availableQty: item.stockMax,
+        quantity: item.quantity,
+      }));
     }
 
-    if (!productId) return [];
-    const lookup = findProductById(productId);
-    if (!lookup) return [];
-    const variant = getVariantBySize(lookup.product, size ?? lookup.product.defaultSize);
-    if (!variant) return [];
+    if (!buyNowProduct) return [];
+    const variant = getVariantBySize(
+      buyNowProduct.product,
+      size ?? buyNowProduct.product.defaultSize,
+    );
+    if (!variant || variant.status !== "ACTIVE" || variant.availableQty <= 0) return [];
 
     return [
       {
-        product: lookup.product,
-        category: lookup.category,
-        variant,
+        productId: buyNowProduct.product.id,
+        variantId: variant.id,
+        productName: buyNowProduct.product.name,
+        productIndex: buyNowProduct.product.index,
+        categoryName: buyNowProduct.category.name,
+        imageUrl: buyNowProduct.product.still,
+        imageAlt: buyNowProduct.product.alt,
+        size: variant.size,
+        sku: variant.sku,
+        unitPrice: variant.price,
+        availableQty: variant.availableQty,
         quantity: Math.max(1, Math.min(variant.availableQty, quantity)),
       },
     ];
-  }, [cartItems, isCart, productId, quantity, size]);
+  }, [buyNowProduct, cartItems, isCart, quantity, size]);
 
-  const subtotal = lines.reduce((sum, line) => sum + line.variant.price * line.quantity, 0);
+  const subtotal = lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
   const itemCount = lines.reduce((sum, line) => sum + line.quantity, 0);
 
   useLayoutEffect(() => {
@@ -132,8 +162,8 @@ export default function OrderIntake({ source, productId, size, quantity = 1 }: O
       note: note || undefined,
       paymentMethod,
       items: lines.map((line) => ({
-        productId: line.product.id,
-        variantId: line.variant.id,
+        productId: line.productId,
+        variantId: line.variantId,
         quantity: line.quantity,
       })),
     };
@@ -254,20 +284,24 @@ export default function OrderIntake({ source, productId, size, quantity = 1 }: O
           </div>
 
           {lines.map((line) => (
-            <div key={line.variant.id} className="grid grid-cols-[5.5rem_1fr] gap-4 border-b border-bone-white/15 py-5">
+            <div key={line.variantId} className="grid grid-cols-[5.5rem_1fr] gap-4 border-b border-bone-white/15 py-5">
               <div className="theme-light relative aspect-[4/5] overflow-hidden bg-black p-1 shadow-print">
                 <div className="relative h-full w-full overflow-hidden bg-off-black">
-                  <Image src={line.product.still} alt={line.product.alt} fill sizes="6rem" className="media-product object-cover" />
+                  {line.imageUrl ? (
+                    <Image src={line.imageUrl} alt={line.imageAlt} fill sizes="6rem" className="media-product object-cover" />
+                  ) : (
+                    <div className="grid h-full place-items-center font-body text-[0.58rem] uppercase tracking-[0.12em] text-concrete-gray">NO FRAME</div>
+                  )}
                 </div>
               </div>
               <div className="flex flex-col justify-between">
                 <div>
-                  <span className="font-body text-[0.66rem] font-semibold uppercase tracking-[0.16em] text-blood-accent">{line.category.name} / {line.product.index}</span>
-                  <p className="mt-1 font-display text-[1.8rem] leading-[0.85] tracking-crushed">{line.product.name}</p>
+                  <span className="font-body text-[0.66rem] font-semibold uppercase tracking-[0.16em] text-blood-accent">{line.categoryName} / {line.productIndex}</span>
+                  <p className="mt-1 font-display text-[1.8rem] leading-[0.85] tracking-crushed">{line.productName}</p>
                 </div>
                 <div className="mt-3 flex items-end justify-between gap-3">
-                  <span className="font-body text-[0.68rem] font-semibold uppercase leading-[1.65] tracking-[0.13em] text-concrete-gray">SIZE {line.variant.size}<br />QTY {String(line.quantity).padStart(2, "0")}</span>
-                  <span className="font-body text-base font-semibold">{money(line.variant.price * line.quantity)}</span>
+                  <span className="font-body text-[0.68rem] font-semibold uppercase leading-[1.65] tracking-[0.13em] text-concrete-gray">SIZE {line.size}<br />QTY {String(line.quantity).padStart(2, "0")}</span>
+                  <span className="font-body text-base font-semibold">{money(line.unitPrice * line.quantity)}</span>
                 </div>
               </div>
             </div>

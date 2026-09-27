@@ -113,7 +113,7 @@ export async function addCartItem(cartToken: string, input: { variantId: string;
 export async function updateCartItem(
   cartToken: string,
   itemId: bigint,
-  input: { quantity: number },
+  input: { quantity?: number | undefined; variantId?: string | undefined },
 ) {
   const cart = await getActiveCart(cartToken);
   const item = cart.cart_items.find((entry) => entry.cart_item_id === itemId);
@@ -121,11 +121,50 @@ export async function updateCartItem(
     throw new AppError({ statusCode: 404, code: "CART_ITEM_NOT_FOUND", message: "Cart item was not found." });
   }
 
-  const stock = item.product_variants.inventory_stock;
-  const available = item.product_variants.status === "ACTIVE"
-    ? Math.max(0, (stock?.on_hand_qty ?? 0) - (stock?.reserved_qty ?? 0))
-    : 0;
-  if (input.quantity > available) {
+  const targetVariantId = input.variantId ? BigInt(input.variantId) : item.variant_id;
+  const switchingVariant = targetVariantId !== item.variant_id;
+  const requestedQty = input.quantity ?? item.quantity;
+
+  const targetVariant = switchingVariant
+    ? await prisma.product_variants.findFirst({
+        where: {
+          variant_id: targetVariantId,
+          status: "ACTIVE",
+          products: {
+            is: {
+              product_id: item.product_variants.product_id,
+              status: "ACTIVE",
+              product_categories: { is: { is_active: true } },
+            },
+          },
+        },
+        include: { inventory_stock: true, products: true },
+      })
+    : item.product_variants;
+
+  if (!targetVariant || targetVariant.status !== "ACTIVE") {
+    throw new AppError({
+      statusCode: 404,
+      code: "VARIANT_NOT_FOUND",
+      message: "The selected size is not available.",
+    });
+  }
+
+  const stock = targetVariant.inventory_stock;
+  const available = Math.max(0, (stock?.on_hand_qty ?? 0) - (stock?.reserved_qty ?? 0));
+  const collision = switchingVariant
+    ? cart.cart_items.find((entry) => entry.variant_id === targetVariantId)
+    : undefined;
+  const nextQty = (collision?.quantity ?? 0) + requestedQty;
+
+  if (nextQty > 20) {
+    throw new AppError({
+      statusCode: 422,
+      code: "CART_ITEM_QUANTITY_LIMIT",
+      message: "A cart line cannot exceed 20 units.",
+    });
+  }
+  if (nextQty > available) {
     throw new AppError({
       statusCode: 409,
       code: "INSUFFICIENT_STOCK",
@@ -134,10 +173,39 @@ export async function updateCartItem(
     });
   }
 
-  await prisma.cart_items.update({
-    where: { cart_item_id: itemId },
-    data: { quantity: input.quantity },
+  const targetPrice = targetVariant.price_override
+    ? decimalToNumber(targetVariant.price_override)
+    : decimalToNumber(targetVariant.products.base_price);
+
+  await prisma.$transaction(async (tx) => {
+    if (!switchingVariant) {
+      await tx.cart_items.update({
+        where: { cart_item_id: itemId },
+        data: { quantity: requestedQty, price_when_added: targetPrice },
+      });
+    } else if (collision) {
+      await tx.cart_items.delete({ where: { cart_item_id: itemId } });
+      await tx.cart_items.update({
+        where: { cart_item_id: collision.cart_item_id },
+        data: { quantity: nextQty, price_when_added: targetPrice },
+      });
+    } else {
+      await tx.cart_items.update({
+        where: { cart_item_id: itemId },
+        data: {
+          variant_id: targetVariantId,
+          quantity: requestedQty,
+          price_when_added: targetPrice,
+        },
+      });
+    }
+
+    await tx.carts.update({
+      where: { cart_id: cart.cart_id },
+      data: { expires_at: expiryDate() },
+    });
   });
+
   return mapCart((await findCartByToken(cartToken))!);
 }
 

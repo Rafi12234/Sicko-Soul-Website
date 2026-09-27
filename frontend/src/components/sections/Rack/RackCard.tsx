@@ -6,7 +6,8 @@ import { useLayoutEffect, useRef } from "react";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
 import { COLOR, EASE, themeColor } from "@/styles/theme";
 import { RACK_COPY, type RackProduct } from "@/data/rack";
-import { findProductById } from "@/data/products";
+import { getProductVariants } from "@/data/products";
+import { getCatalogProduct } from "@/lib/catalogApi";
 import { useCartStore } from "@/store/useCartStore";
 import styles from "./Rack.module.css";
 
@@ -25,8 +26,6 @@ type Props = {
 export default function RackCard({ product, offsetClass }: Props) {
   const router = useRouter();
   const addItem = useCartStore((state) => state.addItem);
-  const lookup = findProductById(product.id);
-  const defaultSize = lookup?.product.defaultSize ?? "M";
   const cardRef = useRef<HTMLElement>(null);
   const frameRef = useRef<HTMLDivElement>(null);
   const stillRef = useRef<HTMLDivElement>(null);
@@ -277,14 +276,27 @@ export default function RackCard({ product, offsetClass }: Props) {
     return () => ctx.revert();
   }, [product.id]);
 
-  const handleAddToCart = () => {
-    addItem(product.id, defaultSize, 1);
+  const handleAddToCart = async () => {
+    if (product.variantId) {
+      await addItem(product.variantId, 1);
+      return;
+    }
+
+    try {
+      const lookup = await getCatalogProduct(product.id);
+      const variants = getProductVariants(lookup.product);
+      const variant =
+        variants.find(
+          (entry) => entry.isDefault && entry.status === "ACTIVE" && entry.availableQty > 0,
+        ) ?? variants.find((entry) => entry.status === "ACTIVE" && entry.availableQty > 0);
+      if (variant) await addItem(variant.id, 1);
+    } catch {
+      // The cart store exposes the actionable error state.
+    }
   };
 
   const handleBuyNow = () => {
-    router.push(
-      `/buy-now?product=${encodeURIComponent(product.id)}&size=${encodeURIComponent(defaultSize)}&qty=1`,
-    );
+    router.push(`/buy-now?product=${encodeURIComponent(product.id)}&qty=1`);
   };
 
   return (

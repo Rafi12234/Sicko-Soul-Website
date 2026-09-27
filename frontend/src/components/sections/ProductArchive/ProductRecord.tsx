@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { useLayoutEffect, useRef, useState } from "react";
 import { gsap } from "@/lib/gsap";
 import { EASE } from "@/styles/theme";
-import { PRODUCTS_COPY, getProductGallery, type ArchiveProduct } from "@/data/products";
+import { PRODUCTS_COPY, getProductGallery, getProductVariants, type ArchiveProduct } from "@/data/products";
 import { useCartStore } from "@/store/useCartStore";
 import styles from "./ProductArchive.module.css";
 
@@ -110,9 +110,20 @@ export default function ProductRecord({ product, ordinal }: ProductRecordProps) 
     return () => ctx.revert();
   }, [product.id]);
 
-  const addToCart = () => {
-    addItem(product.id, product.defaultSize, 1);
-    setCartSignal("ADDED / CART +1");
+  const addToCart = async () => {
+    const variants = getProductVariants(product);
+    const defaultVariant =
+      variants.find(
+        (variant) => variant.isDefault && variant.status === "ACTIVE" && variant.availableQty > 0,
+      ) ?? variants.find((variant) => variant.status === "ACTIVE" && variant.availableQty > 0);
+
+    if (!defaultVariant) {
+      setCartSignal("SOLD OUT");
+      return;
+    }
+
+    const added = await addItem(defaultVariant.id, 1);
+    setCartSignal(added ? "ADDED / CART +1" : "CART UPDATE FAILED");
     window.setTimeout(() => setCartSignal("ADD TO CART"), 1300);
   };
 

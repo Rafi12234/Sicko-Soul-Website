@@ -2,14 +2,29 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { findProductById, getVariantBySize } from "@/data/products";
-import type { CartStatus } from "@/types/commerce";
+import { API_BASE_URL } from "@/lib/apiClient";
+import {
+  addServerCartItem,
+  createOrResumeCart,
+  getServerCart,
+  removeServerCartItem,
+  updateServerCartItem,
+} from "@/lib/cartApi";
+import type { CartStatus, ServerCartRecord } from "@/types/commerce";
 
 export type CartLine = {
   key: string;
+  itemId: string;
   productId: string;
+  productName: string;
+  productIndex?: string | null;
+  categoryName?: string | null;
+  categoryIndex?: string | null;
+  productSpec?: string | null;
   variantId: string;
   size: string;
+  sku: string;
+  imageUrl: string | null;
   quantity: number;
   unitPrice: number;
   stockMax: number;
@@ -19,28 +34,51 @@ type CartState = {
   cartToken: string | null;
   status: CartStatus;
   items: CartLine[];
-  ensureCartToken: () => string;
-  addItem: (productId: string, size: string, quantity?: number) => void;
-  removeItem: (key: string) => void;
-  setQuantity: (key: string, quantity: number) => void;
-  setSize: (key: string, size: string) => void;
+  subtotal: number;
+  syncing: boolean;
+  error: string | null;
+  initialize: () => Promise<void>;
+  addItem: (variantId: string, quantity?: number) => Promise<boolean>;
+  removeItem: (key: string) => Promise<void>;
+  setQuantity: (key: string, quantity: number) => Promise<void>;
+  setSize: (key: string, variantId: string) => Promise<void>;
+  clearCart: () => Promise<void>;
+  clearError: () => void;
   markConverted: () => void;
-  clearCart: () => void;
 };
 
-function makeToken() {
-  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
-    return crypto.randomUUID();
-  }
-  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+function linesFromServer(cart: ServerCartRecord): CartLine[] {
+  return cart.items.map((item) => ({
+    key: item.id,
+    itemId: item.id,
+    productId: item.productId,
+    productName: item.productName,
+    productIndex: item.productIndex,
+    categoryName: item.categoryName,
+    categoryIndex: item.categoryIndex,
+    productSpec: item.productSpec,
+    variantId: item.variantId,
+    size: item.size,
+    sku: item.sku,
+    imageUrl: item.imageUrl,
+    quantity: item.quantity,
+    unitPrice: item.currentPrice,
+    stockMax: item.availableQty,
+  }));
 }
 
-const lineKey = (productId: string, variantId: string) => `${productId}::${variantId}`;
+function stateFromServer(cart: ServerCartRecord) {
+  return {
+    cartToken: cart.token,
+    status: cart.status,
+    items: linesFromServer(cart),
+    subtotal: cart.subtotal,
+    error: null,
+  };
+}
 
-function resolveVariant(productId: string, size: string) {
-  const lookup = findProductById(productId);
-  if (!lookup) return null;
-  return getVariantBySize(lookup.product, size) ?? null;
+function errorMessage(error: unknown) {
+  return error instanceof Error ? error.message : "CART COULD NOT BE UPDATED.";
 }
 
 export const useCartStore = create<CartState>()(
@@ -49,162 +87,155 @@ export const useCartStore = create<CartState>()(
       cartToken: null,
       status: "ACTIVE",
       items: [],
+      subtotal: 0,
+      syncing: false,
+      error: null,
 
-      ensureCartToken: () => {
-        const current = get().cartToken;
-        if (current) return current;
-        const next = makeToken();
-        set({ cartToken: next, status: "ACTIVE" });
-        return next;
-      },
+      initialize: async () => {
+        if (!API_BASE_URL) {
+          set({
+            items: [],
+            subtotal: 0,
+            error: "NEXT_PUBLIC_API_BASE_URL IS NOT CONFIGURED.",
+          });
+          return;
+        }
 
-      addItem: (productId, size, quantity = 1) => {
-        const variant = resolveVariant(productId, size);
-        if (!variant || variant.status !== "ACTIVE" || variant.availableQty <= 0) return;
+        const token = get().cartToken;
+        if (!token) return;
 
-        const token = get().cartToken ?? makeToken();
-        const key = lineKey(productId, variant.id);
-
-        set((state) => {
-          const existing = state.items.find((item) => item.key === key);
-          if (existing) {
-            return {
-              cartToken: token,
-              status: "ACTIVE",
-              items: state.items.map((item) =>
-                item.key === key
-                  ? {
-                      ...item,
-                      quantity: Math.max(
-                        1,
-                        Math.min(variant.availableQty, item.quantity + quantity),
-                      ),
-                      unitPrice: variant.price,
-                      stockMax: variant.availableQty,
-                    }
-                  : item,
-              ),
-            };
-          }
-
-          return {
-            cartToken: token,
+        set({ syncing: true });
+        try {
+          const cart = await getServerCart(token);
+          set({ ...stateFromServer(cart), syncing: false });
+        } catch {
+          // Expired, converted or legacy carts are not restored. A fresh cart is
+          // created lazily the next time a customer adds a product.
+          set({
+            cartToken: null,
             status: "ACTIVE",
-            items: [
-              ...state.items,
-              {
-                key,
-                productId,
-                variantId: variant.id,
-                size: variant.size,
-                quantity: Math.max(1, Math.min(variant.availableQty, quantity)),
-                unitPrice: variant.price,
-                stockMax: variant.availableQty,
-              },
-            ],
-          };
-        });
+            items: [],
+            subtotal: 0,
+            syncing: false,
+          });
+        }
       },
 
-      removeItem: (key) =>
-        set((state) => ({ items: state.items.filter((item) => item.key !== key) })),
+      addItem: async (variantId, quantity = 1) => {
+        if (!/^\d+$/.test(variantId)) {
+          set({ error: "THIS PRODUCT VARIANT IS NOT CONNECTED TO THE BACKEND CATALOG." });
+          return false;
+        }
 
-      setQuantity: (key, quantity) =>
-        set((state) => ({
-          items: state.items
-            .map((item) =>
-              item.key === key
-                ? { ...item, quantity: Math.max(0, Math.min(item.stockMax, Math.round(quantity))) }
-                : item,
-            )
-            .filter((item) => item.quantity > 0),
-        })),
+        set({ syncing: true, error: null });
+        try {
+          const cart = await createOrResumeCart(get().cartToken);
+          const updated = await addServerCartItem(cart.token, variantId, Math.max(1, quantity));
+          set({ ...stateFromServer(updated), syncing: false });
+          return true;
+        } catch (error) {
+          set({ syncing: false, error: errorMessage(error) });
+          return false;
+        }
+      },
 
-      setSize: (key, size) =>
-        set((state) => {
-          const source = state.items.find((item) => item.key === key);
-          if (!source) return state;
+      removeItem: async (key) => {
+        const token = get().cartToken;
+        if (!token) return;
+        set({ syncing: true, error: null });
+        try {
+          const updated = await removeServerCartItem(token, key);
+          set({ ...stateFromServer(updated), syncing: false });
+        } catch (error) {
+          set({ syncing: false, error: errorMessage(error) });
+        }
+      },
 
-          const variant = resolveVariant(source.productId, size);
-          if (!variant || variant.status !== "ACTIVE" || variant.availableQty <= 0) return state;
+      setQuantity: async (key, quantity) => {
+        if (quantity <= 0) {
+          await get().removeItem(key);
+          return;
+        }
+        const token = get().cartToken;
+        if (!token) return;
+        set({ syncing: true, error: null });
+        try {
+          const updated = await updateServerCartItem(token, key, {
+            quantity: Math.max(1, Math.round(quantity)),
+          });
+          set({ ...stateFromServer(updated), syncing: false });
+        } catch (error) {
+          set({ syncing: false, error: errorMessage(error) });
+        }
+      },
 
-          const nextKey = lineKey(source.productId, variant.id);
-          if (nextKey === key) return state;
+      setSize: async (key, variantId) => {
+        const token = get().cartToken;
+        if (!token || !/^\d+$/.test(variantId)) return;
+        set({ syncing: true, error: null });
+        try {
+          const updated = await updateServerCartItem(token, key, { variantId });
+          set({ ...stateFromServer(updated), syncing: false });
+        } catch (error) {
+          set({ syncing: false, error: errorMessage(error) });
+        }
+      },
 
-          const collision = state.items.find((item) => item.key === nextKey);
-          if (collision) {
-            return {
-              ...state,
-              items: state.items
-                .filter((item) => item.key !== key)
-                .map((item) =>
-                  item.key === nextKey
-                    ? {
-                        ...item,
-                        quantity: Math.min(
-                          variant.availableQty,
-                          item.quantity + source.quantity,
-                        ),
-                        unitPrice: variant.price,
-                        stockMax: variant.availableQty,
-                      }
-                    : item,
-                ),
-            };
+      clearCart: async () => {
+        const token = get().cartToken;
+        const itemIds = get().items.map((item) => item.itemId);
+        if (!token || itemIds.length === 0) {
+          set({ items: [], subtotal: 0, error: null });
+          return;
+        }
+
+        set({ syncing: true, error: null });
+        try {
+          let cart: ServerCartRecord | null = null;
+          for (const itemId of itemIds) {
+            cart = await removeServerCartItem(token, itemId);
           }
+          if (cart) set({ ...stateFromServer(cart), syncing: false });
+          else set({ items: [], subtotal: 0, syncing: false });
+        } catch (error) {
+          set({ syncing: false, error: errorMessage(error) });
+        }
+      },
 
-          return {
-            ...state,
-            items: state.items.map((item) =>
-              item.key === key
-                ? {
-                    ...item,
-                    key: nextKey,
-                    variantId: variant.id,
-                    size: variant.size,
-                    quantity: Math.min(source.quantity, variant.availableQty),
-                    unitPrice: variant.price,
-                    stockMax: variant.availableQty,
-                  }
-                : item,
-            ),
-          };
+      clearError: () => set({ error: null }),
+      markConverted: () =>
+        set({
+          items: [],
+          subtotal: 0,
+          cartToken: null,
+          status: "CONVERTED",
+          syncing: false,
+          error: null,
         }),
-
-      markConverted: () => set({ items: [], status: "CONVERTED" }),
-      clearCart: () => set({ items: [], cartToken: null, status: "ACTIVE" }),
     }),
     {
       name: "sicko-soul-cart",
-      version: 2,
+      version: 3,
       storage: createJSONStorage(() => localStorage),
-      migrate: (persistedState) => {
-        const saved = persistedState as Partial<CartState> & {
-          items?: Array<Partial<CartLine> & { productId: string; size: string; quantity: number }>;
-        };
-
-        const normalized = (saved.items ?? []).flatMap((item) => {
-          const variant = resolveVariant(item.productId, item.size);
-          if (!variant || variant.status !== "ACTIVE" || variant.availableQty <= 0) return [];
-          return [
-            {
-              key: lineKey(item.productId, variant.id),
-              productId: item.productId,
-              variantId: variant.id,
-              size: variant.size,
-              quantity: Math.max(1, Math.min(variant.availableQty, item.quantity ?? 1)),
-              unitPrice: variant.price,
-              stockMax: variant.availableQty,
-            },
-          ];
-        });
-
-        return {
-          ...saved,
-          cartToken: saved.cartToken ?? null,
-          status: saved.status ?? "ACTIVE",
-          items: normalized,
-        };
+      partialize: (state) => ({
+        cartToken: state.cartToken,
+        status: state.status,
+        items: state.items,
+        subtotal: state.subtotal,
+      }),
+      migrate: (persistedState, version) => {
+        const saved = persistedState as Partial<CartState>;
+        if (version < 3) {
+          return {
+            cartToken: saved.cartToken ?? null,
+            status: "ACTIVE" as CartStatus,
+            items: [],
+            subtotal: 0,
+            syncing: false,
+            error: null,
+          };
+        }
+        return saved as CartState;
       },
       skipHydration: true,
     },

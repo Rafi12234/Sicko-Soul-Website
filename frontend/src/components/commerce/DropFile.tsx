@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { findProductById } from "@/data/products";
+import { archiveProductFromApi } from "@/lib/catalogApi";
 import { getCollection } from "@/lib/customerApi";
 import { collectionLabel, humanizeStatus } from "@/lib/commerce";
 import type { CollectionRecord } from "@/types/commerce";
@@ -23,16 +23,21 @@ function countdown(target?: string | null) {
 export default function DropFile({ slug }: { slug: string }) {
   const [collection, setCollection] = useState<CollectionRecord | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [, forceTick] = useState(0);
 
   useEffect(() => {
     let alive = true;
-    getCollection(slug).then((result) => {
-      if (alive) {
-        setCollection(result);
-        setLoading(false);
-      }
-    });
+    getCollection(slug)
+      .then((result) => {
+        if (alive) setCollection(result);
+      })
+      .catch((cause) => {
+        if (alive) setLoadError(cause instanceof Error ? cause.message : "DROP FILE COULD NOT BE LOADED.");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
     return () => {
       alive = false;
     };
@@ -47,6 +52,14 @@ export default function DropFile({ slug }: { slug: string }) {
     return (
       <RecordShell index="09" eyebrow="VAULT / OPENING" title="CLEARING ACCESS">
         <div className="h-px animate-pulse bg-blood-accent" />
+      </RecordShell>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <RecordShell index="00" eyebrow="VAULT / CONNECTION ERROR" title="DROP FILE UNAVAILABLE" subtitle={loadError}>
+        <SickoButton href="/drops" tone="blood">RETURN TO VAULT</SickoButton>
       </RecordShell>
     );
   }
@@ -73,7 +86,7 @@ export default function DropFile({ slug }: { slug: string }) {
       index="09"
       eyebrow={`${collection.code} / ${collectionLabel(collection.status)}`}
       title={collection.name}
-      subtitle={collection.tagline}
+      subtitle={collection.tagline ?? undefined}
     >
       <div className="mb-12 grid gap-6 border-y border-bone-white/15 py-6 md:grid-cols-3">
         <div><span className="font-body text-xs font-semibold uppercase tracking-[0.16em] text-concrete-gray">STATUS</span><p className="mt-2 font-display text-3xl tracking-crushed">{humanizeStatus(collection.status)}</p></div>
@@ -90,16 +103,15 @@ export default function DropFile({ slug }: { slug: string }) {
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
         {collection.products.map((entry) => {
-          const lookup = findProductById(entry.productId);
-          if (!lookup) return null;
-
+          if (!entry.product) return null;
+          const product = archiveProductFromApi(entry.product);
           const locked = entry.sealed || collection.status === "SEALED" || accessBlocked;
           const content = (
             <>
               <div className="relative aspect-[4/5] overflow-hidden bg-off-black">
                 <Image
-                  src={lookup.product.still}
-                  alt={lookup.product.alt}
+                  src={product.still}
+                  alt={product.alt}
                   fill
                   sizes="(max-width:768px) 100vw, 33vw"
                   className={`media-product object-cover transition duration-700 ${locked ? "grayscale brightness-[.28] contrast-125" : "group-hover:scale-[1.03]"}`}
@@ -107,8 +119,8 @@ export default function DropFile({ slug }: { slug: string }) {
                 {locked && <div className="absolute inset-0 grid place-items-center bg-black/35"><span className="border border-blood-accent bg-black px-4 py-3 font-body text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-blood-accent">SEALED</span></div>}
               </div>
               <div className="border-x border-b-bone-white/15 p-5">
-                <span className="font-body text-[0.66rem] font-semibold uppercase tracking-[0.17em] text-blood-accent">{lookup.category.name}</span>
-                <h2 className="mt-2 font-display text-[2.4rem] leading-[0.86] tracking-crushed">{lookup.product.name}</h2>
+                <span className="font-body text-[0.66rem] font-semibold uppercase tracking-[0.17em] text-blood-accent">{entry.product.category.name}</span>
+                <h2 className="mt-2 font-display text-[2.4rem] leading-[0.86] tracking-crushed">{product.name}</h2>
                 <p className="mt-4 font-body text-sm font-semibold uppercase tracking-[0.12em] text-concrete-gray">{locked ? "ACCESS DENIED" : "OPEN GARMENT FILE →"}</p>
               </div>
             </>

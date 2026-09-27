@@ -6,16 +6,17 @@ import { EASE, STAGGER } from "@/styles/theme";
 import {
   RACK_CATEGORIES,
   RACK_COPY,
-  RACK_PRODUCTS,
   type RackCategory,
+  type RackProduct,
 } from "@/data/rack";
+import { getProductVariants, type ArchiveCategory } from "@/data/products";
 import RackCard from "./RackCard";
 import styles from "./Rack.module.css";
 
 /** Column baselines. Nothing in this grid lines up on purpose. */
 const OFFSET = ["lg:mt-0", "lg:mt-[6vh]", "lg:mt-[2vh]", "lg:mt-[8vh]"];
 
-export default function Rack() {
+export default function Rack({ catalogCategories }: { catalogCategories: readonly ArchiveCategory[] }) {
   const rootRef = useRef<HTMLElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<HTMLSpanElement>(null);
@@ -28,7 +29,26 @@ export default function Rack() {
   const firstRunRef = useRef(true);
 
   const [activeId, setActiveId] = useState<string>(RACK_CATEGORIES[0].id);
-  const products = RACK_PRODUCTS[activeId] ?? [];
+  const activeCatalogCategory = catalogCategories.find((category) => category.id === activeId);
+  const products: RackProduct[] = (activeCatalogCategory?.products ?? []).map((product) => {
+    const variants = getProductVariants(product);
+    const defaultVariant =
+      variants.find(
+        (variant) => variant.isDefault && variant.status === "ACTIVE" && variant.availableQty > 0,
+      ) ?? variants.find((variant) => variant.status === "ACTIVE" && variant.availableQty > 0);
+
+    return {
+      id: product.id,
+      index: product.index,
+      name: product.name,
+      still: product.still,
+      worn: product.worn ?? product.still,
+      price: product.price,
+      spec: product.spec,
+      line: product.line,
+      variantId: defaultVariant?.id,
+    };
+  });
 
   const placeMarker = (instant: boolean) => {
     const rail = railRef.current;

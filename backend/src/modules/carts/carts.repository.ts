@@ -10,6 +10,13 @@ export const cartInclude = {
           inventory_stock: true,
           products: {
             include: {
+              product_categories: {
+                select: {
+                  name: true,
+                  index_code: true,
+                  slug: true,
+                },
+              },
               product_images: {
                 orderBy: [{ sort_order: "asc" }, { image_id: "asc" }],
               },

@@ -3,12 +3,14 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useLayoutEffect, useMemo, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap, SplitText } from "@/lib/gsap";
 import { EASE } from "@/styles/theme";
-import { findProductById, getProductVariants } from "@/data/products";
+import { getProductVariants } from "@/data/products";
+import { getCatalogProduct } from "@/lib/catalogApi";
 import { money } from "@/lib/commerce";
 import { useCartStore } from "@/store/useCartStore";
+import type { ProductVariantRecord } from "@/types/commerce";
 import SickoButton from "@/components/ui/SickoButton";
 import styles from "./Cart.module.css";
 
@@ -17,29 +19,45 @@ export default function Cart() {
   const rootRef = useRef<HTMLDivElement>(null);
   const items = useCartStore((state) => state.items);
   const cartStatus = useCartStore((state) => state.status);
+  const subtotal = useCartStore((state) => state.subtotal);
+  const syncing = useCartStore((state) => state.syncing);
+  const cartError = useCartStore((state) => state.error);
   const removeItem = useCartStore((state) => state.removeItem);
   const setQuantity = useCartStore((state) => state.setQuantity);
   const setSize = useCartStore((state) => state.setSize);
   const clearCart = useCartStore((state) => state.clearCart);
+  const [variantsByProduct, setVariantsByProduct] = useState<Record<string, ProductVariantRecord[]>>({});
 
-  const lines = useMemo(
-    () =>
-      items.flatMap((item) => {
-        const lookup = findProductById(item.productId);
-        if (!lookup) return [];
-        const variants = getProductVariants(lookup.product);
-        const variant = variants.find((entry) => entry.id === item.variantId) ??
-          variants.find((entry) => entry.size === item.size);
-        return variant ? [{ item, variant, variants, ...lookup }] : [];
-      }),
+  const productIds = useMemo(
+    () => [...new Set(items.map((item) => item.productId))].sort(),
     [items],
   );
 
-  const itemCount = lines.reduce((sum, line) => sum + line.item.quantity, 0);
-  const subtotal = lines.reduce(
-    (sum, line) => sum + line.variant.price * line.item.quantity,
-    0,
-  );
+  useEffect(() => {
+    let alive = true;
+    const missing = productIds.filter((productId) => !variantsByProduct[productId]);
+    if (missing.length === 0) return;
+
+    Promise.all(
+      missing.map(async (productId) => {
+        try {
+          const lookup = await getCatalogProduct(productId);
+          return [productId, getProductVariants(lookup.product)] as const;
+        } catch {
+          return [productId, []] as const;
+        }
+      }),
+    ).then((entries) => {
+      if (!alive) return;
+      setVariantsByProduct((current) => ({ ...current, ...Object.fromEntries(entries) }));
+    });
+
+    return () => {
+      alive = false;
+    };
+  }, [productIds, variantsByProduct]);
+
+  const itemCount = items.reduce((sum, item) => sum + item.quantity, 0);
 
   useLayoutEffect(() => {
     const root = rootRef.current;
@@ -62,9 +80,9 @@ export default function Cart() {
     }, root);
 
     return () => ctx.revert();
-  }, [lines.length]);
+  }, [items.length]);
 
-  if (lines.length === 0) {
+  if (items.length === 0) {
     return (
       <div ref={rootRef} className="relative min-h-screen overflow-hidden bg-black px-gutter pb-[12vh] pt-32 text-bone-white">
         <span aria-hidden className={`${styles.grid} pointer-events-none absolute inset-0`} />
@@ -83,6 +101,11 @@ export default function Cart() {
           {cartStatus === "CONVERTED" && (
             <p className="mt-4 max-w-[40ch] border-l border-blood-accent pl-4 font-body text-sm uppercase tracking-[0.12em] text-bone-white/55">
               The last holding cell was converted into an order file.
+            </p>
+          )}
+          {cartError && (
+            <p className="mt-4 max-w-[52ch] border-l border-blood-accent pl-4 font-body text-sm uppercase tracking-[0.12em] text-blood-accent">
+              {cartError}
             </p>
           )}
           <div className="mt-10 max-w-sm">
@@ -113,7 +136,7 @@ export default function Cart() {
             <h1 className="cart-title text-distress font-display text-[clamp(5rem,13vw,13rem)] leading-[0.72] tracking-crushed">HOLDING CELL</h1>
           </div>
           <p className="max-w-[36ch] font-body text-[0.78rem] font-semibold uppercase leading-[1.8] tracking-[0.12em] text-concrete-gray lg:text-right">
-            CHANGE THE SIZE. CHANGE THE COUNT. REMOVE THE RECORD. STOCK IS CHECKED AGAIN WHEN THE ORDER IS SEALED.
+            CHANGE THE SIZE. CHANGE THE COUNT. REMOVE THE RECORD. STOCK IS CHECKED LIVE AGAINST THE BACKEND.
           </p>
         </div>
         <span className="cart-rule mt-7 block h-px w-full bg-bone-white/15" />
@@ -121,15 +144,27 @@ export default function Cart() {
 
       <section className="relative z-10 grid gap-10 px-gutter pb-[12vh] xl:grid-cols-12 xl:gap-x-[5vw]">
         <div className="xl:col-span-8">
-          {lines.map(({ item, product, category, variant, variants }, index) => {
-            const activeVariants = variants.filter((entry) => entry.status === "ACTIVE");
-            const lowStock = variant.availableQty <= 3;
+          {cartError && (
+            <div className="mb-5 border-l-2 border-blood-accent bg-blood-accent/10 px-5 py-4 font-body text-[0.78rem] font-semibold uppercase tracking-[0.12em] text-bone-white">
+              {cartError}
+            </div>
+          )}
+
+          {items.map((item, index) => {
+            const variants = (variantsByProduct[item.productId] ?? []).filter(
+              (entry) => entry.status === "ACTIVE",
+            );
+            const lowStock = item.stockMax <= 3;
 
             return (
               <article key={item.key} className={`${styles.line} cart-line grid gap-5 border-b border-bone-white/15 py-7 md:grid-cols-[11rem_1fr_auto] md:items-stretch`}>
-                <Link href={`/products/${product.id}`} className={`${styles.thumb} theme-light relative block aspect-[4/5] overflow-hidden bg-black p-1.5 shadow-print`}>
+                <Link href={`/products/${item.productId}`} className={`${styles.thumb} theme-light relative block aspect-[4/5] overflow-hidden bg-black p-1.5 shadow-print`}>
                   <div className="relative h-full w-full overflow-hidden bg-off-black">
-                    <Image src={product.still} alt={product.alt} fill sizes="(max-width: 768px) 40vw, 11rem" className="media-product object-cover transition-transform duration-700 ease-hard hover:scale-[1.04]" />
+                    {item.imageUrl ? (
+                      <Image src={item.imageUrl} alt={item.productName} fill sizes="(max-width: 768px) 40vw, 11rem" className="media-product object-cover transition-transform duration-700 ease-hard hover:scale-[1.04]" />
+                    ) : (
+                      <div className="grid h-full place-items-center font-body text-[0.65rem] uppercase tracking-[0.14em] text-concrete-gray">NO FRAME</div>
+                    )}
                     <span className={`${styles.vignette} absolute inset-0`} />
                     <span className="absolute left-2 top-2 bg-black/75 px-2 py-1 font-body text-[0.64rem] font-semibold tracking-[0.13em] text-bone-white/75">{String(index + 1).padStart(2, "0")}</span>
                   </div>
@@ -137,17 +172,17 @@ export default function Cart() {
 
                 <div className="flex flex-col justify-between py-1">
                   <div>
-                    <p className="font-body text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-blood-accent">{category.name} / FILE {product.index}</p>
-                    <Link href={`/products/${product.id}`} className="mt-2 block max-w-[10ch] font-display text-[clamp(2.4rem,5vw,5rem)] leading-[0.8] tracking-crushed text-bone-white hover:text-concrete-gray">
-                      {product.name}
+                    <p className="font-body text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-blood-accent">{item.categoryName ?? "PRODUCT"} / FILE {item.productIndex ?? "—"}</p>
+                    <Link href={`/products/${item.productId}`} className="mt-2 block max-w-[10ch] font-display text-[clamp(2.4rem,5vw,5rem)] leading-[0.8] tracking-crushed text-bone-white hover:text-concrete-gray">
+                      {item.productName}
                     </Link>
-                    <p className="mt-3 font-body text-[0.7rem] font-semibold uppercase tracking-[0.15em] text-concrete-gray">{product.spec}</p>
+                    {item.productSpec && <p className="mt-3 font-body text-[0.7rem] font-semibold uppercase tracking-[0.15em] text-concrete-gray">{item.productSpec}</p>}
                     <p className={`mt-4 font-body text-[0.7rem] font-semibold uppercase tracking-[0.15em] ${lowStock ? "text-blood-accent" : "text-bone-white/55"}`}>
-                      {variant.availableQty <= 0 ? "NO STOCK" : lowStock ? `ONLY ${variant.availableQty} LEFT IN ${variant.size}` : `${variant.availableQty} AVAILABLE IN ${variant.size}`}
+                      {item.stockMax <= 0 ? "NO STOCK" : lowStock ? `ONLY ${item.stockMax} LEFT IN ${item.size}` : `${item.stockMax} AVAILABLE IN ${item.size}`}
                     </p>
                   </div>
 
-                  <button type="button" onClick={() => removeItem(item.key)} className="mt-6 w-fit border-b border-blood-accent pb-1 font-body text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-concrete-gray transition-colors hover:text-blood-accent">
+                  <button type="button" disabled={syncing} onClick={() => void removeItem(item.key)} className="mt-6 w-fit border-b border-blood-accent pb-1 font-body text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-concrete-gray transition-colors hover:text-blood-accent disabled:opacity-40">
                     BURN THIS RECORD
                   </button>
                 </div>
@@ -157,12 +192,14 @@ export default function Cart() {
                     <label htmlFor={`size-${item.key}`} className="block font-body text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-concrete-gray">SIZE</label>
                     <select
                       id={`size-${item.key}`}
-                      value={item.size}
-                      onChange={(event) => setSize(item.key, event.target.value)}
-                      className={`${styles.select} mt-2 w-full border border-bone-white/20 bg-black px-3 py-3 font-body text-[0.82rem] font-semibold uppercase tracking-[0.12em] text-bone-white`}
+                      value={item.variantId}
+                      disabled={syncing || variants.length === 0}
+                      onChange={(event) => void setSize(item.key, event.target.value)}
+                      className={`${styles.select} mt-2 w-full border border-bone-white/20 bg-black px-3 py-3 font-body text-[0.82rem] font-semibold uppercase tracking-[0.12em] text-bone-white disabled:opacity-40`}
                     >
-                      {activeVariants.map((entry) => (
-                        <option key={entry.id} value={entry.size} disabled={entry.availableQty <= 0}>
+                      {variants.length === 0 && <option value={item.variantId}>{item.size}</option>}
+                      {variants.map((entry) => (
+                        <option key={entry.id} value={entry.id} disabled={entry.availableQty <= 0}>
                           {entry.size}{entry.availableQty <= 0 ? " / SOLD" : ""}
                         </option>
                       ))}
@@ -172,15 +209,15 @@ export default function Cart() {
                   <div>
                     <span className="block font-body text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-concrete-gray">QUANTITY</span>
                     <div className="mt-2 flex w-full items-center border border-bone-white/20">
-                      <button type="button" onClick={() => setQuantity(item.key, item.quantity - 1)} className="h-10 flex-1 font-display text-lg hover:bg-bone-white hover:text-black" aria-label={`Decrease ${product.name} quantity`}>−</button>
+                      <button type="button" disabled={syncing} onClick={() => void setQuantity(item.key, item.quantity - 1)} className="h-10 flex-1 font-display text-lg hover:bg-bone-white hover:text-black disabled:opacity-25" aria-label={`Decrease ${item.productName} quantity`}>−</button>
                       <span className="flex h-10 min-w-10 items-center justify-center border-x border-bone-white/20 font-body text-sm font-semibold">{String(item.quantity).padStart(2, "0")}</span>
-                      <button type="button" disabled={item.quantity >= variant.availableQty} onClick={() => setQuantity(item.key, item.quantity + 1)} className="h-10 flex-1 font-display text-lg hover:bg-bone-white hover:text-black disabled:opacity-25" aria-label={`Increase ${product.name} quantity`}>+</button>
+                      <button type="button" disabled={syncing || item.quantity >= item.stockMax} onClick={() => void setQuantity(item.key, item.quantity + 1)} className="h-10 flex-1 font-display text-lg hover:bg-bone-white hover:text-black disabled:opacity-25" aria-label={`Increase ${item.productName} quantity`}>+</button>
                     </div>
                   </div>
 
                   <div className="flex items-end justify-between gap-4 border-t border-bone-white/15 pt-4">
                     <span className="font-body text-[0.66rem] font-semibold uppercase tracking-[0.15em] text-concrete-gray">LINE TOTAL</span>
-                    <span className="font-body text-lg font-semibold">{money(variant.price * item.quantity)}</span>
+                    <span className="font-body text-lg font-semibold">{money(item.unitPrice * item.quantity)}</span>
                   </div>
                 </div>
               </article>
@@ -189,7 +226,7 @@ export default function Cart() {
 
           <div className="mt-7 flex flex-wrap items-center justify-between gap-5">
             <Link href="/products" className="font-body text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-concrete-gray hover:text-bone-white">← ADD MORE EVIDENCE</Link>
-            <button type="button" onClick={clearCart} className="font-body text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-concrete-gray hover:text-blood-accent">CLEAR THE CELL</button>
+            <button type="button" disabled={syncing} onClick={() => void clearCart()} className="font-body text-[0.72rem] font-semibold uppercase tracking-[0.14em] text-concrete-gray hover:text-blood-accent disabled:opacity-40">CLEAR THE CELL</button>
           </div>
         </div>
 
@@ -216,12 +253,12 @@ export default function Cart() {
           </dl>
 
           <p className="mt-6 font-body text-[0.95rem] leading-[1.6] text-bone-white/55">
-            Stock and prices are validated again by the order endpoint. Browser values are only the preview.
+            This holding cell is stored by the backend. Stock and current prices are returned by the server after every change.
           </p>
 
           <div className="mt-7">
-            <SickoButton type="button" tone="blood" full onClick={() => router.push("/buy-now?source=cart")}>
-              TAKE THIS ORDER
+            <SickoButton type="button" tone="blood" full disabled={syncing} onClick={() => router.push("/buy-now?source=cart")}>
+              {syncing ? "SYNCING CELL..." : "TAKE THIS ORDER"}
             </SickoButton>
           </div>
         </aside>

@@ -25,17 +25,22 @@ export default function OrderFile({
 }) {
   const [order, setOrder] = useState<CustomerOrder | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [refundOpen, setRefundOpen] = useState(false);
   const [signal, setSignal] = useState("");
 
   useEffect(() => {
     let alive = true;
-    getOrder(reference).then((result) => {
-      if (alive) {
-        setOrder(result);
-        setLoading(false);
-      }
-    });
+    getOrder(reference)
+      .then((result) => {
+        if (alive) setOrder(result);
+      })
+      .catch((cause) => {
+        if (alive) setLoadError(cause instanceof Error ? cause.message : "ORDER FILE COULD NOT BE LOADED.");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
     return () => {
       alive = false;
     };
@@ -70,6 +75,16 @@ export default function OrderFile({
     return (
       <RecordShell index="05" eyebrow="ORDER FILE / SEARCHING" title="LOCATING RECORD">
         <div className="h-px w-full origin-left animate-pulse bg-blood-accent" />
+      </RecordShell>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <RecordShell index="00" eyebrow="ORDER FILE / CONNECTION ERROR" title="ORDER FILE UNAVAILABLE" subtitle={loadError}>
+        <div className="max-w-sm">
+          <SickoButton href="/track-order" tone="blood" full>RETURN TO TRACKER</SickoButton>
+        </div>
       </RecordShell>
     );
   }

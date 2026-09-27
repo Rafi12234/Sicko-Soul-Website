@@ -10,17 +10,22 @@ import type { ComplaintCase } from "@/types/commerce";
 export default function ComplaintCaseFile({ caseReference }: { caseReference: string }) {
   const [record, setRecord] = useState<ComplaintCase | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState("");
   const [sending, setSending] = useState(false);
   const [signal, setSignal] = useState("");
 
   useEffect(() => {
     let alive = true;
-    getComplaintCase(caseReference).then((result) => {
-      if (alive) {
-        setRecord(result);
-        setLoading(false);
-      }
-    });
+    getComplaintCase(caseReference)
+      .then((result) => {
+        if (alive) setRecord(result);
+      })
+      .catch((cause) => {
+        if (alive) setLoadError(cause instanceof Error ? cause.message : "SUPPORT CASE COULD NOT BE LOADED.");
+      })
+      .finally(() => {
+        if (alive) setLoading(false);
+      });
     return () => {
       alive = false;
     };
@@ -52,6 +57,14 @@ export default function ComplaintCaseFile({ caseReference }: { caseReference: st
     return (
       <RecordShell index="07" eyebrow="SUPPORT CASE / ACCESSING" title="OPENING CASE">
         <div className="h-px w-full animate-pulse bg-blood-accent" />
+      </RecordShell>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <RecordShell index="00" eyebrow="SUPPORT CASE / CONNECTION ERROR" title="CASE FILE UNAVAILABLE" subtitle={loadError}>
+        <SickoButton href="/#complaints" tone="blood">OPEN COMPLAINT DESK</SickoButton>
       </RecordShell>
     );
   }

@@ -61,9 +61,13 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
 
   useEffect(() => {
     let alive = true;
-    listReviews(product.id).then((next) => {
-      if (alive) setReviews(next);
-    });
+    listReviews(product.id)
+      .then((next) => {
+        if (alive) setReviews(next);
+      })
+      .catch(() => {
+        if (alive) setReviews([]);
+      });
     return () => {
       alive = false;
     };
@@ -119,10 +123,10 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
       );
   }
 
-  function handleAdd() {
+  async function handleAdd() {
     if (!selectedVariant || soldOut) return;
-    addItem(product.id, selectedVariant.size, quantity);
-    setCartSignal(`FILED / +${quantity}`);
+    const added = await addItem(selectedVariant.id, quantity);
+    setCartSignal(added ? `FILED / +${quantity}` : "CART UPDATE FAILED");
     window.setTimeout(() => setCartSignal("ADD TO HOLDING CELL"), 1300);
   }
 

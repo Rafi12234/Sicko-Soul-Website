@@ -40,6 +40,7 @@ export const RACK_CATEGORIES: readonly RackCategory[] = [
 export type RackProduct = {
   id: string;
   index: string;
+  variantId?: string;
   name: string;
   /** Flat product cutout — what sits in the frame at rest. */
   still: string;
