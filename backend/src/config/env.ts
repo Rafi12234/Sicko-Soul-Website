@@ -1,6 +1,11 @@
 import "dotenv/config";
 import { z } from "zod";
 
+const boolFromEnv = z.preprocess((value) => {
+  if (typeof value !== "string") return value;
+  return ["1", "true", "yes", "on"].includes(value.trim().toLowerCase());
+}, z.boolean());
+
 const envSchema = z.object({
   NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
   PORT: z.coerce.number().int().min(1).max(65535).default(4000),
@@ -20,6 +25,29 @@ const envSchema = z.object({
     .default("info"),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(300),
+  AUTH_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(15 * 60 * 1000),
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(15),
+
+  JWT_SECRET: z
+    .string()
+    .min(32)
+    .default("development-only-sicko-soul-jwt-secret-change-me"),
+  JWT_EXPIRES_IN: z.string().trim().min(1).default("8h"),
+
+  CART_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
+  DELIVERY_CHARGE_BDT: z.coerce.number().min(0).default(0),
+
+  EMAIL_WORKER_ENABLED: boolFromEnv.default(true),
+  EMAIL_WORKER_INTERVAL_MS: z.coerce.number().int().min(5_000).default(30_000),
+  EMAIL_WORKER_BATCH_SIZE: z.coerce.number().int().min(1).max(50).default(10),
+  EMAIL_WORKER_LOCK_TIMEOUT_MS: z.coerce.number().int().min(60_000).default(10 * 60 * 1000),
+  EMAIL_TRANSPORT: z.enum(["console", "resend"]).default("console"),
+  EMAIL_FROM: z.string().trim().min(3).default("Sicko Soul <noreply@sickosoul.shop>"),
+  RESEND_API_KEY: z.string().trim().optional(),
+
+  BOOTSTRAP_ADMIN_NAME: z.string().trim().optional(),
+  BOOTSTRAP_ADMIN_EMAIL: z.string().email().optional(),
+  BOOTSTRAP_ADMIN_PASSWORD: z.string().min(10).optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
@@ -30,6 +58,21 @@ if (!parsed.success) {
     .join("\n");
 
   throw new Error(`Invalid backend environment configuration:\n${issues}`);
+}
+
+if (
+  parsed.data.NODE_ENV === "production" &&
+  parsed.data.JWT_SECRET === "development-only-sicko-soul-jwt-secret-change-me"
+) {
+  throw new Error("JWT_SECRET must be replaced before production deployment.");
+}
+
+if (
+  parsed.data.NODE_ENV === "production" &&
+  parsed.data.EMAIL_TRANSPORT === "resend" &&
+  !parsed.data.RESEND_API_KEY
+) {
+  throw new Error("RESEND_API_KEY is required when EMAIL_TRANSPORT=resend.");
 }
 
 export const env = Object.freeze(parsed.data);
