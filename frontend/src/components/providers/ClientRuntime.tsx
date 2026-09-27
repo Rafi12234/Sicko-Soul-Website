@@ -3,16 +3,31 @@
 import { useLayoutEffect } from "react";
 import { useCartStore } from "@/store/useCartStore";
 
-/**
- * Route-independent client boot work.
- *
- * The persisted browser value only remembers the backend cart token. After
- * hydration the complete cart is loaded from the API, so products, quantities,
- * stock, prices and cart status always come from the database-backed server.
- */
 export default function ClientRuntime() {
   useLayoutEffect(() => {
-    void useCartStore.persist.rehydrate().then(() => useCartStore.getState().initialize());
+    let cancelled = false;
+
+    const initializeCart = async () => {
+      /*
+       * Zustand persist.rehydrate() may be synchronous or asynchronous,
+       * so normalize it into a Promise before awaiting it.
+       */
+      await Promise.resolve(useCartStore.persist.rehydrate());
+
+      if (cancelled) {
+        return;
+      }
+
+      await Promise.resolve(
+        useCartStore.getState().initialize(),
+      );
+    };
+
+    void initializeCart();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   return null;
