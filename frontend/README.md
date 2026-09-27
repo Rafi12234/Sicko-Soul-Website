@@ -74,7 +74,7 @@ changing anything, read the doc that owns that concern:
 | [`docs/ANTI_PATTERNS.md`](./docs/ANTI_PATTERNS.md) | What will get a section rejected |
 | [`docs/TECH_STACK.md`](./docs/TECH_STACK.md) | Dependencies and why |
 
-Scoped Copilot rules in [`.github/instructions/`](./.github/instructions/)
+Scoped Copilot rules in [`.github/instructions/`](../.github/instructions/)
 enforce the same constraints automatically per file path (animation, copy,
 design system, images).
 
