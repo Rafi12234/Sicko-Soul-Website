@@ -2,7 +2,7 @@ import type { Prisma } from "../../../generated/prisma/client.js";
 import { prisma } from "../../lib/prisma.js";
 import type { ProductListQuery } from "./products.types.js";
 
-const publicProductInclude = {
+export const publicProductInclude = {
   product_categories: {
     select: {
       code: true,
