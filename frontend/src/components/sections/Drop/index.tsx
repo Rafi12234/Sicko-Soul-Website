@@ -2,11 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER } from "@/styles/theme";
-import { DROP_COPY, DROP_DRAWERS } from "@/data/drop";
+import { DROP_COPY, type DropDrawer } from "@/data/drop";
 import { DROP_POSTER, DROP_VIDEO, DROP_VIDEO_MOBILE, DROP_VIDEO_TABLET } from "@/lib/media";
+import { archiveProductFromApi, listCatalogCategories } from "@/lib/catalogApi";
+import { listCollections } from "@/lib/customerApi";
+import type { CollectionRecord, PublicCategoryRecord } from "@/types/commerce";
 import styles from "./Drop.module.css";
 
 
@@ -18,16 +21,92 @@ export default function Drop() {
   const yearRef = useRef<HTMLSpanElement>(null);
   const statusRef = useRef<HTMLSpanElement>(null);
   const ctxRef = useRef<ReturnType<typeof gsap.context> | null>(null);
-  const openRef = useRef<string>(DROP_DRAWERS[0].id);
+  const openRef = useRef<string>("");
 
-  const [openId, setOpenId] = useState<string>(DROP_DRAWERS[0].id);
+  const [openId, setOpenId] = useState<string>("");
+  const [collection, setCollection] = useState<CollectionRecord | null>(null);
+  const [categories, setCategories] = useState<PublicCategoryRecord[]>([]);
+  const [loadError, setLoadError] = useState("");
+
+  useEffect(() => {
+    let alive = true;
+    Promise.all([listCollections(), listCatalogCategories()])
+      .then(([collections, nextCategories]) => {
+        if (!alive) return;
+        const selected = collections.find((entry) => entry.status === "LIVE") ?? collections[0] ?? null;
+        setCollection(selected);
+        setCategories(nextCategories);
+      })
+      .catch((error) => {
+        if (alive) setLoadError(error instanceof Error ? error.message : "DROP DATA COULD NOT BE LOADED.");
+      });
+    return () => { alive = false; };
+  }, []);
+
+  const drawers = useMemo<DropDrawer[]>(() => {
+    if (!collection) return [];
+    const byCategory = new Map<string, Array<{ entry: CollectionRecord["products"][number]; product: NonNullable<CollectionRecord["products"][number]["product"]> }>>();
+    for (const entry of collection.products) {
+      if (!entry.product) continue;
+      const key = entry.product.category.slug;
+      const current = byCategory.get(key) ?? [];
+      current.push({ entry, product: entry.product });
+      byCategory.set(key, current);
+    }
+
+    return [...byCategory.entries()]
+      .map(([slug, entries], fallbackIndex) => {
+        const category = categories.find((item) => item.slug === slug);
+        const pieces = entries
+          .sort((a, b) => a.entry.sortOrder - b.entry.sortOrder)
+          .map(({ entry, product }, pieceIndex) => {
+            const archive = archiveProductFromApi(product);
+            return {
+              id: product.id,
+              index: product.indexCode ?? String(pieceIndex + 1).padStart(2, "0"),
+              name: product.name,
+              src: archive.still,
+              alt: archive.alt,
+              price: archive.price,
+              spec: product.spec ?? "",
+              sealed: entry.sealed || collection.status !== "LIVE",
+            };
+          });
+        return {
+          id: slug,
+          index: category?.indexCode ?? String(fallbackIndex + 1).padStart(2, "0"),
+          name: category?.name ?? entries[0]?.product.category.name ?? slug,
+          ghost: category?.ghostName ?? category?.name ?? entries[0]?.product.category.name ?? slug,
+          count: `${String(pieces.length).padStart(2, "0")} ${pieces.length === 1 ? "PIECE" : "PIECES"}`,
+          line: category?.tagline ?? category?.spec ?? "",
+          pieces,
+          sealed: pieces.length === 0 || pieces.every((piece) => piece.sealed),
+        };
+      })
+      .sort((a, b) => a.index.localeCompare(b.index));
+  }, [categories, collection]);
+
+  useEffect(() => {
+    if (!drawers.length) {
+      openRef.current = "";
+      setOpenId("");
+      return;
+    }
+    if (!drawers.some((drawer) => drawer.id === openRef.current)) {
+      openRef.current = drawers[0].id;
+      setOpenId(drawers[0].id);
+    }
+  }, [drawers]);
+
+  const yearLabel = collection?.releaseYear ? String(collection.releaseYear) : "—";
+  const statusLabel = collection?.status ?? "NO DROP";
 
   /** Drives every drawer at once so a rapid click can never strand one open. */
   const applyOpen = (nextId: string, instant = false) => {
     const root = rootRef.current;
     if (!root) return;
 
-    DROP_DRAWERS.forEach((drawer) => {
+    drawers.forEach((drawer) => {
       const bar = root.querySelector<HTMLElement>(`[data-drawer="${drawer.id}"]`);
       if (!bar) return;
 
@@ -205,7 +284,7 @@ export default function Drop() {
           duration: 0.9,
           ease: "power2.inOut",
           scrambleText: {
-            text: DROP_COPY.year,
+            text: yearLabel,
             chars: DROP_COPY.yearChars,
             speed: 0.9,
           },
@@ -214,7 +293,7 @@ export default function Drop() {
         const statusLoop = gsap.timeline({ repeat: -1, repeatDelay: 6.5 }).to(statusRef.current, {
           duration: 0.7,
           ease: "power2.inOut",
-          scrambleText: { text: DROP_COPY.status, chars: "upperCase", speed: 0.8 },
+          scrambleText: { text: statusLabel, chars: "upperCase", speed: 0.8 },
         });
 
         // Plate stutter: a dropped frame every few seconds, never a smooth fade.
@@ -458,7 +537,7 @@ export default function Drop() {
       ctxRef.current = null;
       ctx.revert();
     };
-  }, []);
+  }, [drawers, statusLabel, yearLabel]);
 
   const handleToggle = (id: string) => {
     if (id === openRef.current) return;
@@ -504,13 +583,13 @@ export default function Drop() {
           <div className="drop-masthead-meta flex items-center gap-4">
             <span className="drop-live-dot block h-[7px] w-[7px] bg-blood-accent" />
             <span className="font-stencil text-[0.55rem] tracking-stencil text-blood-accent">
-              {DROP_COPY.live}
+              {statusLabel}
             </span>
             <span className="h-px w-10 bg-blood-accent/60" />
             <span className="font-stencil text-stamp text-concrete-gray">{DROP_COPY.eyebrow}</span>
           </div>
           <span className="drop-masthead-meta border border-bone-white/25 px-3 py-2 font-stencil text-[0.55rem] tracking-stencil text-bone-white">
-            {DROP_COPY.stamp}
+            {collection?.code ?? "NO DROP"}
           </span>
         </div>
 
@@ -525,13 +604,13 @@ export default function Drop() {
             ref={yearRef}
             className="drop-year -ml-2 block font-display text-[clamp(2.5rem,7vw,6rem)] leading-[0.82] tracking-crushed text-outline-blood sm:-ml-6"
           >
-            {DROP_COPY.year}
+            {yearLabel}
           </span>
         </div>
 
         <div className="drop-masthead-meta mt-5 flex items-center gap-4">
           <span ref={statusRef} className="font-stencil text-[0.55rem] tracking-stencil text-bone-white/70">
-            {DROP_COPY.status}
+            {statusLabel}
           </span>
           <span className="h-px flex-1 bg-bone-white/12" />
           <span className="font-stencil text-[0.55rem] tracking-stencil text-concrete-gray">
@@ -540,9 +619,15 @@ export default function Drop() {
         </div>
       </div>
 
+      {loadError ? (
+        <div className="relative z-10 mx-gutter mt-8 border-l-2 border-blood-accent bg-blood-accent/10 p-5 font-body text-sm font-semibold uppercase tracking-[0.12em] text-blood-accent">{loadError}</div>
+      ) : !collection ? (
+        <div className="relative z-10 mx-gutter mt-8 border border-bone-white/15 p-5 font-stencil text-stamp text-concrete-gray">{DROP_COPY.empty}</div>
+      ) : null}
+
       {/* ── Drawers ──────────────────────────────────────────────────── */}
       <div className="drop-rack relative z-10 mt-[6vh]">
-        {DROP_DRAWERS.map((drawer) => {
+        {drawers.map((drawer) => {
           const isOpen = drawer.id === openId;
 
           return (
@@ -626,6 +711,7 @@ export default function Drop() {
                         data-cursor="hover"
                       >
                         <div className="drop-tile-img absolute inset-0">
+                          {piece.src ? (
                           <Image
                             src={piece.src}
                             alt={piece.alt}
@@ -633,6 +719,9 @@ export default function Drop() {
                             sizes="(max-width: 768px) 58vw, 22vw"
                             className="media-product object-cover"
                           />
+                        ) : (
+                          <div className="grid h-full place-items-center font-stencil text-stamp text-concrete-gray">NO PRODUCT IMAGE</div>
+                        )}
                         </div>
 
                         {/* Blood flashes over the piece for a beat on entry. */}
@@ -705,7 +794,7 @@ export default function Drop() {
                       </div>
                     ) : (
                       <Link
-                        href="/drops"
+                        href={collection ? `/drops/${collection.slug}` : "/drops"}
                         className={`${styles.hatch} drop-card drop-enter group relative flex aspect-[4/5] w-[58vw] shrink-0 flex-col justify-between overflow-hidden border border-blood-accent/60 bg-black/70 p-5 text-left sm:w-[40vw] md:w-auto`}
                       >
                         <span

@@ -142,6 +142,33 @@ export default function OrderFile({
             )}
           </section>
 
+          <section className="border border-bone-white/15 bg-black p-6">
+            <div className="flex flex-wrap items-end justify-between gap-4 border-b border-bone-white/10 pb-4">
+              <div>
+                <span className="font-body text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-blood-accent">DATABASE RECORD</span>
+                <h2 className="mt-2 font-display text-[clamp(2.7rem,5vw,5rem)] leading-[0.82] tracking-crushed">ORDER HISTORY</h2>
+              </div>
+              <time className="font-body text-[0.68rem] font-semibold uppercase tracking-[0.12em] text-concrete-gray">PLACED {new Date(order.placedAt).toLocaleString()}</time>
+            </div>
+            <div className="mt-3">
+              {order.history.length > 0 ? (
+                order.history.map((entry) => (
+                  <div key={entry.id} className="grid gap-2 border-b border-bone-white/10 py-4 md:grid-cols-[1fr_auto] md:items-start">
+                    <div>
+                      <p className="font-body text-sm font-semibold uppercase tracking-[0.13em]">
+                        {entry.fromStatus ? `${humanizeStatus(entry.fromStatus)} → ` : ""}{humanizeStatus(entry.toStatus)}
+                      </p>
+                      {entry.note && <p className="mt-2 font-body text-sm leading-relaxed text-bone-white/55">{entry.note}</p>}
+                    </div>
+                    <time className="font-body text-xs uppercase tracking-[0.1em] text-concrete-gray">{new Date(entry.changedAt).toLocaleString()}</time>
+                  </div>
+                ))
+              ) : (
+                <p className="py-4 font-body text-sm uppercase tracking-[0.12em] text-concrete-gray">NO STATUS CHANGES RECORDED YET.</p>
+              )}
+            </div>
+          </section>
+
           <section>
             <div className="flex items-end justify-between gap-6 border-b border-bone-white/15 pb-4">
               <h2 className="font-display text-[clamp(3rem,6vw,6rem)] leading-[0.8] tracking-crushed">ORDER CONTENTS</h2>
@@ -162,6 +189,36 @@ export default function OrderFile({
                 </article>
               ))}
             </div>
+          </section>
+
+          <section className="border border-bone-white/15 bg-off-black p-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <span className="font-body text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-blood-accent">PAYMENT RECORD</span>
+              <span className="border border-bone-white/20 px-3 py-2 font-body text-[0.68rem] font-semibold uppercase tracking-[0.15em]">{humanizeStatus(order.paymentStatus)}</span>
+            </div>
+            <div className="mt-6 grid gap-5 md:grid-cols-2">
+              <div><span className="font-body text-xs font-semibold uppercase tracking-[0.14em] text-concrete-gray">METHOD</span><p className="mt-2 font-body text-lg font-semibold">{humanizeStatus(order.paymentMethod)}</p></div>
+              <div><span className="font-body text-xs font-semibold uppercase tracking-[0.14em] text-concrete-gray">ORDER PAYMENT STATUS</span><p className="mt-2 font-body text-lg font-semibold">{humanizeStatus(order.paymentStatus)}</p></div>
+            </div>
+            {order.payments?.length ? (
+              <div className="mt-7 border-t border-bone-white/10 pt-3">
+                {order.payments.map((payment) => (
+                  <div key={payment.id} className="grid gap-3 border-b border-bone-white/10 py-4 md:grid-cols-[1fr_auto] md:items-center">
+                    <div>
+                      <p className="font-body text-sm font-semibold uppercase tracking-[0.12em]">{humanizeStatus(payment.method)} / {humanizeStatus(payment.status)}</p>
+                      <p className="mt-2 font-body text-xs uppercase tracking-[0.1em] text-concrete-gray">
+                        {payment.provider ? `PROVIDER ${payment.provider}` : "NO EXTERNAL PROVIDER"}
+                        {payment.providerReference ? ` / REF ${payment.providerReference}` : ""}
+                      </p>
+                      <time className="mt-2 block font-body text-xs uppercase tracking-[0.1em] text-concrete-gray">{new Date(payment.paidAt ?? payment.createdAt).toLocaleString()}</time>
+                    </div>
+                    <strong className="font-body text-lg">{money(payment.amount, payment.currency)}</strong>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="mt-6 border-t border-bone-white/10 pt-5 font-body text-sm uppercase tracking-[0.12em] text-concrete-gray">NO PAYMENT TRANSACTION HAS BEEN RECORDED YET.</p>
+            )}
           </section>
 
           {order.shipment && (
@@ -228,6 +285,7 @@ export default function OrderFile({
             <div className="flex justify-between gap-5 py-4"><dt className="font-body text-sm font-semibold uppercase tracking-[0.12em] text-concrete-gray">PRODUCT</dt><dd className="font-body font-semibold">{money(order.subtotal)}</dd></div>
             <div className="flex justify-between gap-5 py-4"><dt className="font-body text-sm font-semibold uppercase tracking-[0.12em] text-concrete-gray">DELIVERY</dt><dd className="font-body font-semibold">{money(order.deliveryCharge)}</dd></div>
             <div className="flex justify-between gap-5 py-4"><dt className="font-body text-sm font-semibold uppercase tracking-[0.12em] text-concrete-gray">TOTAL</dt><dd className="font-body text-2xl font-semibold">{money(order.grandTotal)}</dd></div>
+            <div className="flex justify-between gap-5 py-4"><dt className="font-body text-sm font-semibold uppercase tracking-[0.12em] text-concrete-gray">PAYMENT</dt><dd className="text-right font-body text-sm font-semibold uppercase tracking-[0.1em]">{humanizeStatus(order.paymentStatus)}</dd></div>
           </dl>
           <div className="mt-7 border-t border-bone-white/15 pt-5">
             <p className="font-body text-sm font-semibold uppercase tracking-[0.12em] text-concrete-gray">SHIP TO</p>

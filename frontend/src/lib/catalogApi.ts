@@ -1,6 +1,5 @@
 import type { ArchiveCategory, ArchiveProduct, ProductLookup } from "@/data/products";
 import { apiRequest, type DataEnvelope } from "@/lib/apiClient";
-import { MEDIA } from "@/lib/media";
 import type {
   PublicCategoryRecord,
   PublicProductRecord,
@@ -22,6 +21,8 @@ type CategoryListEnvelope = {
   data: PublicCategoryRecord[];
   meta: { count: number };
 };
+
+const PRODUCT_PAGE_SIZE = 50;
 
 function moneyLabel(value: number) {
   return `৳ ${new Intl.NumberFormat("en-BD", { maximumFractionDigits: 0 }).format(value)}`;
@@ -72,8 +73,8 @@ export function archiveProductFromApi(record: PublicProductRecord): ArchiveProdu
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((feature) => feature.text),
     sizes: variants.filter((variant) => variant.status !== "ARCHIVED").map((variant) => variant.size),
-    defaultSize: defaultVariant?.size ?? variants[0]?.size ?? "",
-    still: still?.url ?? MEDIA.images.logo,
+    defaultSize: defaultVariant?.size ?? "",
+    still: still?.url ?? "",
     worn: worn?.url,
     alt: still?.alt ?? record.name,
     gallery,
@@ -85,29 +86,41 @@ export function archiveCategoryFromApi(
   category: PublicCategoryRecord,
   products: PublicProductRecord[],
 ): ArchiveCategory {
+  const categoryProducts = products.filter((product) => product.category.slug === category.slug);
   return {
     id: category.slug,
     index: category.indexCode ?? "00",
     name: category.name,
     ghost: category.ghostName ?? category.name,
-    cover: category.coverUrl ?? products[0]?.primaryImage?.url ?? MEDIA.images.logo,
+    cover: category.coverUrl ?? categoryProducts[0]?.primaryImage?.url ?? "",
     coverAlt: category.coverAlt ?? `${category.name} category`,
     spec: category.spec ?? "",
     line: category.tagline ?? "",
     registry: category.registry ?? category.code,
-    products: products
-      .filter((product) => product.category.slug === category.slug)
-      .map(archiveProductFromApi),
+    products: categoryProducts.map(archiveProductFromApi),
   };
 }
 
-export async function listCatalogProducts(category?: string): Promise<PublicProductRecord[]> {
-  const query = new URLSearchParams({ page: "1", limit: "50" });
+async function getProductPage(category: string | undefined, page: number) {
+  const query = new URLSearchParams({ page: String(page), limit: String(PRODUCT_PAGE_SIZE) });
   if (category) query.set("category", category);
-  const result = await apiRequest<ProductListEnvelope>(`/products?${query.toString()}`, {
+  return apiRequest<ProductListEnvelope>(`/products?${query.toString()}`, {
     cache: "no-store",
   });
-  return result.data;
+}
+
+/** Fetch every active product page so newly inserted products are never hidden by the API page size. */
+export async function listCatalogProducts(category?: string): Promise<PublicProductRecord[]> {
+  const first = await getProductPage(category, 1);
+  if (first.meta.totalPages <= 1) return first.data;
+
+  const rest = await Promise.all(
+    Array.from({ length: first.meta.totalPages - 1 }, (_, index) =>
+      getProductPage(category, index + 2),
+    ),
+  );
+
+  return [first, ...rest].flatMap((page) => page.data);
 }
 
 export async function listCatalogCategories(): Promise<PublicCategoryRecord[]> {
@@ -136,30 +149,35 @@ export async function getCatalogArchive(): Promise<ArchiveCategory[]> {
 }
 
 export async function getCatalogProduct(identifier: string): Promise<ProductLookup> {
-  const [product, categories] = await Promise.all([
-    getCatalogProductRecord(identifier),
+  const product = await getCatalogProductRecord(identifier);
+  const [categories, relatedProducts] = await Promise.all([
     listCatalogCategories(),
+    listCatalogProducts(product.category.slug),
   ]);
   const categoryRecord = categories.find((entry) => entry.slug === product.category.slug);
 
   const category: ArchiveCategory = categoryRecord
-    ? archiveCategoryFromApi(categoryRecord, [product])
+    ? archiveCategoryFromApi(categoryRecord, relatedProducts)
     : {
         id: product.category.slug,
         index: "00",
         name: product.category.name,
         ghost: product.category.name,
-        cover: product.primaryImage?.url ?? MEDIA.images.logo,
+        cover: product.primaryImage?.url ?? "",
         coverAlt: product.primaryImage?.alt ?? product.category.name,
         spec: "",
         line: "",
         registry: product.category.code,
-        products: [],
+        products: relatedProducts.map(archiveProductFromApi),
       };
 
   const archiveProduct = archiveProductFromApi(product);
+  const hasCurrent = category.products.some((entry) => entry.id === archiveProduct.id);
+
   return {
     product: archiveProduct,
-    category: { ...category, products: [archiveProduct] },
+    category: hasCurrent
+      ? category
+      : { ...category, products: [archiveProduct, ...category.products] },
   };
 }

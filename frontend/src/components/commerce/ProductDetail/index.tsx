@@ -216,19 +216,25 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
             <div className={`${styles.viewerWrap} detail-viewer relative mt-8`}>
               <div ref={viewerRef} className={`${styles.viewer} theme-light relative w-[92%] bg-black p-2 shadow-print md:w-[82%]`}>
                 <div className="relative aspect-[4/5] overflow-hidden bg-off-black">
-                  <Image
-                    key={activeImage.id}
-                    src={activeImage.url}
-                    alt={activeImage.alt}
-                    fill
-                    priority={activeImageIndex === 0}
-                    sizes="(max-width: 768px) 92vw, 58vw"
-                    className={`media-product object-cover ${activeImage.type === "WORN" ? "object-[50%_10%]" : ""}`}
-                  />
-                  <span aria-hidden className={`${styles.vignette} absolute inset-0`} />
-                  <span className="absolute left-4 top-4 bg-black/75 px-3 py-2 font-body text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-bone-white">
-                    FRAME / {activeImage.label ?? activeImage.type}
-                  </span>
+                  {activeImage ? (
+                    <>
+                      <Image
+                        key={activeImage.id}
+                        src={activeImage.url}
+                        alt={activeImage.alt}
+                        fill
+                        priority={activeImageIndex === 0}
+                        sizes="(max-width: 768px) 92vw, 58vw"
+                        className={`media-product object-cover ${activeImage.type === "WORN" ? "object-[50%_10%]" : ""}`}
+                      />
+                      <span aria-hidden className={`${styles.vignette} absolute inset-0`} />
+                      <span className="absolute left-4 top-4 bg-black/75 px-3 py-2 font-body text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-bone-white">
+                        FRAME / {activeImage.label ?? activeImage.type}
+                      </span>
+                    </>
+                  ) : (
+                    <div className="grid h-full place-items-center font-body text-sm font-semibold uppercase tracking-[0.16em] text-concrete-gray">NO PRODUCT IMAGE ON FILE</div>
+                  )}
                   <span className={`${styles.scan} pointer-events-none absolute inset-x-0 top-[22%] h-px bg-blood-accent/70`} />
                 </div>
               </div>
@@ -418,7 +424,11 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
               {related.map((entry) => (
                 <Link key={entry.id} href={`/products/${entry.id}`} className="group border border-bone-white/15 p-5 transition-colors hover:border-blood-accent">
                   <div className="relative aspect-[4/5] overflow-hidden bg-off-black">
-                    <Image src={entry.still} alt={entry.alt} fill sizes="33vw" className="media-product object-cover transition-transform duration-700 group-hover:scale-[1.035]" />
+                    {entry.still ? (
+                      <Image src={entry.still} alt={entry.alt} fill sizes="33vw" className="media-product object-cover transition-transform duration-700 group-hover:scale-[1.035]" />
+                    ) : (
+                      <div className="grid h-full place-items-center font-body text-xs font-semibold uppercase tracking-[0.14em] text-concrete-gray">NO PRODUCT IMAGE</div>
+                    )}
                   </div>
                   <p className="mt-5 font-display text-3xl leading-[0.9] tracking-crushed">{entry.name}</p>
                   <p className="mt-2 font-body text-sm font-semibold uppercase tracking-[0.15em] text-concrete-gray">OPEN FILE →</p>

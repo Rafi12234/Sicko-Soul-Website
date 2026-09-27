@@ -70,20 +70,20 @@ export async function createOrder(input: CreateOrderInput) {
       >();
 
       for (const line of input.items) {
-        const legacyPrefix = `${line.productId}-`;
-        const legacySize =
-          !/^\d+$/.test(line.variantId) && line.variantId.startsWith(legacyPrefix)
-            ? line.variantId.slice(legacyPrefix.length)
-            : null;
+        // Checkout only accepts real database variant IDs. The storefront no
+        // longer manufactures legacy IDs such as `product-size`, so every
+        // order line is resolved against product_variants directly.
+        if (!/^\d+$/.test(line.variantId)) {
+          throw new AppError({
+            statusCode: 409,
+            code: "ORDER_ITEM_UNAVAILABLE",
+            message: "One or more selected garments are no longer available.",
+          });
+        }
 
         const variant = await tx.product_variants.findFirst({
           where: {
-            ...( /^\d+$/.test(line.variantId)
-              ? { variant_id: BigInt(line.variantId) }
-              : {
-                  products: { is: { public_id: line.productId } },
-                  ...(legacySize ? { sizes: { is: { code: legacySize } } } : {}),
-                }),
+            variant_id: BigInt(line.variantId),
             status: "ACTIVE",
             products: {
               is: {
@@ -96,7 +96,7 @@ export async function createOrder(input: CreateOrderInput) {
           include: checkoutVariantInclude,
         });
 
-        if (!variant || (!/^\d+$/.test(line.variantId) && !legacySize)) {
+        if (!variant) {
           throw new AppError({
             statusCode: 409,
             code: "ORDER_ITEM_UNAVAILABLE",

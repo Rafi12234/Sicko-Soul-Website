@@ -1,15 +1,61 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER, themeColor } from "@/styles/theme";
-import { CRED_COPY, CRED_ROWS } from "@/data/cred";
+import { CRED_COPY } from "@/data/cred";
+import { listPublicReviews } from "@/lib/customerApi";
+import type { ProductReview, PublicReviewFeed } from "@/types/commerce";
 import styles from "./Cred.module.css";
 
 /** Base travel per row in px/sec. Odd rows run backwards. */
 const ROW_SPEED = [58, 44, 70];
 
+type CredStatement = {
+  id: string;
+  case: string;
+  quote: string;
+  redacted: string;
+  name: string;
+  meta: string;
+  verified: boolean;
+};
+
+function statementFromReview(review: ProductReview): CredStatement {
+  const stars = `${review.rating}/5`;
+  const product = review.productName ?? review.productId;
+  return {
+    id: review.id,
+    case: `REVIEW ${review.id.padStart(3, "0")}`,
+    quote: review.text,
+    redacted: review.title ?? `${stars} / ${product}`,
+    name: review.displayName,
+    meta: `${stars} · ${product}`,
+    verified: review.verifiedPurchase,
+  };
+}
+
 export default function Cred() {
+  const [feed, setFeed] = useState<PublicReviewFeed>({
+    data: [],
+    meta: { total: 0, averageRating: 0, verifiedCount: 0 },
+  });
+  const [loadError, setLoadError] = useState("");
+  const rows = useMemo(() => {
+    const next: CredStatement[][] = [[], [], []];
+    feed.data.forEach((review, index) => next[index % next.length].push(statementFromReview(review)));
+    return next.filter((row) => row.length > 0);
+  }, [feed.data]);
+  const counterValue = String(feed.meta.total);
+
+  useEffect(() => {
+    let alive = true;
+    listPublicReviews(24)
+      .then((result) => { if (alive) setFeed(result); })
+      .catch((error) => { if (alive) setLoadError(error instanceof Error ? error.message : "REVIEWS COULD NOT BE LOADED."); });
+    return () => { alive = false; };
+  }, []);
+
   const rootRef = useRef<HTMLElement>(null);
   const counterRef = useRef<HTMLSpanElement>(null);
 
@@ -93,14 +139,16 @@ export default function Cred() {
             ease: EASE.expo,
             overwrite: "auto",
           });
-          gsap.to(seal, {
-            autoAlpha: 1,
-            rotate: -11,
-            scale: 1,
-            duration: 0.4,
-            ease: EASE.overshoot,
-            overwrite: "auto",
-          });
+          if (seal) {
+            gsap.to(seal, {
+              autoAlpha: 1,
+              rotate: -11,
+              scale: 1,
+              duration: 0.4,
+              ease: EASE.overshoot,
+              overwrite: "auto",
+            });
+          }
         };
 
         const onOut = () => {
@@ -119,14 +167,16 @@ export default function Cred() {
             overwrite: "auto",
           });
           gsap.to(bar, { scaleX: 1, duration: 0.4, ease: EASE.inOut, overwrite: "auto" });
-          gsap.to(seal, {
-            autoAlpha: 0,
-            rotate: -22,
-            scale: 0.7,
-            duration: 0.3,
-            ease: EASE.inOut,
-            overwrite: "auto",
-          });
+          if (seal) {
+            gsap.to(seal, {
+              autoAlpha: 0,
+              rotate: -22,
+              scale: 0.7,
+              duration: 0.3,
+              ease: EASE.inOut,
+              overwrite: "auto",
+            });
+          }
         };
 
         plate.addEventListener("pointerenter", onOver);
@@ -250,7 +300,7 @@ export default function Cred() {
           duration: 0.9,
           ease: "power2.inOut",
           scrambleText: {
-            text: CRED_COPY.counter.value,
+            text: counterValue,
             chars: CRED_COPY.counter.chars,
             speed: 0.9,
           },
@@ -298,7 +348,7 @@ export default function Cred() {
     }, rootRef);
 
     return () => ctx.revert();
-  }, []);
+  }, [counterValue, rows]);
 
   return (
     <section
@@ -339,7 +389,7 @@ export default function Cred() {
 
         <div className="cred-meta mt-5 flex flex-wrap items-center gap-x-4 gap-y-2">
           <span ref={counterRef} className="font-display text-[1.5rem] leading-none tracking-crushed text-bone-white">
-            {CRED_COPY.counter.value}
+            {counterValue}
           </span>
           <span className="font-stencil text-[0.52rem] tracking-stencil text-concrete-gray">
             {CRED_COPY.counter.label}
@@ -351,9 +401,15 @@ export default function Cred() {
         </div>
       </div>
 
+      {loadError ? (
+        <div className="relative z-10 mx-gutter mt-8 border-l-2 border-blood-accent bg-blood-accent/10 p-5 font-body text-sm font-semibold uppercase tracking-[0.12em] text-blood-accent">{loadError}</div>
+      ) : feed.data.length === 0 ? (
+        <div className="relative z-10 mx-gutter mt-8 border border-bone-white/15 p-5 font-stencil text-stamp text-concrete-gray">{CRED_COPY.empty}</div>
+      ) : null}
+
       {/* ── The wall ─────────────────────────────────────────────────── */}
       <div className="cred-wall relative z-10 mt-[7vh]">
-        {CRED_ROWS.map((row, rowIndex) => (
+        {rows.map((row, rowIndex) => (
           <div key={rowIndex} className="cred-row relative overflow-hidden py-2.5">
             <div className={`${styles.track} cred-track gap-5`}>
               {/* Rendered twice so the ticker can wrap at half the width. */}
@@ -368,12 +424,14 @@ export default function Cred() {
                     <span className="cred-dim font-stencil text-[0.5rem] tracking-stencil text-concrete-gray">
                       {statement.case}
                     </span>
-                    <span
-                      aria-hidden
-                      className="cred-seal border border-blood-accent px-2 py-[0.2rem] font-stencil text-[0.42rem] tracking-stencil text-blood-accent opacity-0"
-                    >
-                      {CRED_COPY.verdict}
-                    </span>
+                    {statement.verified ? (
+                      <span
+                        aria-hidden
+                        className="cred-seal border border-blood-accent px-2 py-[0.2rem] font-stencil text-[0.42rem] tracking-stencil text-blood-accent opacity-0"
+                      >
+                        {CRED_COPY.verdict}
+                      </span>
+                    ) : null}
                   </div>
 
                   <blockquote className="mt-6">
@@ -402,7 +460,7 @@ export default function Cred() {
                         {statement.name}
                       </span>
                       <span className="cred-dim font-stencil text-[0.48rem] tracking-stencil text-concrete-gray">
-                        {statement.handle}
+                        {statement.meta}
                       </span>
                     </div>
                   </div>
@@ -443,7 +501,11 @@ export default function Cred() {
       <div className="relative z-10 mt-[8vh] px-gutter">
         <div className="hairline" />
         <div className="mt-6 grid grid-cols-3 gap-4">
-          {CRED_COPY.stats.map((stat) => (
+          {[
+            { value: String(feed.meta.total), label: "APPROVED REVIEWS" },
+            { value: feed.meta.averageRating ? feed.meta.averageRating.toFixed(1) : "—", label: "AVERAGE RATING" },
+            { value: String(feed.meta.verifiedCount), label: "VERIFIED PURCHASES" },
+          ].map((stat) => (
             <div key={stat.label} className="cred-meta">
               <p className="font-display text-[clamp(1.5rem,3vw,2.6rem)] leading-none tracking-crushed text-bone-white">
                 {stat.value}

@@ -5,44 +5,76 @@ import Link from "next/link";
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { EASE, STAGGER } from "@/styles/theme";
-import { PRODUCTS_COPY, getProductGallery, type ArchiveCategory } from "@/data/products";
+import {
+  PRODUCTS_COPY,
+  getProductGallery,
+  type ArchiveCategory,
+} from "@/data/products";
 import ProductRecord from "./ProductRecord";
 import styles from "./ProductArchive.module.css";
 
-export default function ProductArchive({ categories }: { categories: readonly ArchiveCategory[] }) {
+type ProductArchiveProps = {
+  categories: readonly ArchiveCategory[];
+};
+
+export default function ProductArchive({
+  categories,
+}: ProductArchiveProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLElement>(null);
   const selectorRef = useRef<HTMLElement>(null);
   const stageRef = useRef<HTMLElement>(null);
+
   const markerRef = useRef<HTMLSpanElement>(null);
   const countRef = useRef<HTMLSpanElement>(null);
   const activeNameRef = useRef<HTMLSpanElement>(null);
+
   const firstRenderRef = useRef(true);
   const switchingRef = useRef(false);
+  const switchTimelineRef = useRef<gsap.core.Timeline | null>(null);
 
-  const [activeId, setActiveId] = useState<string>(categories[0].id);
+  const [activeId, setActiveId] = useState<string>(
+    categories[0]?.id ?? "",
+  );
+
   const activeCategory = useMemo(
-    () => categories.find((category) => category.id === activeId) ?? categories[0],
+    () =>
+      categories.find((category) => category.id === activeId) ??
+      categories[0] ??
+      null,
     [activeId, categories],
   );
 
-  const imageCount = useMemo(
-    () =>
-      1 +
+  const imageCount = useMemo(() => {
+    if (!activeCategory) {
+      return 0;
+    }
+
+    return (
+      (activeCategory.cover ? 1 : 0) +
       activeCategory.products.reduce(
-        (sum, product) => sum + getProductGallery(product).length,
+        (total, product) =>
+          total + getProductGallery(product).length,
         0,
-      ),
-    [activeCategory],
-  );
+      )
+    );
+  }, [activeCategory]);
 
   const placeCategoryMarker = (instant = false) => {
     const marker = markerRef.current;
     const selector = selectorRef.current;
-    const button = selector?.querySelector<HTMLElement>(
+
+    if (!marker || !selector || !activeId) {
+      return;
+    }
+
+    const button = selector.querySelector<HTMLElement>(
       `[data-category-button="${activeId}"]`,
     );
-    if (!marker || !button) return;
+
+    if (!button) {
+      return;
+    }
 
     gsap.to(marker, {
       y: button.offsetTop + button.offsetHeight - 1,
@@ -53,17 +85,34 @@ export default function ProductArchive({ categories }: { categories: readonly Ar
     });
   };
 
+  /*
+   * Page-level animations.
+   */
   useLayoutEffect(() => {
     const root = rootRef.current;
-    if (!root) return;
+
+    if (!root) {
+      return;
+    }
 
     const ctx = gsap.context(() => {
       const mm = gsap.matchMedia();
-      const heroSplit = new SplitText(".products-hero-split", { type: "chars" });
+
+      const heroSplit = new SplitText(".products-hero-split", {
+        type: "chars",
+      });
 
       gsap
-        .timeline({ defaults: { ease: EASE.expo } })
-        .from(".products-hero-meta", { autoAlpha: 0, y: 18, duration: 0.65 })
+        .timeline({
+          defaults: {
+            ease: EASE.expo,
+          },
+        })
+        .from(".products-hero-meta", {
+          autoAlpha: 0,
+          y: 18,
+          duration: 0.65,
+        })
         .from(
           heroSplit.chars,
           {
@@ -77,12 +126,22 @@ export default function ProductArchive({ categories }: { categories: readonly Ar
         )
         .from(
           ".products-hero-script",
-          { xPercent: 30, autoAlpha: 0, rotate: 8, duration: 0.9, ease: EASE.overshoot },
+          {
+            xPercent: 30,
+            autoAlpha: 0,
+            rotate: 8,
+            duration: 0.9,
+            ease: EASE.overshoot,
+          },
           "-=0.72",
         )
         .from(
           ".products-hero-rule",
-          { scaleX: 0, duration: 0.9, transformOrigin: "left center" },
+          {
+            scaleX: 0,
+            duration: 0.9,
+            transformOrigin: "left center",
+          },
           "-=0.55",
         );
 
@@ -101,32 +160,51 @@ export default function ProductArchive({ categories }: { categories: readonly Ar
       });
 
       placeCategoryMarker(true);
-      const onResize = () => placeCategoryMarker(true);
+
+      const onResize = () => {
+        placeCategoryMarker(true);
+      };
+
       window.addEventListener("resize", onResize);
 
-      mm.add("(min-width: 768px) and (prefers-reduced-motion: no-preference)", () => {
-        gsap.to(".products-hero-ghost", {
-          yPercent: 18,
-          ease: "none",
-          scrollTrigger: {
-            id: "products-hero-drift",
-            trigger: heroRef.current,
-            start: "top top",
-            end: "bottom top",
-            scrub: true,
-          },
-        });
-      });
+      mm.add(
+        "(min-width: 768px) and (prefers-reduced-motion: no-preference)",
+        () => {
+          gsap.to(".products-hero-ghost", {
+            yPercent: 18,
+            ease: "none",
+            scrollTrigger: {
+              id: "products-hero-drift",
+              trigger: heroRef.current,
+              start: "top top",
+              end: "bottom top",
+              scrub: true,
+            },
+          });
+        },
+      );
 
-      const ticker = root.querySelector<HTMLElement>(".products-ticker-track");
+      const ticker =
+        root.querySelector<HTMLElement>(".products-ticker-track");
+
       let tickerTween: gsap.core.Tween | null = null;
+
       if (ticker) {
         const half = ticker.scrollWidth / 2;
+
         tickerTween = gsap.fromTo(
           ticker,
-          { x: 0 },
-          { x: -half, duration: 26, ease: "none", repeat: -1 },
+          {
+            x: 0,
+          },
+          {
+            x: -half,
+            duration: 26,
+            ease: "none",
+            repeat: -1,
+          },
         );
+
         tickerTween.pause();
 
         ScrollTrigger.create({
@@ -134,64 +212,143 @@ export default function ProductArchive({ categories }: { categories: readonly Ar
           trigger: ".products-outro",
           start: "top bottom",
           end: "bottom top",
-          onToggle: (self) => (self.isActive ? tickerTween?.play() : tickerTween?.pause()),
+          onToggle: (self) => {
+            if (self.isActive) {
+              tickerTween?.play();
+            } else {
+              tickerTween?.pause();
+            }
+          },
         });
       }
 
       return () => {
         heroSplit.revert();
         tickerTween?.kill();
+        mm.revert();
         window.removeEventListener("resize", onResize);
       };
     }, root);
 
-    return () => ctx.revert();
+    return () => {
+      switchTimelineRef.current?.kill();
+      switchTimelineRef.current = null;
+      switchingRef.current = false;
+      ctx.revert();
+    };
   }, []);
 
+  /*
+   * Animations that run whenever the active database category changes.
+   */
   useLayoutEffect(() => {
     const stage = stageRef.current;
-    if (!stage) return;
+
+    if (!stage || !activeCategory) {
+      return;
+    }
 
     placeCategoryMarker(firstRenderRef.current);
 
+    /*
+     * Make sure the stage can never remain permanently clipped from a
+     * previous interrupted category transition.
+     */
+    gsap.killTweensOf(stage);
+
     const ctx = gsap.context(() => {
-      const records = gsap.utils.toArray<HTMLElement>(".archive-record", stage);
+      const records = gsap.utils.toArray<HTMLElement>(
+        ".archive-record",
+        stage,
+      );
 
-      ScrollTrigger.batch(records, {
-        start: "top 88%",
-        once: true,
-        onEnter: (batch) =>
-          gsap.fromTo(
-            batch,
-            { y: 80, autoAlpha: 0, rotate: 0.8 },
-            {
-              y: 0,
-              autoAlpha: 1,
-              rotate: 0,
-              duration: 1.05,
-              stagger: STAGGER.images,
-              ease: EASE.expo,
-              overwrite: true,
-            },
-          ),
-      });
+      if (records.length > 0) {
+        ScrollTrigger.batch(records, {
+          start: "top 88%",
+          once: true,
+          onEnter: (batch) => {
+            gsap.fromTo(
+              batch,
+              {
+                y: 80,
+                autoAlpha: 0,
+                rotate: 0.8,
+              },
+              {
+                y: 0,
+                autoAlpha: 1,
+                rotate: 0,
+                duration: 1.05,
+                stagger: STAGGER.images,
+                ease: EASE.expo,
+                overwrite: true,
+              },
+            );
+          },
+        });
+      }
 
+      /*
+       * The first category is already visible, so it does not need the
+       * category-reveal animation.
+       */
       if (firstRenderRef.current) {
         firstRenderRef.current = false;
+
+        gsap.set(stage, {
+          clearProps: "clipPath",
+        });
+
+        switchingRef.current = false;
+
+        requestAnimationFrame(() => {
+          ScrollTrigger.refresh();
+        });
+
         return;
       }
 
+      /*
+       * IMPORTANT:
+       * Target `stage` itself rather than ".products-category-stage".
+       *
+       * This effect is scoped to `stage`, so querying the parent's own
+       * class from inside the context can fail to target the element
+       * correctly and leave clipPath at 100%, creating the black screen.
+       */
       gsap.fromTo(
-        ".products-category-stage",
-        { clipPath: "inset(0 0 100% 0)" },
+        stage,
+        {
+          clipPath: "inset(0 0 100% 0)",
+        },
         {
           clipPath: "inset(0 0 0% 0)",
           duration: 0.85,
           ease: EASE.inOut,
-          clearProps: "clipPath",
+          overwrite: true,
           onComplete: () => {
+            gsap.set(stage, {
+              clearProps: "clipPath",
+            });
+
             switchingRef.current = false;
-            ScrollTrigger.refresh();
+            switchTimelineRef.current = null;
+
+            requestAnimationFrame(() => {
+              ScrollTrigger.refresh();
+            });
+          },
+          onInterrupt: () => {
+            /*
+             * Never leave the archive locked or invisible if GSAP gets
+             * interrupted by navigation, resize or a React update.
+             */
+            gsap.set(stage, {
+              clearProps: "clipPath",
+            });
+
+            switchingRef.current = false;
+            switchTimelineRef.current = null;
           },
         },
       );
@@ -202,92 +359,252 @@ export default function ProductArchive({ categories }: { categories: readonly Ar
         duration: 0.7,
         stagger: 0.055,
         ease: EASE.expo,
+        overwrite: true,
       });
     }, stage);
 
-    return () => ctx.revert();
-  }, [activeId]);
+    return () => {
+      ctx.revert();
+    };
+  }, [activeId, activeCategory]);
 
   const switchCategory = (id: string) => {
-    const next = categories.find((category) => category.id === id);
-    if (!next) return;
+    const next = categories.find(
+      (category) => category.id === id,
+    );
 
-    const target = stageRef.current;
-    if (id === activeId) {
-      if (target) {
-        gsap.to(window, {
-          scrollTo: { y: target, offsetY: 70 },
-          duration: 1.15,
-          ease: EASE.inOut,
-        });
-      }
-      gsap.fromTo(
-        `[data-category-button="${id}"]`,
-        { x: -8 },
-        { x: 0, duration: 0.4, ease: EASE.overshoot },
-      );
+    if (!next) {
       return;
     }
 
-    if (switchingRef.current) return;
+    const stage = stageRef.current;
+    const root = rootRef.current;
+
+    /*
+     * Clicking the currently active category just scrolls back to it.
+     */
+    if (id === activeId) {
+      if (stage) {
+        gsap.to(window, {
+          scrollTo: {
+            y: stage,
+            offsetY: 70,
+          },
+          duration: 1.15,
+          ease: EASE.inOut,
+          overwrite: "auto",
+        });
+      }
+
+      const currentButton =
+        selectorRef.current?.querySelector<HTMLElement>(
+          `[data-category-button="${id}"]`,
+        );
+
+      if (currentButton) {
+        gsap.fromTo(
+          currentButton,
+          {
+            x: -8,
+          },
+          {
+            x: 0,
+            duration: 0.4,
+            ease: EASE.overshoot,
+            overwrite: true,
+          },
+        );
+      }
+
+      return;
+    }
+
+    if (switchingRef.current) {
+      return;
+    }
+
     switchingRef.current = true;
 
-    const nextImageCount =
-      1 + next.products.reduce((sum, product) => sum + getProductGallery(product).length, 0);
+    /*
+     * Remove any old category-switch timeline before creating another.
+     */
+    switchTimelineRef.current?.kill();
 
-    const tl = gsap.timeline({ defaults: { ease: EASE.inOut } });
-    tl.to(".archive-record", {
-      y: -30,
-      autoAlpha: 0,
-      duration: 0.35,
-      stagger: 0.035,
-      overwrite: true,
-    })
-      .to(
-        ".products-category-stage",
-        { clipPath: "inset(0 0 100% 0)", duration: 0.55, overwrite: true },
+    if (stage) {
+      gsap.killTweensOf(stage);
+    }
+
+    const currentRecords = root
+      ? gsap.utils.toArray<HTMLElement>(
+          ".archive-record",
+          root,
+        )
+      : [];
+
+    const nextImageCount =
+      (next.cover ? 1 : 0) +
+      next.products.reduce(
+        (total, product) =>
+          total + getProductGallery(product).length,
         0,
-      )
-      .to(
+      );
+
+    const timeline = gsap.timeline({
+      defaults: {
+        ease: EASE.inOut,
+      },
+      onInterrupt: () => {
+        if (stage) {
+          gsap.set(stage, {
+            clearProps: "clipPath",
+          });
+        }
+
+        switchingRef.current = false;
+        switchTimelineRef.current = null;
+      },
+    });
+
+    switchTimelineRef.current = timeline;
+
+    if (currentRecords.length > 0) {
+      timeline.to(
+        currentRecords,
+        {
+          y: -30,
+          autoAlpha: 0,
+          duration: 0.35,
+          stagger: 0.035,
+          overwrite: true,
+        },
+        0,
+      );
+    }
+
+    /*
+     * Hide the actual stage element directly.
+     */
+    if (stage) {
+      timeline.to(
+        stage,
+        {
+          clipPath: "inset(0 0 100% 0)",
+          duration: 0.55,
+          overwrite: true,
+        },
+        0,
+      );
+    }
+
+    if (activeNameRef.current) {
+      timeline.to(
         activeNameRef.current,
         {
           duration: 0.42,
-          scrambleText: { text: next.name, chars: "upperCase", speed: 1 },
-        },
-        0.08,
-      )
-      .to(
-        countRef.current,
-        {
-          duration: 0.42,
           scrambleText: {
-            text: `${String(next.products.length).padStart(2, "0")} PIECES / ${String(nextImageCount).padStart(2, "0")} IMAGES`,
+            text: next.name,
             chars: "upperCase",
             speed: 1,
           },
         },
         0.08,
-      )
-      .call(() => setActiveId(id));
+      );
+    }
 
-    if (target) {
+    if (countRef.current) {
+      timeline.to(
+        countRef.current,
+        {
+          duration: 0.42,
+          scrambleText: {
+            text: `${String(next.products.length).padStart(
+              2,
+              "0",
+            )} PIECES / ${String(nextImageCount).padStart(
+              2,
+              "0",
+            )} IMAGES`,
+            chars: "upperCase",
+            speed: 1,
+          },
+        },
+        0.08,
+      );
+    }
+
+    /*
+     * React now replaces the category/product content. The
+     * activeId effect above reveals the stage again afterward.
+     */
+    timeline.call(() => {
+      setActiveId(id);
+    });
+
+    /*
+     * Scroll independently from the stage close/open animation.
+     */
+    if (stage) {
       gsap.to(window, {
-        scrollTo: { y: target, offsetY: 70 },
+        scrollTo: {
+          y: stage,
+          offsetY: 70,
+        },
         duration: 1.15,
         ease: EASE.inOut,
         delay: 0.12,
+        overwrite: "auto",
       });
     }
   };
 
+  /*
+   * Correct database-empty state.
+   * We do not invent static products/categories if the API returns none.
+   */
+  if (!activeCategory) {
+    return (
+      <div
+        ref={rootRef}
+        className="relative min-h-screen overflow-hidden bg-black px-gutter pb-[12vh] pt-32 text-bone-white"
+      >
+        <div className="flex items-center gap-4 border-b border-bone-white/15 pb-4">
+          <span className="h-px w-12 bg-blood-accent" />
+
+          <p className="font-stencil text-[0.55rem] tracking-stencil text-concrete-gray">
+            {PRODUCTS_COPY.eyebrow}
+          </p>
+        </div>
+
+        <div className="flex min-h-[68vh] flex-col justify-end py-[8vh]">
+          <h1 className="text-distress max-w-[8ch] font-display text-[clamp(5rem,14vw,14rem)] leading-[0.72] tracking-crushed">
+            EMPTY ARCHIVE
+          </h1>
+
+          <p className="mt-6 max-w-[42ch] font-body text-base uppercase leading-relaxed tracking-[0.1em] text-concrete-gray">
+            NO ACTIVE DATABASE CATEGORIES OR PRODUCTS ARE PUBLISHED
+            YET.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div ref={rootRef} className="relative overflow-hidden bg-black text-bone-white">
+    <div
+      ref={rootRef}
+      className="relative overflow-hidden bg-black text-bone-white"
+    >
+      {/* HERO */}
       <section
         ref={heroRef}
         id="top"
         className={`${styles.hero} relative flex min-h-[92svh] items-end overflow-hidden border-b border-bone-white/15 px-gutter pb-[9vh] pt-32`}
       >
-        <div aria-hidden className={`${styles.heroGrid} absolute inset-0`} />
+        <div
+          aria-hidden
+          className={`${styles.heroGrid} absolute inset-0`}
+        />
+
         <div
           aria-hidden
           className="products-hero-ghost text-distress pointer-events-none absolute -right-[0.04em] top-[9vh] font-display text-[34vw] leading-[0.68] text-outline-2 opacity-[0.14]"
@@ -299,10 +616,12 @@ export default function ProductArchive({ categories }: { categories: readonly Ar
           <div className="products-hero-meta flex flex-wrap items-center justify-between gap-5 border-b border-bone-white/15 pb-4">
             <div className="flex items-center gap-4">
               <span className="h-px w-12 bg-blood-accent" />
+
               <p className="font-stencil text-[0.55rem] tracking-stencil text-concrete-gray">
                 {PRODUCTS_COPY.eyebrow}
               </p>
             </div>
+
             <p className="font-stencil text-[0.5rem] tracking-stencil text-concrete-gray">
               {PRODUCTS_COPY.heroMeta}
             </p>
@@ -319,11 +638,13 @@ export default function ProductArchive({ categories }: { categories: readonly Ar
                   {PRODUCTS_COPY.heroLineOne}
                 </span>
               </span>
+
               <span className="split-mask block pb-[0.08em]">
                 <span className="products-hero-split text-distress block font-display text-[clamp(5rem,14vw,14rem)] leading-[0.72] tracking-crushed text-bone-white">
                   {PRODUCTS_COPY.heroLineTwo}
                 </span>
               </span>
+
               <span className="products-hero-script -mt-[0.08em] block pl-[11vw] font-script text-[clamp(3rem,9vw,9rem)] leading-[0.82] text-blood-accent">
                 {PRODUCTS_COPY.heroScript}
               </span>
@@ -334,6 +655,7 @@ export default function ProductArchive({ categories }: { categories: readonly Ar
         </div>
       </section>
 
+      {/* CATEGORY SELECTOR */}
       <section
         ref={selectorRef}
         className="relative border-b border-bone-white/15 bg-off-black px-gutter py-[10vh]"
@@ -343,10 +665,12 @@ export default function ProductArchive({ categories }: { categories: readonly Ar
           <div>
             <div className="flex items-center gap-4">
               <span className="h-px w-10 bg-blood-accent" />
+
               <p className="font-body text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-blood-accent">
                 CATEGORY INDEX
               </p>
             </div>
+
             <h2
               id="products-index-heading"
               className="mt-4 font-display text-[clamp(3rem,7vw,7rem)] leading-[0.8] tracking-crushed text-bone-white"
@@ -354,6 +678,7 @@ export default function ProductArchive({ categories }: { categories: readonly Ar
               {PRODUCTS_COPY.select}
             </h2>
           </div>
+
           <p className="max-w-[34ch] font-body text-[0.76rem] font-semibold uppercase leading-[1.7] tracking-[0.12em] text-concrete-gray md:text-right">
             {PRODUCTS_COPY.selectAside}
           </p>
@@ -368,6 +693,7 @@ export default function ProductArchive({ categories }: { categories: readonly Ar
 
           {categories.map((category) => {
             const active = category.id === activeId;
+
             return (
               <button
                 key={category.id}
@@ -380,20 +706,28 @@ export default function ProductArchive({ categories }: { categories: readonly Ar
                 <span className="font-stencil text-[0.55rem] tracking-stencil text-concrete-gray group-hover:text-blood-accent">
                   {category.index}
                 </span>
+
                 <span
                   className={`font-display text-[clamp(2rem,5vw,5.5rem)] leading-[0.82] tracking-crushed transition-colors duration-300 ${
-                    active ? "text-bone-white" : "text-concrete-gray"
+                    active
+                      ? "text-bone-white"
+                      : "text-concrete-gray"
                   }`}
                 >
                   {category.name}
                 </span>
+
                 <span className="hidden font-stencil text-[0.5rem] tracking-stencil text-concrete-gray md:block">
-                  {String(category.products.length).padStart(2, "0")} PIECES
+                  {String(category.products.length).padStart(2, "0")}{" "}
+                  PIECES
                 </span>
+
                 <span
                   aria-hidden
                   className={`font-display text-[1.4rem] transition-transform duration-300 ease-hard ${
-                    active ? "rotate-90 text-blood-accent" : "text-bone-white/50 group-hover:translate-x-2"
+                    active
+                      ? "rotate-90 text-blood-accent"
+                      : "text-bone-white/50 group-hover:translate-x-2"
                   }`}
                 >
                   →
@@ -404,21 +738,42 @@ export default function ProductArchive({ categories }: { categories: readonly Ar
         </div>
       </section>
 
-      <section ref={stageRef} className="products-category-stage relative bg-black px-gutter pb-[12vh] pt-[10vh]">
+      {/* ACTIVE CATEGORY + PRODUCTS */}
+      <section
+        ref={stageRef}
+        className="products-category-stage relative bg-black px-gutter pb-[12vh] pt-[10vh]"
+      >
         <div className="products-category-copy grid gap-10 border-b border-bone-white/15 pb-[9vh] lg:grid-cols-12 lg:gap-x-[4vw]">
+          {/* CATEGORY IMAGE */}
           <div className="relative lg:col-span-7">
             <div className="theme-light relative w-[88%] bg-black p-2 shadow-print md:w-[72%] lg:w-[78%]">
-              <div className={`${styles.coverFrame} relative aspect-[4/3] overflow-hidden bg-off-black`}>
-                <Image
-                  key={activeCategory.cover}
-                  src={activeCategory.cover}
-                  alt={activeCategory.coverAlt}
-                  fill
-                  priority
-                  sizes="(max-width: 768px) 88vw, 55vw"
-                  className="media-product object-cover"
+              <div
+                className={`${styles.coverFrame} relative aspect-[4/3] overflow-hidden bg-off-black`}
+              >
+                {activeCategory.cover ? (
+                  <Image
+                    key={`${activeCategory.id}-${activeCategory.cover}`}
+                    src={activeCategory.cover}
+                    alt={
+                      activeCategory.coverAlt ||
+                      activeCategory.name
+                    }
+                    fill
+                    priority
+                    sizes="(max-width: 768px) 88vw, 55vw"
+                    className="media-product object-cover"
+                  />
+                ) : (
+                  <div className="grid h-full place-items-center font-stencil text-stamp text-concrete-gray">
+                    NO CATEGORY FRAME
+                  </div>
+                )}
+
+                <span
+                  aria-hidden
+                  className={`${styles.mediaVignette} absolute inset-0`}
                 />
-                <span aria-hidden className={`${styles.mediaVignette} absolute inset-0`} />
+
                 <span className="absolute left-4 top-4 z-10 bg-black/70 px-2 py-1 font-stencil text-[0.5rem] tracking-stencil text-bone-white/70">
                   CATEGORY FRAME / {activeCategory.index}
                 </span>
@@ -433,36 +788,52 @@ export default function ProductArchive({ categories }: { categories: readonly Ar
             </span>
           </div>
 
+          {/* CATEGORY INFORMATION */}
           <div className="relative z-10 lg:col-span-5 lg:flex lg:flex-col lg:justify-end">
             <div className="flex items-center gap-4">
               <span className="h-px w-10 bg-blood-accent" />
+
               <span className="font-stencil text-[0.55rem] tracking-stencil text-blood-accent">
                 {PRODUCTS_COPY.active}
               </span>
             </div>
 
-            <p className="mt-5 font-stencil text-[0.5rem] tracking-stencil text-concrete-gray">
-              {activeCategory.registry}
-            </p>
+            {activeCategory.registry ? (
+              <p className="mt-5 font-stencil text-[0.5rem] tracking-stencil text-concrete-gray">
+                {activeCategory.registry}
+              </p>
+            ) : null}
 
             <h2 className="mt-4 max-w-[9ch] font-display text-[clamp(4rem,9vw,9rem)] leading-[0.76] tracking-crushed text-bone-white">
-              <span ref={activeNameRef}>{activeCategory.name}</span>
+              <span ref={activeNameRef}>
+                {activeCategory.name}
+              </span>
             </h2>
 
-            <p className="mt-6 font-stencil text-[0.58rem] tracking-stencil text-blood-accent">
-              {activeCategory.spec}
-            </p>
-            <p className="mt-4 max-w-[31ch] font-body text-body-lg text-bone-white/65">
-              {activeCategory.line}
-            </p>
+            {activeCategory.spec ? (
+              <p className="mt-6 font-stencil text-[0.58rem] tracking-stencil text-blood-accent">
+                {activeCategory.spec}
+              </p>
+            ) : null}
+
+            {activeCategory.line ? (
+              <p className="mt-4 max-w-[31ch] font-body text-body-lg text-bone-white/65">
+                {activeCategory.line}
+              </p>
+            ) : null}
 
             <div className="mt-8 flex flex-wrap gap-x-8 gap-y-3 border-y border-bone-white/15 py-4">
               <span
                 ref={countRef}
                 className="font-stencil text-[0.52rem] tracking-stencil text-bone-white"
               >
-                {String(activeCategory.products.length).padStart(2, "0")} PIECES / {String(imageCount).padStart(2, "0")} IMAGES
+                {String(activeCategory.products.length).padStart(
+                  2,
+                  "0",
+                )}{" "}
+                PIECES / {String(imageCount).padStart(2, "0")} IMAGES
               </span>
+
               <span className="font-stencil text-[0.52rem] tracking-stencil text-concrete-gray">
                 ALL CLEARED FRAMES BELOW
               </span>
@@ -470,16 +841,38 @@ export default function ProductArchive({ categories }: { categories: readonly Ar
           </div>
         </div>
 
+        {/* PRODUCTS */}
         <div className="relative">
-          {activeCategory.products.map((product, index) => (
-            <ProductRecord key={product.id} product={product} ordinal={index} />
-          ))}
+          {activeCategory.products.length > 0 ? (
+            activeCategory.products.map((product, index) => (
+              <ProductRecord
+                key={`${activeCategory.id}-${product.id}`}
+                product={product}
+                ordinal={index}
+              />
+            ))
+          ) : (
+            <div className="grid min-h-[45vh] place-items-center border-b border-bone-white/15">
+              <div className="text-center">
+                <p className="font-display text-[clamp(3rem,7vw,7rem)] leading-none tracking-crushed text-bone-white">
+                  EMPTY FILE
+                </p>
+
+                <p className="mt-4 font-stencil text-[0.52rem] tracking-stencil text-concrete-gray">
+                  NO ACTIVE PRODUCTS IN THIS DATABASE CATEGORY
+                </p>
+              </div>
+            </div>
+          )}
         </div>
       </section>
 
+      {/* OUTRO */}
       <section className="products-outro relative overflow-hidden border-t border-bone-white/15 bg-off-black pt-[10vh]">
         <div className="overflow-hidden border-y border-bone-white/15 py-3">
-          <div className={`${styles.tickerTrack} products-ticker-track flex w-max`}>
+          <div
+            className={`${styles.tickerTrack} products-ticker-track flex w-max`}
+          >
             {[0, 1].map((copy) => (
               <span
                 key={copy}
@@ -497,26 +890,38 @@ export default function ProductArchive({ categories }: { categories: readonly Ar
             <p className="font-stencil text-[0.52rem] tracking-stencil text-blood-accent">
               {PRODUCTS_COPY.footerEyebrow}
             </p>
+
             <h2 className="mt-5 max-w-[12ch] font-display text-[clamp(3rem,8vw,8rem)] leading-[0.8] tracking-crushed text-bone-white">
               {PRODUCTS_COPY.footerLine}
             </h2>
           </div>
+
           <div className="lg:col-span-4 lg:flex lg:justify-end">
             <Link
               href="/"
               className={`${styles.homeLink} clip-cut group relative inline-flex min-w-[15rem] items-center justify-between overflow-hidden border border-bone-white/25 px-5 py-4`}
             >
-              <span aria-hidden className={`${styles.homeLinkFill} absolute inset-0 bg-bone-white`} />
+              <span
+                aria-hidden
+                className={`${styles.homeLinkFill} absolute inset-0 bg-bone-white`}
+              />
+
               <span className="relative z-10 font-stencil text-[0.55rem] tracking-stencil text-bone-white group-hover:text-black">
                 {PRODUCTS_COPY.backHome}
               </span>
-              <span className="relative z-10 font-display text-xl text-blood-accent">↗</span>
+
+              <span className="relative z-10 font-display text-xl text-blood-accent">
+                ↗
+              </span>
             </Link>
           </div>
         </div>
 
         <div className="overflow-hidden px-gutter pb-3">
-          <p aria-hidden className="text-distress translate-y-[0.08em] whitespace-nowrap font-display text-[20vw] leading-[0.72] tracking-crushed text-bone-white/95">
+          <p
+            aria-hidden
+            className="text-distress translate-y-[0.08em] whitespace-nowrap font-display text-[20vw] leading-[0.72] tracking-crushed text-bone-white/95"
+          >
             SICKO SOUL
           </p>
         </div>

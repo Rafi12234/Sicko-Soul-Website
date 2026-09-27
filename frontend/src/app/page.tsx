@@ -23,7 +23,7 @@ export default async function Home() {
       <Navbar />
       <main>
         <Hero />
-        <Segments />
+        <Segments categories={catalogCategories} />
         <Manifesto />
         <StatementBand statement={STATEMENTS.entry} />
         <Rack catalogCategories={catalogCategories} />

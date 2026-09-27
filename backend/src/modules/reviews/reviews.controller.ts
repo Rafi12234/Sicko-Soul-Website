@@ -2,16 +2,24 @@ import type { RequestHandler } from "express";
 import { auditContextFromRequest } from "../../utils/audit-context.js";
 import {
   moderateReviewSchema,
+  publicReviewListQuerySchema,
   reviewIdParamsSchema,
   reviewProductParamsSchema,
   submitReviewSchema,
 } from "./reviews.schema.js";
 import {
+  listApprovedReviewFeed,
   listApprovedReviews,
   listReviewsForAdmin,
   moderateReview,
   submitReview,
 } from "./reviews.service.js";
+
+export const listPublicReviewsController: RequestHandler = async (req, res) => {
+  const query = publicReviewListQuerySchema.parse(req.query);
+  const result = await listApprovedReviewFeed(query.limit);
+  res.json(result);
+};
 
 export const listProductReviewsController: RequestHandler = async (req, res) => {
   const { productId } = reviewProductParamsSchema.parse(req.params);

@@ -296,6 +296,7 @@ export default function RackCard({ product, offsetClass }: Props) {
   };
 
   const handleBuyNow = () => {
+    if (!product.available) return;
     router.push(`/buy-now?product=${encodeURIComponent(product.id)}&qty=1`);
   };
 
@@ -315,13 +316,17 @@ export default function RackCard({ product, offsetClass }: Props) {
             exposes the frame edge. Top-biased crop keeps every model framed
             the same way despite the source files differing in aspect. */}
         <div ref={wornRef} className="absolute -inset-[7%] z-0">
-          <Image
-            src={product.worn}
-            alt={`${product.name} worn`}
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 24vw"
-            className="media-product object-cover object-[50%_8%]"
-          />
+          {product.worn ? (
+            <Image
+              src={product.worn}
+              alt={`${product.name} worn`}
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 24vw"
+              className="media-product object-cover object-[50%_8%]"
+            />
+          ) : (
+            <div className="grid h-full place-items-center font-stencil text-stamp text-concrete-gray">NO FRAME</div>
+          )}
         </div>
 
         <span
@@ -335,13 +340,17 @@ export default function RackCard({ product, offsetClass }: Props) {
         {/* Solid plate: the cutout PNG must never let the worn shot bleed
             through before the wipe. */}
         <div ref={stillRef} className={`${styles.still} absolute inset-0 z-10 bg-off-black`}>
-          <Image
-            src={product.still}
-            alt={product.name}
-            fill
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 24vw"
-            className="media-product object-cover"
-          />
+          {product.still ? (
+            <Image
+              src={product.still}
+              alt={product.name}
+              fill
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 24vw"
+              className="media-product object-cover"
+            />
+          ) : (
+            <div className="grid h-full place-items-center font-stencil text-stamp text-concrete-gray">NO PRODUCT IMAGE</div>
+          )}
           {/* Darkroom vignette — burns the studio plate into the frame. */}
           <span aria-hidden className={`${styles.vignette} absolute inset-0`} />
         </div>
@@ -415,14 +424,15 @@ export default function RackCard({ product, offsetClass }: Props) {
         <button
           type="button"
           onClick={handleAddToCart}
-          className="rack-action clip-cut relative min-h-[3.45rem] overflow-hidden border border-bone-white/45 px-4 py-3"
+          disabled={!product.available}
+          className="rack-action disabled:cursor-not-allowed disabled:opacity-40 clip-cut relative min-h-[3.45rem] overflow-hidden border border-bone-white/45 px-4 py-3"
         >
           <span
             aria-hidden
             className={`${styles.actionFill} rack-action-fill absolute inset-0 bg-bone-white`}
           />
           <span className="rack-action-label relative block font-body text-[0.78rem] font-semibold uppercase tracking-[0.14em] text-bone-white">
-            {RACK_COPY.addToCart}
+            {product.available ? RACK_COPY.addToCart : "OUT OF STOCK"}
           </span>
         </button>
 
@@ -430,7 +440,8 @@ export default function RackCard({ product, offsetClass }: Props) {
           type="button"
           data-ink="paper"
           onClick={handleBuyNow}
-          className="rack-action clip-cut relative min-h-[3.45rem] overflow-hidden border border-blood-accent bg-blood-accent px-4 py-3"
+          disabled={!product.available}
+          className="rack-action disabled:cursor-not-allowed disabled:opacity-40 clip-cut relative min-h-[3.45rem] overflow-hidden border border-blood-accent bg-blood-accent px-4 py-3"
         >
           <span
             aria-hidden

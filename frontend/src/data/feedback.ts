@@ -1,9 +1,8 @@
-/** Voice per docs/BRAND_BIBLE.md: cold, blunt, exclusionary. No exclamations. */
-
+/** Landing-page voice only. Complaint categories and support metrics come from the API/database. */
 export const FEEDBACK_COPY = {
   eyebrow: "08 / THE COMPLAINT DESK",
   stamp: "ON RECORD",
-  aside: "WE READ EVERY ONE. WE ANSWER ALMOST NONE.",
+  aside: "WE READ WHAT GETS FILED.",
   heading: "SAY IT TO",
   headingAlt: "OUR FACE",
   ghost: "FILED",
@@ -16,17 +15,11 @@ export const FEEDBACK_COPY = {
     message: { label: "THE COMPLAINT", placeholder: "KEEP IT SHORT. WE'VE HEARD IT ALL." },
   },
   categoryLabel: "WHAT WENT WRONG",
-  categories: [
-    { id: "defect", label: "DEFECT" },
-    { id: "delivery", label: "DELIVERY" },
-    { id: "sizing", label: "SIZING" },
-    { id: "refund", label: "REFUND" },
-    { id: "other", label: "OTHER" },
-  ],
   submit: "FILE IT",
   errors: {
     email: "THAT ADDRESS ISN'T REAL",
     message: "WRITE THE COMPLAINT FIRST",
+    category: "NO ACTIVE COMPLAINT TYPE IS AVAILABLE",
   },
   done: {
     head: "COMPLAINT LOGGED",
@@ -35,9 +28,4 @@ export const FEEDBACK_COPY = {
   },
   terms: "NO ABUSE. NO THREATS. THOSE GO STRAIGHT IN THE BIN.",
   watching: "THIS FORM IS BEING RECORDED",
-  ledger: [
-    { value: "72H", label: "TYPICAL REPLY" },
-    { value: "01", label: "ESCALATION LEVEL" },
-    { value: "00", label: "AUTOMATED BOTS" },
-  ],
 } as const;

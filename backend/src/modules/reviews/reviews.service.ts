@@ -1,3 +1,4 @@
+import type { Prisma } from "../../../generated/prisma/client.js";
 import { AppError } from "../../errors/app-error.js";
 import { prisma } from "../../lib/prisma.js";
 import { recordAudit } from "../../services/audit.service.js";
@@ -13,7 +14,8 @@ function mapReview(row: {
   is_verified_purchase: boolean;
   status: "PENDING" | "APPROVED" | "REJECTED" | "HIDDEN";
   submitted_at: Date;
-  products: { public_id: string };
+  published_at: Date | null;
+  products: { public_id: string; name: string };
 }) {
   return {
     id: row.review_id.toString(),
@@ -25,6 +27,8 @@ function mapReview(row: {
     verifiedPurchase: row.is_verified_purchase,
     status: row.status,
     submittedAt: row.submitted_at.toISOString(),
+    publishedAt: row.published_at?.toISOString() ?? null,
+    productName: row.products.name,
   };
 }
 
@@ -46,10 +50,48 @@ export async function listApprovedReviews(productIdentifier: string) {
   const product = await resolveProduct(productIdentifier);
   const rows = await prisma.product_reviews.findMany({
     where: { product_id: product.product_id, status: "APPROVED" },
-    include: { products: { select: { public_id: true } } },
+    include: { products: { select: { public_id: true, name: true } } },
     orderBy: [{ published_at: "desc" }, { submitted_at: "desc" }],
   });
   return rows.map(mapReview);
+}
+
+export async function listApprovedReviewFeed(limit: number) {
+  const where = {
+    status: "APPROVED",
+    products: {
+      is: {
+        status: "ACTIVE",
+        product_categories: { is: { is_active: true } },
+      },
+    },
+  } satisfies Prisma.product_reviewsWhereInput;
+
+  const [rows, aggregate, verifiedCount] = await prisma.$transaction([
+    prisma.product_reviews.findMany({
+      where,
+      include: { products: { select: { public_id: true, name: true } } },
+      orderBy: [{ published_at: "desc" }, { submitted_at: "desc" }],
+      take: limit,
+    }),
+    prisma.product_reviews.aggregate({
+      where,
+      _count: { _all: true },
+      _avg: { rating: true },
+    }),
+    prisma.product_reviews.count({
+      where: { ...where, is_verified_purchase: true },
+    }),
+  ]);
+
+  return {
+    data: rows.map(mapReview),
+    meta: {
+      total: aggregate._count._all,
+      averageRating: aggregate._avg.rating ?? 0,
+      verifiedCount,
+    },
+  };
 }
 
 export async function submitReview(
@@ -116,7 +158,7 @@ export async function submitReview(
       is_verified_purchase: verified,
       status: "PENDING",
     },
-    include: { products: { select: { public_id: true } } },
+    include: { products: { select: { public_id: true, name: true } } },
   });
 
   return mapReview(row);
@@ -159,7 +201,7 @@ export async function moderateReview(
         moderation_note: input.note ?? null,
         published_at: input.status === "APPROVED" ? new Date() : review.published_at,
       },
-      include: { products: { select: { public_id: true } } },
+      include: { products: { select: { public_id: true, name: true } } },
     });
 
     await tx.product_review_status_history.create({

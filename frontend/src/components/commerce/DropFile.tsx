@@ -109,13 +109,17 @@ export default function DropFile({ slug }: { slug: string }) {
           const content = (
             <>
               <div className="relative aspect-[4/5] overflow-hidden bg-off-black">
-                <Image
-                  src={product.still}
-                  alt={product.alt}
-                  fill
-                  sizes="(max-width:768px) 100vw, 33vw"
-                  className={`media-product object-cover transition duration-700 ${locked ? "grayscale brightness-[.28] contrast-125" : "group-hover:scale-[1.03]"}`}
-                />
+                {product.still ? (
+                  <Image
+                    src={product.still}
+                    alt={product.alt}
+                    fill
+                    sizes="(max-width:768px) 100vw, 33vw"
+                    className={`media-product object-cover transition duration-700 ${locked ? "grayscale brightness-[.28] contrast-125" : "group-hover:scale-[1.03]"}`}
+                  />
+                ) : (
+                  <div className="grid h-full place-items-center font-body text-xs font-semibold uppercase tracking-[0.14em] text-concrete-gray">NO PRODUCT IMAGE</div>
+                )}
                 {locked && <div className="absolute inset-0 grid place-items-center bg-black/35"><span className="border border-blood-accent bg-black px-4 py-3 font-body text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-blood-accent">SEALED</span></div>}
               </div>
               <div className="border-x border-b-bone-white/15 p-5">

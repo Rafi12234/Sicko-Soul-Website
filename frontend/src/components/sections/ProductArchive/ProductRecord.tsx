@@ -128,8 +128,16 @@ export default function ProductRecord({ product, ordinal }: ProductRecordProps) 
   };
 
   const buyNow = () => {
+    const variants = getProductVariants(product);
+    const variant =
+      variants.find((entry) => entry.isDefault && entry.status === "ACTIVE" && entry.availableQty > 0) ??
+      variants.find((entry) => entry.status === "ACTIVE" && entry.availableQty > 0);
+    if (!variant) {
+      setCartSignal("SOLD OUT");
+      return;
+    }
     router.push(
-      `/buy-now?product=${encodeURIComponent(product.id)}&size=${encodeURIComponent(product.defaultSize)}&qty=1`,
+      `/buy-now?product=${encodeURIComponent(product.id)}&size=${encodeURIComponent(variant.size)}&qty=1`,
     );
   };
 
@@ -175,13 +183,17 @@ export default function ProductRecord({ product, ordinal }: ProductRecordProps) 
               className={`${styles.primaryFrame} theme-light relative z-10 ml-0 w-[88%] bg-black p-2 shadow-print md:w-[74%] lg:w-[69%]`}
             >
               <div className="relative aspect-[4/5] overflow-hidden bg-off-black">
-                <Image
-                  src={product.still}
-                  alt={product.alt}
-                  fill
-                  sizes="(max-width: 768px) 90vw, (max-width: 1200px) 58vw, 45vw"
-                  className="media-product object-cover transition-transform duration-700 ease-hard hover:scale-[1.02]"
-                />
+                {product.still ? (
+                  <Image
+                    src={product.still}
+                    alt={product.alt}
+                    fill
+                    sizes="(max-width: 768px) 90vw, (max-width: 1200px) 58vw, 45vw"
+                    className="media-product object-cover transition-transform duration-700 ease-hard hover:scale-[1.02]"
+                  />
+                ) : (
+                  <div className="grid h-full place-items-center font-stencil text-stamp text-concrete-gray">NO PRODUCT IMAGE</div>
+                )}
                 <span aria-hidden className={`${styles.mediaVignette} absolute inset-0`} />
                 <span
                   ref={scanRef}

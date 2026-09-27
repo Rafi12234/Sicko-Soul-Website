@@ -4,10 +4,12 @@ import { ApiError, apiRequest } from "@/lib/apiClient";
 import type {
   ComplaintCase,
   ComplaintCategoryCode,
+  ComplaintDirectory,
   CollectionRecord,
   CreateOrderRequest,
   CustomerOrder,
   ProductReview,
+  PublicReviewFeed,
   RefundRecord,
 } from "@/types/commerce";
 
@@ -47,6 +49,10 @@ export async function requestRefund(input: {
   });
 }
 
+export async function listComplaintCategories(): Promise<ComplaintDirectory> {
+  return apiRequest<ComplaintDirectory>("/complaints/categories", { cache: "no-store" });
+}
+
 export async function createComplaint(input: {
   category: ComplaintCategoryCode;
   contactName?: string;
@@ -80,6 +86,12 @@ export async function replyComplaint(caseReference: string, message: string) {
       body: JSON.stringify({ message }),
     },
   );
+}
+
+export async function listPublicReviews(limit = 18): Promise<PublicReviewFeed> {
+  return apiRequest<PublicReviewFeed>(`/reviews?limit=${Math.max(1, Math.min(60, Math.round(limit)))}`, {
+    cache: "no-store",
+  });
 }
 
 export async function listReviews(productId: string) {

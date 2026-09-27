@@ -3,12 +3,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { EASE, STAGGER } from "@/styles/theme";
-import {
-  RACK_CATEGORIES,
-  RACK_COPY,
-  type RackCategory,
-  type RackProduct,
-} from "@/data/rack";
+import { RACK_COPY, type RackProduct } from "@/data/rack";
 import { getProductVariants, type ArchiveCategory } from "@/data/products";
 import RackCard from "./RackCard";
 import styles from "./Rack.module.css";
@@ -21,14 +16,13 @@ export default function Rack({ catalogCategories }: { catalogCategories: readonl
   const railRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<HTMLSpanElement>(null);
   const gridRef = useRef<HTMLDivElement>(null);
-  const stampRef = useRef<HTMLDivElement>(null);
   const countRef = useRef<HTMLSpanElement>(null);
   const ctxRef = useRef<ReturnType<typeof gsap.context> | null>(null);
-  const activeRef = useRef<string>(RACK_CATEGORIES[0].id);
+  const activeRef = useRef<string>(catalogCategories[0]?.id ?? "");
   const swappingRef = useRef(false);
   const firstRunRef = useRef(true);
 
-  const [activeId, setActiveId] = useState<string>(RACK_CATEGORIES[0].id);
+  const [activeId, setActiveId] = useState<string>(catalogCategories[0]?.id ?? "");
   const activeCatalogCategory = catalogCategories.find((category) => category.id === activeId);
   const products: RackProduct[] = (activeCatalogCategory?.products ?? []).map((product) => {
     const variants = getProductVariants(product);
@@ -47,6 +41,7 @@ export default function Rack({ catalogCategories }: { catalogCategories: readonl
       spec: product.spec,
       line: product.line,
       variantId: defaultVariant?.id,
+      available: Boolean(defaultVariant),
     };
   });
 
@@ -70,7 +65,6 @@ export default function Rack({ catalogCategories }: { catalogCategories: readonl
   /* ---- One-time wiring: heading, card entry, scroll-velocity shear. ---- */
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
-      gsap.set(stampRef.current, { xPercent: -50, yPercent: -50, autoAlpha: 0 });
       placeMarker(true);
 
       const headingSplit = new SplitText(".rack-heading", { type: "chars" });
@@ -183,60 +177,6 @@ export default function Rack({ catalogCategories }: { catalogCategories: readonl
     });
   }, [activeId, products.length]);
 
-  const reject = (id: string) => {
-    ctxRef.current?.add(() => {
-      const tab = railRef.current?.querySelector<HTMLElement>(`[data-tab="${id}"]`);
-      const strike = tab?.querySelector<HTMLElement>(".rack-strike");
-      const tl = gsap.timeline();
-
-      if (tab) {
-        tl.to(
-          tab,
-          {
-            keyframes: [
-              { x: -10, duration: 0.05 },
-              { x: 8, duration: 0.05 },
-              { x: -4, duration: 0.05 },
-              { x: 0, duration: 0.08 },
-            ],
-            ease: "none",
-          },
-          0,
-        );
-      }
-
-      if (strike) {
-        tl.fromTo(
-          strike,
-          { scaleX: 0, transformOrigin: "left center" },
-          { scaleX: 1, duration: 0.22, ease: EASE.hard },
-          0,
-        ).to(strike, { scaleX: 0, transformOrigin: "right center", duration: 0.3 }, 1.05);
-      }
-
-      tl.fromTo(
-        stampRef.current,
-        { autoAlpha: 0, scale: 1.7, rotate: -17 },
-        { autoAlpha: 1, scale: 1, rotate: -9, duration: 0.32, ease: EASE.overshoot },
-        0.05,
-      )
-        .to(stampRef.current, { autoAlpha: 0, scale: 0.94, duration: 0.35, ease: EASE.inOut }, 1.15)
-        .to(
-          gridRef.current,
-          {
-            keyframes: [
-              { x: 8, skewX: -1.8, duration: 0.05 },
-              { x: -6, skewX: 1.3, duration: 0.05 },
-              { x: 3, skewX: -0.5, duration: 0.05 },
-              { x: 0, skewX: 0, duration: 0.09 },
-            ],
-            ease: "none",
-          },
-          0,
-        );
-    });
-  };
-
   const pulse = () => {
     ctxRef.current?.add(() => {
       const cards = gsap.utils.toArray<HTMLElement>(".rack-card", gridRef.current);
@@ -251,11 +191,7 @@ export default function Rack({ catalogCategories }: { catalogCategories: readonl
     });
   };
 
-  const handleSelect = (category: RackCategory) => {
-    if (category.status === "locked") {
-      reject(category.id);
-      return;
-    }
+  const handleSelect = (category: ArchiveCategory) => {
     if (category.id === activeRef.current) {
       pulse();
       return;
@@ -325,13 +261,9 @@ export default function Rack({ catalogCategories }: { catalogCategories: readonl
             aria-hidden
             className={`${styles.marker} pointer-events-none absolute left-0 top-0 z-0 bg-bone-white`}
           />
-          {RACK_CATEGORIES.map((category) => {
+          {catalogCategories.map((category) => {
             const isActive = category.id === activeId;
-            const tone = isActive
-              ? "text-black delay-150"
-              : category.status === "locked"
-                ? "text-concrete-gray"
-                : "text-bone-white";
+            const tone = isActive ? "text-black delay-150" : "text-bone-white";
 
             return (
               <button
@@ -346,14 +278,8 @@ export default function Rack({ catalogCategories }: { catalogCategories: readonl
                   {category.index}
                 </span>
                 <span className="font-display text-[clamp(0.95rem,2.1vw,1.55rem)] leading-none tracking-crushed">
-                  {category.label}
+                  {category.name}
                 </span>
-                {category.status === "locked" ? (
-                  <span
-                    aria-hidden
-                    className="rack-strike absolute inset-x-4 top-1/2 h-px scale-x-0 bg-blood-accent"
-                  />
-                ) : null}
               </button>
             );
           })}
@@ -369,17 +295,6 @@ export default function Rack({ catalogCategories }: { catalogCategories: readonl
           </span>
         </div>
 
-        {/* Anchored to the rail, not the grid: the tab that was just clicked is
-            what the user is looking at when this fires. */}
-        <div
-          ref={stampRef}
-          aria-hidden
-          className="pointer-events-none absolute left-1/2 top-[calc(100%+7vh)] z-30 border-2 border-blood-accent bg-black/80 px-8 py-4 opacity-0"
-        >
-          <span className="font-stencil text-[clamp(1.1rem,3vw,2.2rem)] tracking-stencil text-blood-accent">
-            {RACK_COPY.reject}
-          </span>
-        </div>
       </div>
 
       <div className="relative">
@@ -387,6 +302,12 @@ export default function Rack({ catalogCategories }: { catalogCategories: readonl
           ref={gridRef}
           className={`${styles.grid} mt-[9vh] grid grid-cols-1 gap-x-6 gap-y-[9vh] px-gutter sm:grid-cols-2 lg:grid-cols-4 lg:gap-x-8 lg:gap-y-[11vh]`}
         >
+          {products.length === 0 ? (
+            <div className="border border-bone-white/15 p-6 font-stencil text-stamp text-concrete-gray sm:col-span-2 lg:col-span-4">
+              {RACK_COPY.empty}
+            </div>
+          ) : null}
+
           {products.map((product, index) => (
             <RackCard
               key={product.id}

@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useLayoutEffect, useRef, useState, type FormEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER, themeColor } from "@/styles/theme";
 import { FEEDBACK_COPY } from "@/data/feedback";
-import { createComplaint } from "@/lib/customerApi";
-import type { ComplaintCategoryCode } from "@/types/commerce";
+import { createComplaint, listComplaintCategories } from "@/lib/customerApi";
+import type { ComplaintCategoryCode, ComplaintDirectory } from "@/types/commerce";
 import styles from "./Feedback.module.css";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -23,10 +23,30 @@ export default function Feedback() {
   const receiptRef = useRef<HTMLDivElement>(null);
   const ctxRef = useRef<ReturnType<typeof gsap.context> | null>(null);
 
-  const [category, setCategory] = useState<string>(FEEDBACK_COPY.categories[0].id);
+  const [category, setCategory] = useState<string>("");
+  const [directory, setDirectory] = useState<ComplaintDirectory>({
+    data: [],
+    meta: { categoryCount: 0, caseCount: 0, resolvedCount: 0 },
+  });
+  const [directoryError, setDirectoryError] = useState("");
   const [error, setError] = useState<string>("");
   const [caseRef, setCaseRef] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
+
+
+  useEffect(() => {
+    let alive = true;
+    listComplaintCategories()
+      .then((result) => {
+        if (!alive) return;
+        setDirectory(result);
+        setCategory((current) => current || result.data[0]?.code || "");
+      })
+      .catch((cause) => {
+        if (alive) setDirectoryError(cause instanceof Error ? cause.message : "COMPLAINT TYPES COULD NOT BE LOADED.");
+      });
+    return () => { alive = false; };
+  }, []);
 
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
@@ -196,7 +216,7 @@ export default function Feedback() {
       ctxRef.current = null;
       ctx.revert();
     };
-  }, []);
+  }, [directory.data]);
 
   const reject = (message: string) => {
     setError(message);
@@ -227,6 +247,7 @@ export default function Feedback() {
     const orderReference = orderRef.current?.value.trim() ?? "";
     const message = messageRef.current?.value.trim() ?? "";
 
+    if (!category) return reject(FEEDBACK_COPY.errors.category);
     if (!EMAIL.test(email)) return reject(FEEDBACK_COPY.errors.email);
     if (message.length < 10) return reject(FEEDBACK_COPY.errors.message);
 
@@ -284,14 +305,14 @@ export default function Feedback() {
     ctxRef.current?.add(() => {
       const root = rootRef.current;
       if (!root) return;
-      FEEDBACK_COPY.categories.forEach((c) => {
-        const chip = root.querySelector<HTMLElement>(`[data-chip="${c.id}"]`);
+      directory.data.forEach((c) => {
+        const chip = root.querySelector<HTMLElement>(`[data-chip="${c.code}"]`);
         const fill = chip?.querySelector<HTMLElement>(".fb-chip-fill") ?? null;
         if (!fill) return;
         gsap.to(fill, {
-          clipPath: c.id === id ? "inset(0 0% 0 0)" : "inset(0 100% 0 0)",
-          duration: c.id === id ? 0.5 : 0.3,
-          ease: c.id === id ? EASE.expo : EASE.inOut,
+          clipPath: c.code === id ? "inset(0 0% 0 0)" : "inset(0 100% 0 0)",
+          duration: c.code === id ? 0.5 : 0.3,
+          ease: c.code === id ? EASE.expo : EASE.inOut,
           overwrite: "auto",
         });
       });
@@ -362,7 +383,11 @@ export default function Feedback() {
             <div className="mt-[6vh]">
               <div className="h-px w-full bg-ink/30" />
               <div className="mt-6 grid grid-cols-3 gap-4">
-                {FEEDBACK_COPY.ledger.map((entry) => (
+                {[
+                  { value: String(directory.meta.categoryCount), label: "ACTIVE CASE TYPES" },
+                  { value: String(directory.meta.caseCount), label: "CASES ON RECORD" },
+                  { value: String(directory.meta.resolvedCount), label: "RESOLVED CASES" },
+                ].map((entry) => (
                   <div key={entry.label} className="fb-meta">
                     <p className="font-display text-[clamp(1.3rem,2.4vw,2.1rem)] leading-none tracking-crushed text-ink">
                       {entry.value}
@@ -440,22 +465,26 @@ export default function Feedback() {
               </div>
             </div>
 
+            {directoryError ? (
+              <p className="mt-7 font-body text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-blood-accent">{directoryError}</p>
+            ) : null}
+
             {/* Category is armed, not selected from a dropdown. */}
             <fieldset className="mt-8">
               <legend className="font-body text-[0.68rem] font-semibold uppercase tracking-[0.16em] text-concrete-gray">
                 {FEEDBACK_COPY.categoryLabel}
               </legend>
               <div className="mt-3 flex flex-wrap gap-2">
-                {FEEDBACK_COPY.categories.map((c) => {
-                  const armed = c.id === category;
+                {directory.data.map((c) => {
+                  const armed = c.code === category;
                   return (
                     <button
                       key={c.id}
                       type="button"
-                      data-chip={c.id}
+                      data-chip={c.code}
                       data-armed={armed}
                       aria-pressed={armed}
-                      onClick={() => armChip(c.id)}
+                      onClick={() => armChip(c.code)}
                       className="fb-chip clip-cut relative overflow-hidden border border-bone-white/35 px-4 py-2"
                     >
                       <span
@@ -506,7 +535,7 @@ export default function Feedback() {
               <div className="relative ml-auto p-5">
                 <button
                   type="submit"
-                  disabled={submitting}
+                  disabled={submitting || !category}
                   className={`${styles.magnet} fb-magnet clip-cut relative block min-h-[3.6rem] overflow-hidden border-2 border-bone-white px-10 py-4 disabled:opacity-45`}
                 >
                   <span

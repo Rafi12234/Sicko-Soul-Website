@@ -215,27 +215,23 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: "sicko-soul-cart",
-      version: 3,
+      version: 4,
       storage: createJSONStorage(() => localStorage),
+      // The browser only remembers the opaque server-cart token. Product names,
+      // prices, quantities, stock and totals are always reloaded from the API.
       partialize: (state) => ({
         cartToken: state.cartToken,
-        status: state.status,
-        items: state.items,
-        subtotal: state.subtotal,
       }),
-      migrate: (persistedState, version) => {
+      migrate: (persistedState) => {
         const saved = persistedState as Partial<CartState>;
-        if (version < 3) {
-          return {
-            cartToken: saved.cartToken ?? null,
-            status: "ACTIVE" as CartStatus,
-            items: [],
-            subtotal: 0,
-            syncing: false,
-            error: null,
-          };
-        }
-        return saved as CartState;
+        return {
+          cartToken: saved.cartToken ?? null,
+          status: "ACTIVE" as CartStatus,
+          items: [],
+          subtotal: 0,
+          syncing: false,
+          error: null,
+        };
       },
       skipHydration: true,
     },

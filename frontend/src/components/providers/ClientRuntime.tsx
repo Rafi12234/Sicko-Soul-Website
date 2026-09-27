@@ -6,9 +6,9 @@ import { useCartStore } from "@/store/useCartStore";
 /**
  * Route-independent client boot work.
  *
- * The persisted browser value only remembers the backend cart token and a last
- * known snapshot. After hydration we always reconcile it with the API so stock,
- * prices and cart status come from the server.
+ * The persisted browser value only remembers the backend cart token. After
+ * hydration the complete cart is loaded from the API, so products, quantities,
+ * stock, prices and cart status always come from the database-backed server.
  */
 export default function ClientRuntime() {
   useLayoutEffect(() => {

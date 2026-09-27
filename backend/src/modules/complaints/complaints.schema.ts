@@ -1,7 +1,7 @@
 import { z } from "zod";
 
 export const createComplaintSchema = z.object({
-  category: z.enum(["defect", "delivery", "sizing", "refund", "other"]),
+  category: z.string().trim().min(1).max(64),
   contactName: z.string().trim().max(150).optional(),
   contactEmail: z.string().trim().email().max(255),
   orderReference: z.string().trim().min(3).max(32).optional(),

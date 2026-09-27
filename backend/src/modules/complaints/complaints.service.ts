@@ -41,6 +41,32 @@ function mapComplaint(row: ComplaintWithRelations) {
   };
 }
 
+
+export async function listPublicComplaintCategories() {
+  const [categories, caseCount, resolvedCount] = await prisma.$transaction([
+    prisma.complaint_categories.findMany({
+      where: { is_active: true },
+      orderBy: [{ sort_order: "asc" }, { complaint_category_id: "asc" }],
+    }),
+    prisma.complaints.count(),
+    prisma.complaints.count({ where: { status: { in: ["RESOLVED", "CLOSED"] } } }),
+  ]);
+
+  return {
+    data: categories.map((category) => ({
+      id: category.complaint_category_id.toString(),
+      code: category.code,
+      label: category.label,
+      sortOrder: category.sort_order,
+    })),
+    meta: {
+      categoryCount: categories.length,
+      caseCount,
+      resolvedCount,
+    },
+  };
+}
+
 export async function createComplaint(input: {
   category: string;
   contactName?: string | undefined;

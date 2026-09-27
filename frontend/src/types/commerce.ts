@@ -226,6 +226,18 @@ export type RefundRecord = {
   processedAt?: string | null;
 };
 
+export type PaymentRecord = {
+  id: string;
+  method: PaymentMethod;
+  amount: number;
+  currency: string;
+  status: "INITIATED" | "PENDING" | "PAID" | "FAILED" | "CANCELLED" | "PARTIALLY_REFUNDED" | "REFUNDED";
+  provider?: string | null;
+  providerReference?: string | null;
+  paidAt?: string | null;
+  createdAt: string;
+};
+
 export type CustomerOrder = {
   reference: string;
   source: "CART" | "BUY_NOW";
@@ -250,6 +262,7 @@ export type CustomerOrder = {
   history: OrderHistoryEntry[];
   shipment?: ShipmentRecord | null;
   refunds?: RefundRecord[];
+  payments?: PaymentRecord[];
 };
 
 export type CreateOrderRequest = {
@@ -277,7 +290,23 @@ export type CreateOrderRequest = {
   }>;
 };
 
-export type ComplaintCategoryCode = "defect" | "delivery" | "sizing" | "refund" | "other";
+export type ComplaintCategoryCode = string;
+
+export type ComplaintCategoryRecord = {
+  id: string;
+  code: string;
+  label: string;
+  sortOrder: number;
+};
+
+export type ComplaintDirectory = {
+  data: ComplaintCategoryRecord[];
+  meta: {
+    categoryCount: number;
+    caseCount: number;
+    resolvedCount: number;
+  };
+};
 
 export type ComplaintMessage = {
   id: string;
@@ -310,6 +339,17 @@ export type ProductReview = {
   verifiedPurchase: boolean;
   status: ReviewStatus;
   submittedAt: string;
+  publishedAt?: string | null;
+  productName?: string;
+};
+
+export type PublicReviewFeed = {
+  data: ProductReview[];
+  meta: {
+    total: number;
+    averageRating: number;
+    verifiedCount: number;
+  };
 };
 
 export type CollectionProductRecord = {

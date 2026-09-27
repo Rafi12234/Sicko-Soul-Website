@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 
 import {
   gsap,
@@ -14,14 +14,24 @@ import {
   STAGGER,
 } from "@/styles/theme";
 
-import {
-  SEGMENTS,
-  SEGMENTS_COPY,
-} from "@/data/segments";
+import { SEGMENTS_COPY } from "@/data/segments";
+import type { ArchiveCategory } from "@/data/products";
 
 import styles from "./Segments.module.css";
 
-export default function Segments() {
+export default function Segments({ categories }: { categories: readonly ArchiveCategory[] }) {
+  const segments = useMemo(
+    () =>
+      categories.map((category, index) => ({
+        id: category.id,
+        index: category.index || String(index + 1).padStart(2, "0"),
+        name: category.name,
+        image: category.cover,
+        spec: category.spec,
+        line: category.line,
+      })),
+    [categories],
+  );
   const rootRef =
     useRef<HTMLElement>(null);
 
@@ -82,7 +92,7 @@ export default function Segments() {
 
         current = next;
 
-        SEGMENTS.forEach(
+        segments.forEach(
           (_, index) => {
             const active =
               index === next;
@@ -234,7 +244,7 @@ export default function Segments() {
         }
 
         const segment =
-          SEGMENTS[next];
+          segments[next];
 
         /**
          * Giant background number.
@@ -325,7 +335,7 @@ export default function Segments() {
           {
             scaleY:
               (next + 1) /
-              SEGMENTS.length,
+              segments.length,
 
             duration: 0.6,
 
@@ -383,9 +393,7 @@ export default function Segments() {
       );
 
       /**
-       * Default category.
-       *
-       * SHIRT is always active first.
+       * Default category comes from the first active database category.
        */
       activate(0);
 
@@ -488,7 +496,7 @@ export default function Segments() {
     return () => {
       ctx.revert();
     };
-  }, []);
+  }, [segments]);
 
   return (
     <section
@@ -534,9 +542,7 @@ export default function Segments() {
         <h2 className="relative mt-4 px-gutter">
           <span className="split-mask block pb-[0.08em]">
             <span className="segments-heading text-distress block font-display text-display text-bone-white">
-              {
-                SEGMENTS_COPY.heading
-              }
+              {`${String(segments.length).padStart(2, "0")} ${SEGMENTS_COPY.headingSuffix}`}
             </span>
           </span>
 
@@ -548,6 +554,12 @@ export default function Segments() {
             </span>
           </span>
         </h2>
+
+        {segments.length === 0 ? (
+          <div className="mx-gutter mt-12 border border-bone-white/15 p-6 font-stencil text-stamp text-concrete-gray">
+            {SEGMENTS_COPY.empty}
+          </div>
+        ) : null}
 
         {/* GIANT NUMBER */}
 
@@ -564,7 +576,7 @@ export default function Segments() {
         {/* DESKTOP IMAGE PANEL */}
 
         <div className="pointer-events-none absolute right-[7vw] top-1/2 z-20 hidden aspect-[3/4] w-[26vw] -translate-y-1/2 border border-bone-white/20 bg-black lg:block">
-          {SEGMENTS.map(
+          {segments.map(
             (
               segment,
             ) => (
@@ -574,17 +586,17 @@ export default function Segments() {
                 }
                 className={`${styles.imageLayer} segment-layer absolute inset-0 overflow-hidden`}
               >
-                <Image
-                  src={
-                    segment.image
-                  }
-                  alt={
-                    segment.name
-                  }
-                  fill
-                  sizes="26vw"
-                  className="media-treat object-cover"
-                />
+                {segment.image ? (
+                  <Image
+                    src={segment.image}
+                    alt={segment.name}
+                    fill
+                    sizes="26vw"
+                    className="media-treat object-cover"
+                  />
+                ) : (
+                  <div className="grid h-full place-items-center font-stencil text-stamp text-concrete-gray">NO CATEGORY FRAME</div>
+                )}
               </div>
             ),
           )}
@@ -593,7 +605,7 @@ export default function Segments() {
         {/* CATEGORY LIST */}
 
         <div className="segment-list relative mt-[6vh] lg:mt-[3vh]">
-          {SEGMENTS.map(
+          {segments.map(
             (
               segment,
             ) => (
@@ -648,17 +660,17 @@ export default function Segments() {
                  * image frame on the right.
                  */}
                 <div className="relative mt-4 aspect-[3/4] w-[62%] max-w-xs border border-bone-white/20 lg:hidden">
-                  <Image
-                    src={
-                      segment.image
-                    }
-                    alt={
-                      segment.name
-                    }
-                    fill
-                    sizes="62vw"
-                    className="media-treat object-cover"
-                  />
+                  {segment.image ? (
+                    <Image
+                      src={segment.image}
+                      alt={segment.name}
+                      fill
+                      sizes="62vw"
+                      className="media-treat object-cover"
+                    />
+                  ) : (
+                    <div className="grid h-full place-items-center font-stencil text-stamp text-concrete-gray">NO CATEGORY FRAME</div>
+                  )}
                 </div>
 
                 <p className="mt-3 font-stencil text-stamp text-concrete-gray lg:hidden">
@@ -697,8 +709,7 @@ export default function Segments() {
               className="font-stencil text-stamp text-bone-white/80"
             >
               {
-                SEGMENTS[0]
-                  .spec
+                segments[0]?.spec ?? ""
               }
             </span>
           </div>
@@ -712,8 +723,7 @@ export default function Segments() {
             className="max-w-[38ch] text-right font-body text-body-lg text-concrete-gray"
           >
             {
-              SEGMENTS[0]
-                .line
+              segments[0]?.line ?? ""
             }
           </p>
         </div>

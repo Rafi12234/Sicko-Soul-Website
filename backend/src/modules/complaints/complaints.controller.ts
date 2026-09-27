@@ -12,10 +12,15 @@ import {
   getComplaintCase,
   getComplaintForAdmin,
   listComplaintsForAdmin,
+  listPublicComplaintCategories,
   replyComplaintAsCustomer,
   replyComplaintAsStaff,
   updateComplaintForAdmin,
 } from "./complaints.service.js";
+
+export const listComplaintCategoriesController: RequestHandler = async (_req, res) => {
+  res.json(await listPublicComplaintCategories());
+};
 
 export const createComplaintController: RequestHandler = async (req, res) => {
   const input = createComplaintSchema.parse(req.body);

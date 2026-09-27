@@ -6,10 +6,12 @@ import {
   adminUpdateComplaintController,
   createComplaintController,
   getComplaintController,
+  listComplaintCategoriesController,
   replyComplaintController,
 } from "./complaints.controller.js";
 
 export const complaintsRouter = Router();
+complaintsRouter.get("/categories", listComplaintCategoriesController);
 complaintsRouter.post("/", createComplaintController);
 complaintsRouter.get("/:caseReference", getComplaintController);
 complaintsRouter.post("/:caseReference/messages", replyComplaintController);

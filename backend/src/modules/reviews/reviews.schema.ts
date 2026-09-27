@@ -4,6 +4,10 @@ export const reviewProductParamsSchema = z.object({
   productId: z.string().trim().min(1).max(160),
 });
 
+export const publicReviewListQuerySchema = z.object({
+  limit: z.coerce.number().int().min(1).max(60).default(18),
+});
+
 export const submitReviewSchema = z.object({
   productId: z.string().trim().min(1).max(160).optional(),
   displayName: z.string().trim().min(2).max(120),
