@@ -15,7 +15,10 @@
     "prisma:status": "prisma migrate status",
     "prisma:baseline:mark": "prisma migrate resolve --applied 0_init",
     "prisma:migrate:deploy": "prisma migrate deploy",
-    "prisma:studio": "prisma studio"
+    "prisma:studio": "prisma studio",
+    "admin:bootstrap": "tsx src/scripts/bootstrap-admin.ts",
+    "seed:catalog": "tsx src/scripts/seed-catalog.ts",
+    "smoke:public": "tsx src/scripts/smoke-public.ts"
   },
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.0.0",
