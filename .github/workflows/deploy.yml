@@ -75,15 +75,27 @@ jobs:
           test -f deploy-release/package.json
           test -d deploy-release/.next
 
-      - name: Build backend
-        working-directory: ${{ env.BACKEND_DIR }}
-        run: |
-          npm config set registry https://registry.npmjs.org/
-          npm ci --include=dev --no-audit --no-fund
+- name: Build backend
+  working-directory: ${{ env.BACKEND_DIR }}
+  env:
+    DATABASE_URL: mysql://build_user:build_password@127.0.0.1:3306/build_database
+  run: |
+    npm config set registry https://registry.npmjs.org/
+    npm ci --include=dev --no-audit --no-fund
 
-          npm run prisma:generate
-          npm run typecheck
-          npm run build
+    npm run prisma:generate
+    npm run typecheck
+    npm run build
+
+    test -f app.js
+    test -f package.json
+    test -f package-lock.json
+    test -f prisma.config.ts
+    test -f prisma/schema.prisma
+    test -f prisma/migrations/0_init/migration.sql
+
+    test -f dist/src/server.js
+    test -d generated/prisma
 
           test -f app.js
           test -f package.json
