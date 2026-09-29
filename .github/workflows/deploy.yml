@@ -1,0 +1,233 @@
+name: Deploy Sicko Soul to cPanel
+
+"on":
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+
+concurrency:
+  group: sicko-soul-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  FRONTEND_DIR: frontend
+  BACKEND_DIR: backend
+
+  FRONTEND_APP_DIR: /home/sickosou/sicko-frontend-prod
+  BACKEND_APP_DIR: /home/sickosou/sicko-backend-prod
+
+  NEXT_PUBLIC_API_BASE_URL: https://api.sickosoul.shop/api/v1
+
+jobs:
+  deploy:
+    name: Build and Deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20.20.2"
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            backend/package-lock.json
+
+      - name: Build frontend
+        working-directory: ${{ env.FRONTEND_DIR }}
+        env:
+          NEXT_PUBLIC_API_BASE_URL: ${{ env.NEXT_PUBLIC_API_BASE_URL }}
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          npm ci --include=dev --no-audit --no-fund
+          npm run typecheck
+          npm run build
+
+          test -f ".next/standalone/server.js"
+          test -d ".next/standalone/.next"
+          test -d ".next/static"
+
+      - name: Prepare frontend standalone release
+        working-directory: ${{ env.FRONTEND_DIR }}
+        run: |
+          rm -rf deploy-release
+          mkdir -p deploy-release
+
+          cp -a .next/standalone/. deploy-release/
+
+          if [ -d "public" ]; then
+            cp -a public deploy-release/public
+          fi
+
+          mkdir -p deploy-release/.next
+          cp -a .next/static deploy-release/.next/static
+
+          test -f deploy-release/server.js
+          test -f deploy-release/package.json
+          test -d deploy-release/.next
+
+      - name: Build backend
+        working-directory: ${{ env.BACKEND_DIR }}
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          npm ci --include=dev --no-audit --no-fund
+
+          npm run prisma:generate
+          npm run typecheck
+          npm run build
+
+          test -f app.js
+          test -f package.json
+          test -f package-lock.json
+          test -f prisma.config.ts
+          test -f prisma/schema.prisma
+          test -f prisma/migrations/0_init/migration.sql
+
+          test -f dist/src/server.js
+          test -d generated/prisma
+
+      - name: Configure SSH
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_PORT: ${{ vars.SSH_PORT }}
+        run: |
+          test -n "$SSH_HOST"
+          test -n "$SSH_USERNAME"
+          test -n "$SSH_PRIVATE_KEY"
+          test -n "$SSH_PORT"
+
+          install -m 700 -d "$HOME/.ssh"
+
+          printf '%s\n' "$SSH_PRIVATE_KEY" \
+            | tr -d '\r' \
+            > "$HOME/.ssh/sicko_deploy_key"
+
+          chmod 600 "$HOME/.ssh/sicko_deploy_key"
+
+          for attempt in 1 2 3; do
+            echo "Getting SSH host key: attempt $attempt"
+
+            if ssh-keyscan \
+              -p "$SSH_PORT" \
+              -H "$SSH_HOST" \
+              > "$HOME/.ssh/known_hosts"; then
+              break
+            fi
+
+            sleep 3
+          done
+
+          chmod 600 "$HOME/.ssh/known_hosts"
+          test -s "$HOME/.ssh/known_hosts"
+
+      - name: Test SFTP connection
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_PORT: ${{ vars.SSH_PORT }}
+        run: |
+          echo "pwd" > sftp_ping.txt
+
+          sftp \
+            -i "$HOME/.ssh/sicko_deploy_key" \
+            -P "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -b sftp_ping.txt \
+            "$SSH_USERNAME@$SSH_HOST"
+
+      - name: Deploy via SFTP
+        env:
+          SSH_HOST: ${{ secrets.SSH_HOST }}
+          SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+          SSH_PORT: ${{ vars.SSH_PORT }}
+        run: |
+          FRONTEND_RELEASE="$GITHUB_WORKSPACE/${FRONTEND_DIR}/deploy-release"
+          BACKEND_ROOT="$GITHUB_WORKSPACE/${BACKEND_DIR}"
+
+          : > "$GITHUB_WORKSPACE/restart-trigger.txt"
+
+          {
+            echo "cd ${FRONTEND_APP_DIR}"
+
+            echo "-mkdir release"
+            echo "-mkdir release/.next"
+            echo "-mkdir release/node_modules"
+            echo "-mkdir release/public"
+
+            echo "lcd \"$FRONTEND_RELEASE\""
+            echo "put server.js release/server.js"
+            echo "put package.json release/package.json"
+
+            echo "lcd \"$FRONTEND_RELEASE/.next\""
+            echo "put -r * release/.next/"
+
+            if [ -d "$FRONTEND_RELEASE/node_modules" ]; then
+              echo "lcd \"$FRONTEND_RELEASE/node_modules\""
+              echo "put -r * release/node_modules/"
+            fi
+
+            if [ -d "$FRONTEND_RELEASE/public" ]; then
+              echo "lcd \"$FRONTEND_RELEASE/public\""
+              echo "put -r * release/public/"
+            fi
+
+            echo "-mkdir tmp"
+            echo "lcd \"$GITHUB_WORKSPACE\""
+            echo "put restart-trigger.txt tmp/restart.txt"
+
+            echo "cd ${BACKEND_APP_DIR}"
+
+            echo "-mkdir dist"
+            echo "lcd \"$BACKEND_ROOT/dist\""
+            echo "put -r * dist/"
+
+            echo "-mkdir generated"
+            echo "lcd \"$BACKEND_ROOT/generated\""
+            echo "put -r * generated/"
+
+            echo "-mkdir prisma"
+            echo "-mkdir prisma/migrations"
+
+            echo "lcd \"$BACKEND_ROOT/prisma\""
+            echo "put schema.prisma prisma/schema.prisma"
+
+            echo "lcd \"$BACKEND_ROOT/prisma/migrations\""
+            echo "put -r * prisma/migrations/"
+
+            echo "lcd \"$BACKEND_ROOT\""
+            echo "put app.js"
+            echo "put package.json"
+            echo "put package-lock.json"
+            echo "put prisma.config.ts"
+
+            echo "-mkdir tmp"
+            echo "lcd \"$GITHUB_WORKSPACE\""
+            echo "put restart-trigger.txt tmp/restart.txt"
+
+            echo "bye"
+          } > "$GITHUB_WORKSPACE/sftp_deploy.txt"
+
+          cat "$GITHUB_WORKSPACE/sftp_deploy.txt"
+
+          sftp \
+            -i "$HOME/.ssh/sicko_deploy_key" \
+            -P "$SSH_PORT" \
+            -o BatchMode=yes \
+            -o StrictHostKeyChecking=yes \
+            -b "$GITHUB_WORKSPACE/sftp_deploy.txt" \
+            "$SSH_USERNAME@$SSH_HOST"
+
+          echo "SFTP deployment completed."
+          echo "If backend package.json changed, run NPM Install manually in cPanel."
