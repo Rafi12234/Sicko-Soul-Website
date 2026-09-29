@@ -75,27 +75,17 @@ jobs:
           test -f deploy-release/package.json
           test -d deploy-release/.next
 
-- name: Build backend
-  working-directory: ${{ env.BACKEND_DIR }}
-  env:
-    DATABASE_URL: mysql://build_user:build_password@127.0.0.1:3306/build_database
-  run: |
-    npm config set registry https://registry.npmjs.org/
-    npm ci --include=dev --no-audit --no-fund
+      - name: Build backend
+        working-directory: ${{ env.BACKEND_DIR }}
+        env:
+          DATABASE_URL: mysql://build_user:build_password@127.0.0.1:3306/build_database
+        run: |
+          npm config set registry https://registry.npmjs.org/
+          npm ci --include=dev --no-audit --no-fund
 
-    npm run prisma:generate
-    npm run typecheck
-    npm run build
-
-    test -f app.js
-    test -f package.json
-    test -f package-lock.json
-    test -f prisma.config.ts
-    test -f prisma/schema.prisma
-    test -f prisma/migrations/0_init/migration.sql
-
-    test -f dist/src/server.js
-    test -d generated/prisma
+          npm run prisma:generate
+          npm run typecheck
+          npm run build
 
           test -f app.js
           test -f package.json
@@ -106,6 +96,7 @@ jobs:
 
           test -f dist/src/server.js
           test -d generated/prisma
+          test -d dist/generated/prisma
 
       - name: Configure SSH
         env:
@@ -178,54 +169,52 @@ jobs:
             echo "-mkdir release/node_modules"
             echo "-mkdir release/public"
 
-            echo "lcd \"$FRONTEND_RELEASE\""
+            echo "lcd $FRONTEND_RELEASE"
             echo "put server.js release/server.js"
             echo "put package.json release/package.json"
 
-            echo "lcd \"$FRONTEND_RELEASE/.next\""
+            echo "lcd $FRONTEND_RELEASE/.next"
             echo "put -r * release/.next/"
 
             if [ -d "$FRONTEND_RELEASE/node_modules" ]; then
-              echo "lcd \"$FRONTEND_RELEASE/node_modules\""
+              echo "lcd $FRONTEND_RELEASE/node_modules"
               echo "put -r * release/node_modules/"
             fi
 
             if [ -d "$FRONTEND_RELEASE/public" ]; then
-              echo "lcd \"$FRONTEND_RELEASE/public\""
+              echo "lcd $FRONTEND_RELEASE/public"
               echo "put -r * release/public/"
             fi
-
-            echo "-mkdir tmp"
-            echo "lcd \"$GITHUB_WORKSPACE\""
-            echo "put restart-trigger.txt tmp/restart.txt"
 
             echo "cd ${BACKEND_APP_DIR}"
 
             echo "-mkdir dist"
-            echo "lcd \"$BACKEND_ROOT/dist\""
+            echo "lcd $BACKEND_ROOT/dist"
             echo "put -r * dist/"
-
-            echo "-mkdir generated"
-            echo "lcd \"$BACKEND_ROOT/generated\""
-            echo "put -r * generated/"
 
             echo "-mkdir prisma"
             echo "-mkdir prisma/migrations"
 
-            echo "lcd \"$BACKEND_ROOT/prisma\""
+            echo "lcd $BACKEND_ROOT/prisma"
             echo "put schema.prisma prisma/schema.prisma"
 
-            echo "lcd \"$BACKEND_ROOT/prisma/migrations\""
+            echo "lcd $BACKEND_ROOT/prisma/migrations"
             echo "put -r * prisma/migrations/"
 
-            echo "lcd \"$BACKEND_ROOT\""
+            echo "lcd $BACKEND_ROOT"
             echo "put app.js"
             echo "put package.json"
             echo "put package-lock.json"
             echo "put prisma.config.ts"
 
+            echo "cd ${FRONTEND_APP_DIR}"
             echo "-mkdir tmp"
-            echo "lcd \"$GITHUB_WORKSPACE\""
+            echo "lcd $GITHUB_WORKSPACE"
+            echo "put restart-trigger.txt tmp/restart.txt"
+
+            echo "cd ${BACKEND_APP_DIR}"
+            echo "-mkdir tmp"
+            echo "lcd $GITHUB_WORKSPACE"
             echo "put restart-trigger.txt tmp/restart.txt"
 
             echo "bye"
