@@ -1,4 +1,4 @@
-name: Build and Deploy Sicko Soul to cPanel
+name: Build and Deploy Sicko Soul
 
 on:
   push:
@@ -16,10 +16,6 @@ concurrency:
 
 env:
   NEXT_PUBLIC_API_BASE_URL: /api/v1
-
-  CPANEL_HOST: ayah.ihostman.com
-  CPANEL_USER: sickosou
-  CPANEL_REPOSITORY_ROOT: /home/sickosou/repositories/Sicko-Soul-Website
   CPANEL_RELEASE_BRANCH: cpanel-release
 
 jobs:
@@ -29,13 +25,17 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      # ============================================================
+      # CHECKOUT + NODE
+      # ============================================================
+
       - name: Checkout source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v7
         with:
           node-version: "20.20.2"
           cache: npm
@@ -43,9 +43,9 @@ jobs:
             frontend/package-lock.json
             backend/package-lock.json
 
-      # ------------------------------------------------------------
+      # ============================================================
       # FRONTEND
-      # ------------------------------------------------------------
+      # ============================================================
 
       - name: Install and build frontend
         working-directory: frontend
@@ -55,6 +55,7 @@ jobs:
           set -Eeuo pipefail
 
           npm config set registry https://registry.npmjs.org/
+
           npm ci --include=dev --no-audit --no-fund
 
           npm run typecheck
@@ -78,6 +79,7 @@ jobs:
           fi
 
           mkdir -p deploy-release/.next
+
           cp -a .next/static deploy-release/.next/static
 
           test -f deploy-release/server.js
@@ -88,9 +90,9 @@ jobs:
 
           test -s "$GITHUB_WORKSPACE/frontend-release.tar.gz"
 
-      # ------------------------------------------------------------
+      # ============================================================
       # BACKEND
-      # ------------------------------------------------------------
+      # ============================================================
 
       - name: Install and build backend
         working-directory: backend
@@ -100,6 +102,7 @@ jobs:
           set -Eeuo pipefail
 
           npm config set registry https://registry.npmjs.org/
+
           npm ci --include=dev --no-audit --no-fund
 
           npm run prisma:generate
@@ -129,9 +132,9 @@ jobs:
 
           test -s "$GITHUB_WORKSPACE/backend-release.tar.gz"
 
-      # ------------------------------------------------------------
-      # BUILD CPANEL RELEASE CONTENT
-      # ------------------------------------------------------------
+      # ============================================================
+      # CREATE CPANEL RELEASE CONTENT
+      # ============================================================
 
       - name: Prepare cPanel release files
         run: |
@@ -140,8 +143,11 @@ jobs:
           rm -rf publish
           mkdir -p publish
 
-          cp frontend-release.tar.gz publish/frontend-release.tar.gz
-          cp backend-release.tar.gz publish/backend-release.tar.gz
+          cp frontend-release.tar.gz \
+            publish/frontend-release.tar.gz
+
+          cp backend-release.tar.gz \
+            publish/backend-release.tar.gz
 
           cp deploy/cpanel/deploy-cpanel.sh \
             publish/deploy-cpanel.sh
@@ -164,16 +170,19 @@ jobs:
 
           test -f publish/.cpanel.yml
           test -f publish/deploy-cpanel.sh
-          test -f publish/frontend-release.tar.gz
-          test -f publish/backend-release.tar.gz
+          test -f publish/gateway-server.cjs
+          test -f publish/sicko-release-watch.sh
+          test -f publish/source-commit.txt
+          test -s publish/frontend-release.tar.gz
+          test -s publish/backend-release.tar.gz
 
-      # ------------------------------------------------------------
-      # PUBLISH cpanel-release
+      # ============================================================
+      # UPDATE cpanel-release BRANCH
       #
       # IMPORTANT:
-      # Do NOT force-push this branch anymore.
-      # cPanel updates the cloned repository using fast-forward updates.
-      # ------------------------------------------------------------
+      # Keep this branch fast-forwardable.
+      # Do NOT force-push it anymore.
+      # ============================================================
 
       - name: Publish cpanel-release branch
         run: |
@@ -207,337 +216,146 @@ jobs:
           if git diff --cached --quiet; then
             echo "Release contents are unchanged."
           else
-            git commit -m "Production release ${GITHUB_SHA}"
-            git push origin "${CPANEL_RELEASE_BRANCH}"
+            git commit \
+              -m "Production release ${GITHUB_SHA}"
+
+            git push \
+              origin \
+              "${CPANEL_RELEASE_BRANCH}"
           fi
 
           RELEASE_SHA="$(git rev-parse HEAD)"
 
-          echo "RELEASE_SHA=${RELEASE_SHA}" >> "$GITHUB_ENV"
+          echo "RELEASE_SHA=${RELEASE_SHA}" \
+            >> "$GITHUB_ENV"
 
-          echo "Published cPanel release:"
-          echo "${RELEASE_SHA}"
+          echo "Published release commit:"
+          echo "$RELEASE_SHA"
 
-      # ------------------------------------------------------------
-      # ASK CPANEL TO PULL cpanel-release FROM GITHUB
-      # ------------------------------------------------------------
+      # ============================================================
+      # IMMEDIATE TETRAHOST DEPLOYMENT WEBHOOK
+      #
+      # First bootstrap:
+      # The existing 5-minute cron may need to deploy the new
+      # gateway once before this endpoint becomes available.
+      # ============================================================
 
-      - name: Update cPanel repository from GitHub
+      - name: Trigger immediate TetraHost deployment
         env:
-          CPANEL_API_TOKEN: ${{ secrets.CPANEL_API_TOKEN }}
+          SICKO_DEPLOY_SECRET: ${{ secrets.SICKO_DEPLOY_SECRET }}
         run: |
           set -Eeuo pipefail
 
-          if [ -z "${CPANEL_API_TOKEN:-}" ]; then
-            echo "CPANEL_API_TOKEN secret is missing."
+          if [ -z "${SICKO_DEPLOY_SECRET:-}" ]; then
+            echo "ERROR: SICKO_DEPLOY_SECRET is missing."
             exit 1
           fi
 
-          curl \
-            --silent \
-            --show-error \
-            --fail-with-body \
-            --connect-timeout 15 \
-            --max-time 90 \
-            --retry 2 \
-            --retry-delay 3 \
-            -H "Authorization: cpanel ${CPANEL_USER}:${CPANEL_API_TOKEN}" \
-            --get \
-            --data-urlencode "repository_root=${CPANEL_REPOSITORY_ROOT}" \
-            --data-urlencode "branch=${CPANEL_RELEASE_BRANCH}" \
-            "https://${CPANEL_HOST}:2083/execute/VersionControl/update" \
-            -o cpanel-update.json
+          echo "Triggering Sicko Soul production deployment..."
 
-          python3 <<'PY'
-          import json
-          from pathlib import Path
+          for attempt in $(seq 1 40); do
 
-          data = json.loads(
-              Path("cpanel-update.json").read_text()
-          )
+            HTTP_CODE="$(
+              curl \
+                --silent \
+                --show-error \
+                --output deploy-response.json \
+                --write-out "%{http_code}" \
+                --connect-timeout 10 \
+                --max-time 30 \
+                -X POST \
+                -H "Authorization: Bearer ${SICKO_DEPLOY_SECRET}" \
+                https://sickosoul.shop/__sicko_deploy \
+                || true
+            )"
 
-          result = data.get("result", {})
+            echo "Attempt ${attempt}/40 - HTTP ${HTTP_CODE:-000}"
 
-          if result.get("status") != 1:
-              raise SystemExit(
-                  "cPanel repository update failed: "
-                  + json.dumps(
-                      {
-                          "errors": result.get("errors"),
-                          "warnings": result.get("warnings"),
-                          "messages": result.get("messages"),
-                      },
-                      ensure_ascii=False,
-                  )
-              )
+            if [ -f deploy-response.json ]; then
+              cat deploy-response.json
+              echo
+            fi
 
-          print("cPanel accepted repository update.")
-          PY
+            if [ "$HTTP_CODE" = "202" ]; then
+              echo "Deployment trigger accepted."
+              exit 0
+            fi
 
-      # ------------------------------------------------------------
-      # WAIT UNTIL CPANEL'S LOCAL REPOSITORY HAS THE EXACT RELEASE
-      # ------------------------------------------------------------
+            if [ "$HTTP_CODE" = "401" ]; then
+              echo "ERROR: Deployment secret does not match."
+              exit 1
+            fi
 
-      - name: Wait for cPanel repository synchronization
+            sleep 10
+          done
+
+          echo "ERROR: Deployment webhook did not become available."
+          exit 1
+
+      # ============================================================
+      # WAIT UNTIL deploy-cpanel.sh WRITES THE NEW SOURCE SHA
+      # ============================================================
+
+      - name: Wait for production deployment
         env:
-          CPANEL_API_TOKEN: ${{ secrets.CPANEL_API_TOKEN }}
+          SICKO_DEPLOY_SECRET: ${{ secrets.SICKO_DEPLOY_SECRET }}
         run: |
           set -Eeuo pipefail
 
-          for attempt in $(seq 1 18); do
-            echo "Checking repository synchronization (${attempt}/18)..."
+          echo "Waiting for production source:"
+          echo "$GITHUB_SHA"
 
-            curl \
-              --silent \
-              --show-error \
-              --fail-with-body \
-              --connect-timeout 15 \
-              --max-time 60 \
-              -H "Authorization: cpanel ${CPANEL_USER}:${CPANEL_API_TOKEN}" \
-              "https://${CPANEL_HOST}:2083/execute/VersionControl/retrieve" \
-              -o cpanel-repositories.json
+          for attempt in $(seq 1 60); do
 
-            if python3 <<'PY'
+            RESPONSE="$(
+              curl \
+                --silent \
+                --show-error \
+                --connect-timeout 10 \
+                --max-time 20 \
+                -H "Authorization: Bearer ${SICKO_DEPLOY_SECRET}" \
+                https://sickosoul.shop/__sicko_deploy_status \
+                || true
+            )"
+
+            DEPLOYED="$(
+              printf '%s' "$RESPONSE" |
+              python3 -c '
           import json
-          import os
           import sys
-          from pathlib import Path
 
-          expected_root = os.environ["CPANEL_REPOSITORY_ROOT"]
-          expected_sha = os.environ["RELEASE_SHA"]
+          try:
+              payload = json.load(sys.stdin)
+              print(payload.get("deployedSource") or "")
+          except Exception:
+              print("")
+          '
+            )"
 
-          payload = json.loads(
-              Path("cpanel-repositories.json").read_text()
-          )
+            echo "Check ${attempt}/60"
+            echo "Expected: ${GITHUB_SHA}"
+            echo "Deployed: ${DEPLOYED:-waiting}"
 
-          result = payload.get("result", {})
-
-          if result.get("status") != 1:
-              print(
-                  "Repository status query failed:",
-                  result.get("errors"),
-              )
-              sys.exit(1)
-
-          repositories = result.get("data") or []
-
-          if isinstance(repositories, dict):
-              repositories = [repositories]
-
-          repository = next(
-              (
-                  item
-                  for item in repositories
-                  if item.get("repository_root") == expected_root
-              ),
-              None,
-          )
-
-          if not repository:
-              print("cPanel repository was not found yet.")
-              sys.exit(1)
-
-          last_update = repository.get("last_update") or {}
-
-          current_sha = (
-              last_update.get("identifier")
-              or repository.get("identifier")
-              or ""
-          )
-
-          print("Expected release:", expected_sha)
-          print("cPanel release:  ", current_sha or "not available yet")
-
-          if current_sha != expected_sha:
-              sys.exit(1)
-
-          print("cPanel repository is synchronized.")
-          PY
-            then
+            if [ "$DEPLOYED" = "$GITHUB_SHA" ]; then
+              echo "Production deployment completed successfully."
               exit 0
             fi
 
             sleep 5
           done
 
-          echo "Timed out waiting for cPanel to update to ${RELEASE_SHA}."
+          echo "ERROR: Timed out waiting for production deployment."
           exit 1
 
-      # ------------------------------------------------------------
-      # DEPLOY THE SYNCHRONIZED HEAD
-      # ------------------------------------------------------------
+      # ============================================================
+      # PUBLIC HEALTH CHECK
+      # ============================================================
 
-      - name: Trigger cPanel deployment
-        env:
-          CPANEL_API_TOKEN: ${{ secrets.CPANEL_API_TOKEN }}
+      - name: Verify gateway health
         run: |
           set -Eeuo pipefail
 
-          curl \
-            --silent \
-            --show-error \
-            --fail-with-body \
-            --connect-timeout 15 \
-            --max-time 60 \
-            -H "Authorization: cpanel ${CPANEL_USER}:${CPANEL_API_TOKEN}" \
-            --get \
-            --data-urlencode "repository_root=${CPANEL_REPOSITORY_ROOT}" \
-            "https://${CPANEL_HOST}:2083/execute/VersionControlDeployment/create" \
-            -o cpanel-deploy.json
-
-          python3 <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          data = json.loads(
-              Path("cpanel-deploy.json").read_text()
-          )
-
-          result = data.get("result", {})
-
-          if result.get("status") != 1:
-              raise SystemExit(
-                  "cPanel deployment could not be queued: "
-                  + json.dumps(
-                      {
-                          "errors": result.get("errors"),
-                          "warnings": result.get("warnings"),
-                          "messages": result.get("messages"),
-                      },
-                      ensure_ascii=False,
-                  )
-              )
-
-          details = result.get("data") or {}
-
-          deploy_id = str(details.get("deploy_id") or "")
-          task_id = str(details.get("task_id") or "")
-          log_path = str(details.get("log_path") or "")
-
-          if not deploy_id:
-              raise SystemExit(
-                  "cPanel returned success but no deploy_id."
-              )
-
-          env_file = Path(os.environ["GITHUB_ENV"])
-
-          with env_file.open("a") as fh:
-              fh.write(f"CPANEL_DEPLOY_ID={deploy_id}\n")
-
-          print("cPanel deployment queued.")
-          print("Deploy ID:", deploy_id)
-
-          if task_id:
-              print("Task ID:", task_id)
-
-          if log_path:
-              print("Server deployment log:", log_path)
-          PY
-
-      # ------------------------------------------------------------
-      # WAIT FOR CPANEL DEPLOYMENT TO ACTUALLY FINISH
-      # ------------------------------------------------------------
-
-      - name: Wait for cPanel deployment
-        env:
-          CPANEL_API_TOKEN: ${{ secrets.CPANEL_API_TOKEN }}
-        run: |
-          set -Eeuo pipefail
-
-          for attempt in $(seq 1 36); do
-            echo "Checking deployment (${attempt}/36)..."
-
-            curl \
-              --silent \
-              --show-error \
-              --fail-with-body \
-              --connect-timeout 15 \
-              --max-time 60 \
-              -H "Authorization: cpanel ${CPANEL_USER}:${CPANEL_API_TOKEN}" \
-              "https://${CPANEL_HOST}:2083/execute/VersionControlDeployment/retrieve" \
-              -o cpanel-deployments.json
-
-            STATUS="$(
-              python3 <<'PY'
-          import json
-          import os
-          from pathlib import Path
-
-          deploy_id = str(os.environ["CPANEL_DEPLOY_ID"])
-
-          payload = json.loads(
-              Path("cpanel-deployments.json").read_text()
-          )
-
-          result = payload.get("result", {})
-
-          if result.get("status") != 1:
-              print("query-error")
-              raise SystemExit
-
-          deployments = result.get("data") or []
-
-          if isinstance(deployments, dict):
-              deployments = [deployments]
-
-          deployment = next(
-              (
-                  item
-                  for item in deployments
-                  if str(item.get("deploy_id")) == deploy_id
-              ),
-              None,
-          )
-
-          if not deployment:
-              print("waiting")
-              raise SystemExit
-
-          timestamps = deployment.get("timestamps") or {}
-
-          if timestamps.get("succeeded"):
-              print("succeeded")
-          elif timestamps.get("failed"):
-              print("failed")
-          elif timestamps.get("canceled"):
-              print("canceled")
-          else:
-              print("waiting")
-          PY
-            )"
-
-            echo "Deployment status: ${STATUS}"
-
-            case "${STATUS}" in
-              succeeded)
-                echo "cPanel deployment completed successfully."
-                exit 0
-                ;;
-
-              failed|canceled)
-                echo "cPanel deployment ${STATUS}."
-                exit 1
-                ;;
-            esac
-
-            sleep 5
-          done
-
-          echo "Timed out waiting for cPanel deployment."
-          exit 1
-
-      # ------------------------------------------------------------
-      # PRODUCTION HEALTH CHECK
-      # ------------------------------------------------------------
-
-      - name: Verify production
-        run: |
-          set -Eeuo pipefail
-
-          echo "Waiting for Passenger applications..."
-
-          sleep 5
+          echo "Checking Sicko Soul gateway..."
 
           curl \
             --silent \
@@ -556,27 +374,41 @@ jobs:
           import json
           from pathlib import Path
 
-          data = json.loads(
+          payload = json.loads(
               Path("gateway-health.json").read_text()
           )
 
-          if data.get("status") != "ok":
-              raise SystemExit("Gateway health status is not OK.")
+          if payload.get("status") != "ok":
+              raise SystemExit(
+                  "Gateway status is not OK."
+              )
 
-          if data.get("frontend") is not True:
-              raise SystemExit("Frontend health check failed.")
+          if payload.get("frontend") is not True:
+              raise SystemExit(
+                  "Frontend health check failed."
+              )
 
-          if data.get("backend") is not True:
-              raise SystemExit("Backend health check failed.")
+          if payload.get("backend") is not True:
+              raise SystemExit(
+                  "Backend health check failed."
+              )
 
-          print("Gateway, frontend and backend are healthy.")
+          print(
+              "Gateway, frontend and backend are healthy."
+          )
           PY
+
+      - name: Verify API and database
+        run: |
+          set -Eeuo pipefail
+
+          echo "Checking production API..."
 
           curl \
             --silent \
             --show-error \
             --fail \
-            --retry 6 \
+            --retry 12 \
             --retry-delay 5 \
             --retry-all-errors \
             https://sickosoul.shop/api/v1/health \
@@ -596,22 +428,34 @@ jobs:
           data = payload.get("data", {})
 
           if data.get("status") != "ok":
-              raise SystemExit("Backend status is not OK.")
+              raise SystemExit(
+                  "Production API status is not OK."
+              )
 
           if data.get("database") != "connected":
-              raise SystemExit("Production database is not connected.")
+              raise SystemExit(
+                  "Production database is not connected."
+              )
 
-          print("Production API and database are healthy.")
+          print(
+              "Production API and database are healthy."
+          )
           PY
+
+      # ============================================================
+      # SUMMARY
+      # ============================================================
 
       - name: Deployment summary
         run: |
           {
-            echo "## Sicko Soul production deployment"
+            echo "## Sicko Soul Production Deployment"
             echo
             echo "- Source commit: \`${GITHUB_SHA}\`"
             echo "- Release commit: \`${RELEASE_SHA}\`"
-            echo "- cPanel deployment ID: \`${CPANEL_DEPLOY_ID}\`"
             echo "- Production: https://sickosoul.shop"
-            echo "- Result: ✅ deployed and health checked"
+            echo "- Gateway: ✅ healthy"
+            echo "- Backend: ✅ healthy"
+            echo "- Database: ✅ connected"
+            echo "- Deployment: ✅ completed"
           } >> "$GITHUB_STEP_SUMMARY"
