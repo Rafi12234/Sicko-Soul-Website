@@ -1,10 +1,8 @@
 name: Build Sicko Soul cPanel Release
 
-"on":
+on:
   push:
-    branches:
-      - main
-
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -15,19 +13,17 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NEXT_PUBLIC_API_BASE_URL: https://api.sickosoul.shop/api/v1
+  NEXT_PUBLIC_API_BASE_URL: /api/v1
 
 jobs:
   build-release:
-    name: Build Production Release
     runs-on: ubuntu-latest
-    timeout-minutes: 30
 
     steps:
-      - name: Checkout repository
+      - name: Checkout source
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: "20.20.2"
@@ -45,7 +41,6 @@ jobs:
           npm ci --include=dev --no-audit --no-fund
           npm run typecheck
           npm run build
-
           test -f .next/standalone/server.js
           test -d .next/static
 
@@ -54,20 +49,12 @@ jobs:
         run: |
           rm -rf deploy-release
           mkdir -p deploy-release
-
           cp -a .next/standalone/. deploy-release/
-
-          if [ -d public ]; then
-            cp -a public deploy-release/public
-          fi
-
+          if [ -d public ]; then cp -a public deploy-release/public; fi
           mkdir -p deploy-release/.next
           cp -a .next/static deploy-release/.next/static
-
           test -f deploy-release/server.js
-
-          tar -czf "$GITHUB_WORKSPACE/frontend-release.tar.gz" \
-            -C deploy-release .
+          tar -czf "$GITHUB_WORKSPACE/frontend-release.tar.gz" -C deploy-release .
 
       - name: Build backend
         working-directory: backend
@@ -76,37 +63,29 @@ jobs:
         run: |
           npm config set registry https://registry.npmjs.org/
           npm ci --include=dev --no-audit --no-fund
-
           npm run prisma:generate
           npm run typecheck
           npm run build
-
           test -f app.js
           test -f package.json
           test -f package-lock.json
           test -f prisma.config.ts
           test -f prisma/schema.prisma
           test -f dist/src/server.js
-
+          test -f dist/src/scripts/migrate-production.js
           tar -czf "$GITHUB_WORKSPACE/backend-release.tar.gz" \
-            app.js \
-            package.json \
-            package-lock.json \
-            prisma.config.ts \
-            dist \
-            prisma
+            app.js package.json package-lock.json prisma.config.ts dist prisma
 
       - name: Prepare cPanel release branch
         run: |
           rm -rf publish
           mkdir publish
-
           cp frontend-release.tar.gz publish/
           cp backend-release.tar.gz publish/
           cp deploy/cpanel/deploy-cpanel.sh publish/deploy-cpanel.sh
-
+          cp deploy/cpanel/gateway-server.cjs publish/gateway-server.cjs
+          cp deploy/cpanel/sicko-release-watch.sh publish/sicko-release-watch.sh
           printf '%s\n' "$GITHUB_SHA" > publish/source-commit.txt
-
           cat > publish/.cpanel.yml <<'YAML'
           ---
           deployment:
@@ -119,17 +98,11 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           cd publish
-
           git init
           git config user.name "Sicko Soul Deploy"
           git config user.email "deploy@sickosoul.shop"
-
           git checkout -b cpanel-release
-
           git add -A
           git commit -m "Production release ${GITHUB_SHA}"
-
-          git remote add origin \
-            "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
-
+          git remote add origin "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
           git push --force origin cpanel-release

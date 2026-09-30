@@ -1,4 +1,5 @@
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ?? "";
+export const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") || "/api/v1";
 
 export class ApiError extends Error {
   readonly status: number;
@@ -23,12 +24,24 @@ type ApiErrorPayload = {
   } | string;
 };
 
-export function requireApiBaseUrl() {
-  if (!API_BASE_URL) {
-    throw new Error(
-      "NEXT_PUBLIC_API_BASE_URL IS NOT CONFIGURED. POINT IT TO THE SICKO SOUL API INCLUDING /api/v1.",
-    );
+/**
+ * Browser requests use the same-origin /api/v1 path.
+ *
+ * Server Components cannot fetch a relative URL in Node, so the cPanel
+ * gateway injects SICKO_INTERNAL_API_BASE_URL at runtime for server-side
+ * rendering. This value is intentionally not NEXT_PUBLIC_* and therefore
+ * is never exposed to the browser bundle.
+ */
+export function requireApiBaseUrl(): string {
+  if (typeof window === "undefined") {
+    const internal = process.env.SICKO_INTERNAL_API_BASE_URL?.replace(/\/$/, "");
+    if (internal) return internal;
   }
+
+  if (!API_BASE_URL) {
+    throw new Error("SICKO SOUL API BASE URL IS NOT CONFIGURED.");
+  }
+
   return API_BASE_URL;
 }
 
