@@ -72,8 +72,8 @@ rm -rf "$BACKEND_STAGE"
 
 ACTIVATE="$(
   find "/home/sickosou/nodevenv/sicko-backend-prod" \
-    -type f \
     -path "*/bin/activate" \
+    -print \
     2>/dev/null \
     | head -n 1
 )"
