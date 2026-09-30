@@ -86,8 +86,14 @@ fi
 echo "Using Node environment:"
 echo "$ACTIVATE"
 
+# CloudLinux's activate script references variables that may initially be unset.
+# Temporarily disable nounset while sourcing it.
+set +u
+
 # shellcheck disable=SC1090
 source "$ACTIVATE"
+
+set -u
 
 cd "$BACKEND"
 
