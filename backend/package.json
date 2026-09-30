@@ -8,6 +8,7 @@
     "start": "node dist/src/server.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
+
     "prisma:pull": "prisma db pull",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
@@ -16,9 +17,13 @@
     "prisma:baseline:mark": "prisma migrate resolve --applied 0_init",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
+
+    "migrate:production": "node dist/src/scripts/migrate-production.js",
+
     "admin:bootstrap": "tsx src/scripts/bootstrap-admin.ts",
     "seed:catalog": "tsx src/scripts/seed-catalog.ts",
     "smoke:public": "tsx src/scripts/smoke-public.ts",
+
     "seed:catalog:prod": "node dist/src/scripts/seed-catalog.js",
     "admin:bootstrap:prod": "node dist/src/scripts/bootstrap-admin.js"
   },
@@ -32,15 +37,16 @@
     "express-rate-limit": "^8.1.0",
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.2",
+    "mariadb": "^3.4.5",
     "pino": "^9.9.5",
-    "zod": "^4.1.11",
-    "prisma": "^7.0.0"
+    "zod": "^4.1.11"
   },
   "devDependencies": {
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.3",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^24.5.2",
+    "prisma": "^7.0.0",
     "tsx": "^4.20.5",
     "typescript": "^5.9.2"
   }

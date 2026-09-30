@@ -52,6 +52,7 @@ test -f "$BACKEND_STAGE/package-lock.json"
 test -f "$BACKEND_STAGE/prisma.config.ts"
 test -f "$BACKEND_STAGE/dist/src/server.js"
 test -f "$BACKEND_STAGE/prisma/schema.prisma"
+test -f "$BACKEND_STAGE/dist/src/scripts/migrate-production.js"
 
 rm -rf "$BACKEND/dist"
 rm -rf "$BACKEND/prisma"
@@ -102,7 +103,7 @@ cd "$BACKEND"
 #
 
 LOCK_HASH="$(sha256sum package-lock.json | awk '{print $1}')"
-LOCK_MARKER="$BACKEND/.package-lock.sha256"
+LOCK_MARKER="$BACKEND/.package-lock-production.sha256"
 
 INSTALLED_HASH=""
 
@@ -113,7 +114,7 @@ fi
 if [ "$LOCK_HASH" != "$INSTALLED_HASH" ]; then
   echo "Backend dependencies changed. Installing packages..."
 
-  npm install --include=dev --no-audit --no-fund
+  npm install --omit=dev --no-audit --no-fund
 
   printf '%s\n' "$LOCK_HASH" > "$LOCK_MARKER"
 else
@@ -124,9 +125,9 @@ fi
 # Production database migration
 #
 
-echo "Running Prisma production migrations..."
+echo "Running lightweight production migrations..."
 
-npm run prisma:migrate:deploy
+npm run migrate:production
 
 #
 # Frontend
