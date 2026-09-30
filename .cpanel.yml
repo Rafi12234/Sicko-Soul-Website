@@ -1,0 +1,4 @@
+---
+deployment:
+  tasks:
+    - /bin/bash /home/sickosou/repositories/Sicko-Soul-Website/deploy-cpanel.sh
