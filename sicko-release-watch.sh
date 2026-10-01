@@ -17,7 +17,9 @@ cd "$REPO"
 
 echo "$(date -Is) Checking for Sicko Soul release..."
 
-git fetch origin cpanel-release --quiet
+git fetch origin \
+  "+refs/heads/cpanel-release:refs/remotes/origin/cpanel-release" \
+  --quiet
 
 REMOTE_SHA="$(git rev-parse origin/cpanel-release)"
 LOCAL_SHA="$(git rev-parse HEAD)"
