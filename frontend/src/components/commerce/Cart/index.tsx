@@ -73,7 +73,7 @@ export default function Cart() {
           { yPercent: 120, autoAlpha: 0, stagger: 0.03, duration: 0.95 },
           "-=0.2",
         )
-        .from(".cart-rule", { scaleX: 0, transformOrigin: "left", duration: 0.8 }, "-=0.6")
+        .from(".cart-rule", { scaleX: 0,  transformOrigin: "left", duration: 0.8 }, "-=0.6")
         .from(".cart-line", { y: 40, autoAlpha: 0, stagger: 0.08, duration: 0.75 }, "-=0.45")
         .from(".cart-summary", { x: 32, autoAlpha: 0, duration: 0.75 }, "-=0.7");
       return () => split.revert();
