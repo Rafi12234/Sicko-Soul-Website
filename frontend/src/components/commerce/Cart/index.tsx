@@ -7,7 +7,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap, SplitText } from "@/lib/gsap";
 import { EASE } from "@/styles/theme";
 import { getProductVariants } from "@/data/products";
-import { getCatalogProduct } from "@/lib/catalogApi";
+import  { getCatalogProduct } from "@/lib/catalogApi";
 import { money } from "@/lib/commerce";
 import { useCartStore } from "@/store/useCartStore";
 import type { ProductVariantRecord } from "@/types/commerce";
