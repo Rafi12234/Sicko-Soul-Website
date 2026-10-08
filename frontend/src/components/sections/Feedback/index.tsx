@@ -6,6 +6,7 @@ import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER, themeColor } from "@/styles/theme";
 import { FEEDBACK_COPY } from "@/data/feedback";
 import { createComplaint, listComplaintCategories } from "@/lib/customerApi";
+import { privateAccessLink } from "@/lib/customerAccess";
 import type { ComplaintCategoryCode, ComplaintDirectory } from "@/types/commerce";
 import styles from "./Feedback.module.css";
 
@@ -570,6 +571,12 @@ export default function Feedback() {
               {`${FEEDBACK_COPY.done.ref} / ${caseRef}`}
             </p>
 
+            {caseRef && <p className="mt-3 font-body text-xs text-concrete-gray">Your private case access is saved on this device. Save a private link now: email recovery is temporarily unavailable.</p>}
+            {caseRef && <button type="button" className="mt-3 border border-bone-white/35 p-3 font-body text-xs uppercase text-bone-white" onClick={async () => {
+              const link = privateAccessLink("complaint", caseRef);
+              if (!link) return;
+              try { await navigator.clipboard.writeText(link); } catch { /* Clipboard permission may be disabled. */ }
+            }}>COPY PRIVATE CASE LINK</button>}
             {caseRef && (
               <Link
                 href={`/support/case/${encodeURIComponent(caseRef)}`}
