@@ -6,7 +6,7 @@ const read = (file) => readFileSync(new URL(file, import.meta.url), 'utf8');
 test('public order details require a scoped access token', () => {
   const code = read('../src/modules/orders/orders.controller.ts');
   assert.match(code, /requireCustomerAccess\(req, "order", reference\)/);
-  assert.match(code, /sendCustomerAccessLink\("order"/);
+  assert.doesNotMatch(code, /sendCustomerAccessLink/);
   assert.doesNotMatch(code, /res\.json\(await lookupOrder/);
 });
 test('complaint messages, replies and refund request are protected', () => {
@@ -33,12 +33,23 @@ test('stock expiry uses row lock and transactional release', () => {
   assert.match(code, /order\.order_status !== "PENDING_CONFIRMATION"/);
   assert.match(code, /to_status: "REJECTED"/);
 });
-test('access recovery is email-based, stores no capability in URL query', () => {
-  const code = read('../src/modules/customer-access/customer-access.service.ts');
+test('private order and complaint access uses capabilities without email recovery', () => {
+  const order = read('../src/modules/orders/orders.routes.ts');
+  const complaint = read('../src/modules/complaints/complaints.routes.ts');
   const front = read('../../frontend/src/lib/customerAccess.ts');
-  assert.match(code, /#access=/);
+  const complaintService = read('../src/modules/complaints/complaints.service.ts');
+  assert.doesNotMatch(order, /ordersRouter.post\("\/lookup"/);
+  assert.doesNotMatch(complaint, /complaintsRouter.post\("\/access"/);
+  assert.match(complaintService, /signCustomerAccess\("complaint", complaint.case_reference\)/);
   assert.match(front, /history\.replaceState/);
-  assert.match(front, /sessionStorage/);
+  assert.match(front, /localStorage/);
+});
+test('production email worker can be disabled without crashing storefront', () => {
+  const env = read('../src/config/env.ts');
+  const email = read('../src/modules/email/email.service.ts');
+  assert.doesNotMatch(env, /P0 customer access recovery requires/);
+  assert.match(env, /EMAIL_WORKER_ENABLED: boolFromEnv.default\(false\)/);
+  assert.match(email, /if \(!env.EMAIL_WORKER_ENABLED\) return;/);
 });
 test('database migration permits recovery email event', () => {
   const schema = read('../prisma/schema.prisma');
