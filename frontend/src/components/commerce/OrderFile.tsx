@@ -4,7 +4,7 @@ import Image from "next/image";
 import { useEffect, useState, type FormEvent } from "react";
 import RecordShell from "@/components/ui/RecordShell";
 import SickoButton from "@/components/ui/SickoButton";
-import { getOrder, requestRefund } from "@/lib/customerApi";
+import { getOrder, lookupOrder, requestRefund } from "@/lib/customerApi";
 import { humanizeStatus, money, orderStatusIndex } from "@/lib/commerce";
 import type { CustomerOrder } from "@/types/commerce";
 
@@ -28,6 +28,8 @@ export default function OrderFile({
   const [loadError, setLoadError] = useState("");
   const [refundOpen, setRefundOpen] = useState(false);
   const [signal, setSignal] = useState("");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoverySent, setRecoverySent] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -82,9 +84,17 @@ export default function OrderFile({
   if (loadError) {
     return (
       <RecordShell index="00" eyebrow="ORDER FILE / CONNECTION ERROR" title="ORDER FILE UNAVAILABLE" subtitle={loadError}>
-        <div className="max-w-sm">
-          <SickoButton href="/track-order" tone="blood" full>RETURN TO TRACKER</SickoButton>
-        </div>
+        <form className="max-w-md space-y-4" onSubmit={async (event) => {
+          event.preventDefault();
+          try { await lookupOrder(reference, recoveryEmail); setRecoverySent(true); }
+          catch (error) { setLoadError(error instanceof Error ? error.message : "COULD NOT SEND LINK."); }
+        }}>
+          <label className="block font-body text-sm">EMAIL USED AT CHECKOUT
+            <input type="email" required value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} className="mt-3 block w-full border border-bone-white/30 bg-black p-3 text-bone-white" />
+          </label>
+          {recoverySent ? <p role="status">IF THE DETAILS MATCH, A SECURE LINK HAS BEEN SENT.</p> : <SickoButton type="submit" tone="blood" full>EMAIL ME ACCESS</SickoButton>}
+          <SickoButton href="/track-order" tone="ghost" full>RETURN TO TRACKER</SickoButton>
+        </form>
       </RecordShell>
     );
   }
