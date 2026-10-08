@@ -1,9 +1,6 @@
+// Deprecated customer email recovery route handler. It is not registered.
 import type { RequestHandler } from "express";
-import { complaintAccessSchema } from "./complaints.schema.js";
-import { sendCustomerAccessLink } from "../customer-access/customer-access.service.js";
-export const requestComplaintAccessController: RequestHandler = async (req, res) => {
-  const { caseReference, email } = complaintAccessSchema.parse(req.body);
-  await sendCustomerAccessLink("complaint", caseReference, email);
+export const requestComplaintAccessController: RequestHandler = (_req, res) => {
   res.set("Cache-Control", "no-store");
-  res.json({ message: "If the case and email match, a secure access link will be sent." });
+  res.status(410).json({ error: { code: "EMAIL_RECOVERY_DISABLED", message: "Email recovery is temporarily unavailable." } });
 };
