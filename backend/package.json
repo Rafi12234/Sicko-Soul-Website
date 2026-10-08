@@ -27,7 +27,8 @@
     "test:p1:static": "node --test tests/p1-static.test.mjs",
     "test:p1:staging": "node --test tests/p1-staging.test.mjs",
     "smoke:p1:deploy": "node scripts/p1-deployment-smoke.mjs",
-    "test:email-optional:static": "node --test tests/email-optional-security.test.mjs"
+    "test:email-optional:static": "node --test tests/email-optional-security.test.mjs",
+    "test:ci": "node scripts/run-ci-static-tests.mjs"
   },
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.0.0",

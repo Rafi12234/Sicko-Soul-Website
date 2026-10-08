@@ -4,13 +4,16 @@ import { readFileSync } from 'node:fs';
 
 const read = (relative) => readFileSync(new URL(`../${relative}`, import.meta.url), 'utf8');
 
-test('manual phpMyAdmin SQL is additive and explicitly tracks released stock holds', () => {
-  const migration = read('../PHPMYADMIN_ONLY_RUN_ONCE.sql');
+test('manually managed stock-hold schema is declared and checked read-only', () => {
+  // The owner runs SQL in phpMyAdmin; it is not a CI dependency.
   const schema = read('prisma/schema.prisma');
-  assert.match(migration, /ADD COLUMN reservation_released_at DATETIME NULL/);
-  assert.doesNotMatch(migration, /DROP TABLE|DROP COLUMN|DELETE FROM orders|UPDATE orders SET order_status/i);
+  const deploy = read('../deploy/cpanel/deploy-cpanel.sh');
   assert.match(schema, /reservation_released_at\s+DateTime\?/);
   assert.match(schema, /idx_orders_pending_hold/);
+  assert.match(deploy, /Checking manually managed database schema/);
+  assert.match(deploy, /INFORMATION_SCHEMA\.COLUMNS/);
+  assert.match(deploy, /COLUMN_NAME = 'reservation_released_at'/);
+  assert.doesNotMatch(deploy, /npm run migrate:production|prisma migrate deploy|ALTER TABLE|DROP TABLE/);
 });
 
 test('expired hold releases inventory once; does not auto-reject or cancel COD order', () => {

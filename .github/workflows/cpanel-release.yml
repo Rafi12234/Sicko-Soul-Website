@@ -65,6 +65,8 @@ jobs:
 
           npm run typecheck
           npm run build
+          # Future frontend tests can expose test:ci in frontend/package.json.
+          npm run test:ci --if-present
 
           test -f .next/standalone/server.js
           test -d .next/static
@@ -122,15 +124,11 @@ jobs:
           test -f dist/src/server.js
           test -f dist/src/scripts/migrate-production.js
 
-      # P0 release blocker: requires an independent staging API/database.
-      # No missing secrets / failed tests may be treated as a successful deploy.
-      - name: Run P0 source-security checks
+      # Stable test-discovery entrypoint. New *-static.test.mjs or
+      # *-security.test.mjs files are picked up without editing this workflow.
+      - name: Run all backend CI static and security tests
         working-directory: backend
-        run: npm run test:p0:static
-
-      - name: Verify COD pending orders survive expired stock holds
-        working-directory: backend
-        run: node --test tests/order-stock-hold-static.test.mjs
+        run: npm run test:ci
 
       # TEMPORARY: staging E2E tests run only when explicitly enabled in GitHub Variables.
       # This does not disable compilation or P0/P1 static security checks.
@@ -152,14 +150,6 @@ jobs:
           P0_STAGING_ADMIN_EMAIL: ${{ secrets.P0_STAGING_ADMIN_EMAIL }}
           P0_STAGING_ADMIN_PASSWORD: ${{ secrets.P0_STAGING_ADMIN_PASSWORD }}
         run: npm run test:p0:staging
-
-      - name: Run P1 source checks
-        working-directory: backend
-        run: npm run test:p1:static
-
-      - name: Verify secure no-email customer access mode
-        working-directory: backend
-        run: npm run test:email-optional:static
 
       - name: Run P1 staging commerce, shipment, review and staff-role tests
         if: ${{ vars.RUN_STAGING_TESTS == 'true' }}

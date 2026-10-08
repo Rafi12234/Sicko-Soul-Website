@@ -59,5 +59,3 @@ test('database migration permits recovery email event', () => {
   assert.match(sql, /CUSTOMER_ACCESS/);
 });
 
-// Included in the existing P0 CI command; no GitHub workflow edit required.
-import './order-stock-hold-static.test.mjs';
