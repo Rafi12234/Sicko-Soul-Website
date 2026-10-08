@@ -123,7 +123,7 @@ export async function submitReview(
 
     if (
       order &&
-      order.customer_email.toLowerCase() === input.email.toLowerCase() &&
+      order.customer_email.toLowerCase() === input.email.trim().toLowerCase() &&
       order.order_status === "DELIVERED"
     ) {
       const item = order.order_items.find((candidate) => candidate.product_id === product.product_id);
