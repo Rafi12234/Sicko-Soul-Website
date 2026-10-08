@@ -1,6 +1,5 @@
 import type { RequestHandler } from "express";
 import { requireCustomerAccess } from "../customer-access/customer-access.js";
-import { sendCustomerAccessLink } from "../customer-access/customer-access.service.js";
 import { auditContextFromRequest } from "../../utils/audit-context.js";
 import {
   adminComplaintIdParamsSchema,
