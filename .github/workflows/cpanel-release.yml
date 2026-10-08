@@ -1,4 +1,4 @@
-name: Build and Deploy Sicko Soul
+name: Build Sicko Soul Release (Manual)
 
 on:
   # Manual only while hosting deployments are paused.
@@ -18,7 +18,7 @@ env:
 
 jobs:
   build-release:
-    name: Build and deploy production
+    name: Build release for manual hosting deployment
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -286,247 +286,33 @@ jobs:
           echo "Published release commit:"
           echo "$RELEASE_SHA"
 
+
       # ============================================================
-      # IMMEDIATE TETRAHOST DEPLOYMENT WEBHOOK
+      # MANUAL HOSTING DEPLOYMENT ONLY
       #
-      # First bootstrap:
-      # The existing 5-minute cron may need to deploy the new
-      # gateway once before this endpoint becomes available.
+      # This workflow deliberately STOPS after publishing cpanel-release.
+      # It must never POST to the website deployment webhook.
+      # Operator executes sicko-release-watch.sh in cPanel Terminal
+      # only after reviewing the prepared release and manual DB SQL.
       # ============================================================
 
-      - name: Trigger immediate TetraHost deployment
-        env:
-          SICKO_DEPLOY_SECRET: ${{ secrets.SICKO_DEPLOY_SECRET }}
-        run: |
-          set -Eeuo pipefail
-
-          if [ -z "${SICKO_DEPLOY_SECRET:-}" ]; then
-            echo "ERROR: SICKO_DEPLOY_SECRET is missing."
-            exit 1
-          fi
-
-          echo "Triggering Sicko Soul production deployment..."
-
-          for attempt in $(seq 1 40); do
-
-            HTTP_CODE="$(
-              curl \
-                --silent \
-                --show-error \
-                --output deploy-response.json \
-                --write-out "%{http_code}" \
-                --connect-timeout 10 \
-                --max-time 30 \
-                -X POST \
-                -H "Authorization: Bearer ${SICKO_DEPLOY_SECRET}" \
-                https://sickosoul.shop/__sicko_deploy \
-                || true
-            )"
-
-            echo "Attempt ${attempt}/40 - HTTP ${HTTP_CODE:-000}"
-
-            if [ -f deploy-response.json ]; then
-              cat deploy-response.json
-              echo
-            fi
-
-            if [ "$HTTP_CODE" = "202" ]; then
-              echo "Deployment trigger accepted."
-              exit 0
-            fi
-
-            if [ "$HTTP_CODE" = "401" ]; then
-              echo "ERROR: Deployment secret does not match."
-              exit 1
-            fi
-
-            sleep 10
-          done
-
-          echo "ERROR: Deployment webhook did not become available."
-          exit 1
-
-      # ============================================================
-      # WAIT UNTIL deploy-cpanel.sh WRITES THE NEW SOURCE SHA
-      # ============================================================
-
-      - name: Wait for production deployment
-        env:
-          SICKO_DEPLOY_SECRET: ${{ secrets.SICKO_DEPLOY_SECRET }}
-        run: |
-          set -Eeuo pipefail
-
-          echo "Waiting for production source:"
-          echo "$GITHUB_SHA"
-
-          for attempt in $(seq 1 60); do
-
-            RESPONSE="$(
-              curl \
-                --silent \
-                --show-error \
-                --connect-timeout 10 \
-                --max-time 20 \
-                -H "Authorization: Bearer ${SICKO_DEPLOY_SECRET}" \
-                https://sickosoul.shop/__sicko_deploy_status \
-                || true
-            )"
-
-            INFO="$(
-              printf '%s' "$RESPONSE" |
-              python3 -c '
-          import json
-          import sys
-
-          try:
-              p = json.load(sys.stdin)
-              status = p.get("deployment") or {}
-              print("|".join([
-                  p.get("deployedSource") or "",
-                  p.get("runtimeSource") or "",
-                  status.get("source") or "",
-                  status.get("state") or "",
-              ]))
-          except Exception:
-              print("|||")
-          '
-            )"
-            IFS='|' read -r DEPLOYED RUNTIME ATTEMPTED STATE <<< "$INFO"
-
-            echo "Check ${attempt}/60"
-            echo "Expected: ${GITHUB_SHA}"
-            echo "Recorded: ${DEPLOYED:-waiting}"
-            echo "Running:  ${RUNTIME:-waiting}"
-            echo "Release state: ${STATE:-unknown}"
-
-            if [ "$ATTEMPTED" = "$GITHUB_SHA" ] && [ "$STATE" = failed ]; then
-              echo "ERROR: Deployment failed and the server attempted rollback. Read cPanel deployment logs."
-              exit 1
-            fi
-            if [ "$DEPLOYED" = "$GITHUB_SHA" ] && [ "$RUNTIME" = "$GITHUB_SHA" ]; then
-              echo "The new version is active and passed server-side health checks."
-              exit 0
-            fi
-
-            sleep 5
-          done
-
-          echo "ERROR: Timed out waiting for production deployment."
-          exit 1
-
-      # ============================================================
-      # PUBLIC HEALTH CHECK
-      # ============================================================
-
-      - name: Verify gateway health
-        run: |
-          set -Eeuo pipefail
-
-          echo "Checking Sicko Soul gateway..."
-
-          curl \
-            --silent \
-            --show-error \
-            --fail \
-            --retry 12 \
-            --retry-delay 5 \
-            --retry-all-errors \
-            https://sickosoul.shop/__sicko_gateway_health \
-            -o gateway-health.json
-
-          cat gateway-health.json
-          echo
-
-          python3 <<'PY'
-          import json
-          from pathlib import Path
-
-          payload = json.loads(
-              Path("gateway-health.json").read_text()
-          )
-
-          if payload.get("status") != "ok":
-              raise SystemExit(
-                  "Gateway status is not OK."
-              )
-
-          if payload.get("frontend") is not True:
-              raise SystemExit(
-                  "Frontend health check failed."
-              )
-
-          if payload.get("backend") is not True:
-              raise SystemExit(
-                  "Backend health check failed."
-              )
-
-          import os
-          if payload.get("runtimeSource") != os.environ["GITHUB_SHA"]:
-              raise SystemExit("A stale gateway is serving the previous release.")
-
-          print(
-              "Gateway, frontend and backend are healthy."
-          )
-          PY
-
-      - name: Verify API and database
-        run: |
-          set -Eeuo pipefail
-
-          echo "Checking production API..."
-
-          curl \
-            --silent \
-            --show-error \
-            --fail \
-            --retry 12 \
-            --retry-delay 5 \
-            --retry-all-errors \
-            https://sickosoul.shop/api/v1/health \
-            -o api-health.json
-
-          cat api-health.json
-          echo
-
-          python3 <<'PY'
-          import json
-          from pathlib import Path
-
-          payload = json.loads(
-              Path("api-health.json").read_text()
-          )
-
-          data = payload.get("data", {})
-
-          if data.get("status") != "ok":
-              raise SystemExit(
-                  "Production API status is not OK."
-              )
-
-          if data.get("database") != "connected":
-              raise SystemExit(
-                  "Production database is not connected."
-              )
-
-          print(
-              "Production API and database are healthy."
-          )
-          PY
-
-      # ============================================================
-      # SUMMARY
-      # ============================================================
-
-      - name: Deployment summary
+      - name: Manual hosting deployment instructions
         run: |
           {
-            echo "## Sicko Soul Production Deployment"
+            echo "## Sicko Soul Release Prepared (NOT DEPLOYED)"
             echo
-            echo "- Source commit: \`${GITHUB_SHA}\`"
-            echo "- Release commit: \`${RELEASE_SHA}\`"
-            echo "- Production: https://sickosoul.shop"
-            echo "- Gateway: ✅ healthy"
-            echo "- Backend: ✅ healthy"
-            echo "- Database: ✅ connected"
-            echo "- Deployment: ✅ completed"
+            echo "- Source commit: \x60${GITHUB_SHA}\x60"
+            echo "- Release commit: \x60${RELEASE_SHA}\x60"
+            echo "- Hosting has NOT been updated by this workflow."
+            echo
+            echo "### Deploy manually when ready"
+            echo "In cPanel Terminal, run:"
+            echo "\x60\x60\x60bash"
+            echo "bash /home/sickosou/repositories/Sicko-Soul-Website/sicko-release-watch.sh"
+            echo "\x60\x60\x60"
+            echo
+            echo "This fetches the latest cpanel-release, stages builds,"
+            echo "performs read-only database schema checks and health checks,"
+            echo "and activates the release. Apply any required SQL yourself"
+            echo "through phpMyAdmin BEFORE running the command."
           } >> "$GITHUB_STEP_SUMMARY"
