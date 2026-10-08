@@ -9,7 +9,7 @@ export function saveCustomerAccess(kind: CustomerAccessKind, ref: string, token:
   if (typeof window === "undefined") return;
   // Prevent accepting malformed arbitrary string fragments as auth credentials.
   if (!/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(token)) return;
-  sessionStorage.setItem(storageKey(kind, ref), token);
+  localStorage.setItem(storageKey(kind, ref), token);
 }
 
 export function getCustomerAccess(kind: CustomerAccessKind, ref: string): string | null {
@@ -21,10 +21,27 @@ export function getCustomerAccess(kind: CustomerAccessKind, ref: string): string
     saveCustomerAccess(kind, ref, received);
     window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search);
   }
-  return sessionStorage.getItem(storageKey(kind, ref));
+  const key = storageKey(kind, ref);
+  const saved = localStorage.getItem(key);
+  if (saved) return saved;
+  // Migrate credentials created by the P0/P1 session-storage implementation.
+  const previousSession = sessionStorage.getItem(key);
+  if (previousSession) {
+    saveCustomerAccess(kind, ref, previousSession);
+    sessionStorage.removeItem(key);
+  }
+  return previousSession;
 }
 
 export function authHeaders(kind: CustomerAccessKind, ref: string): Record<string, string> {
   const token = getCustomerAccess(kind, ref);
   return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+// The fragment is never sent to the server or recorded in the URL query.
+export function privateAccessLink(kind: CustomerAccessKind, ref: string): string | null {
+  const token = getCustomerAccess(kind, ref);
+  if (!token || typeof window === "undefined") return null;
+  const route = kind === "order" ? `/orders/${encodeURIComponent(ref)}` : `/support/case/${encodeURIComponent(ref)}`;
+  return `${window.location.origin}${route}#access=${encodeURIComponent(token)}`;
 }
