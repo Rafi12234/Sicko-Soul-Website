@@ -4,7 +4,8 @@ import Image from "next/image";
 import { useEffect, useState, type FormEvent } from "react";
 import RecordShell from "@/components/ui/RecordShell";
 import SickoButton from "@/components/ui/SickoButton";
-import { getOrder, lookupOrder, requestRefund } from "@/lib/customerApi";
+import { getOrder, requestRefund } from "@/lib/customerApi";
+import { privateAccessLink } from "@/lib/customerAccess";
 import { humanizeStatus, money, orderStatusIndex } from "@/lib/commerce";
 import type { CustomerOrder } from "@/types/commerce";
 
@@ -28,8 +29,7 @@ export default function OrderFile({
   const [loadError, setLoadError] = useState("");
   const [refundOpen, setRefundOpen] = useState(false);
   const [signal, setSignal] = useState("");
-  const [recoveryEmail, setRecoveryEmail] = useState("");
-  const [recoverySent, setRecoverySent] = useState(false);
+
 
   useEffect(() => {
     let alive = true;
@@ -84,17 +84,8 @@ export default function OrderFile({
   if (loadError) {
     return (
       <RecordShell index="00" eyebrow="ORDER FILE / CONNECTION ERROR" title="ORDER FILE UNAVAILABLE" subtitle={loadError}>
-        <form className="max-w-md space-y-4" onSubmit={async (event) => {
-          event.preventDefault();
-          try { await lookupOrder(reference, recoveryEmail); setRecoverySent(true); }
-          catch (error) { setLoadError(error instanceof Error ? error.message : "COULD NOT SEND LINK."); }
-        }}>
-          <label className="block font-body text-sm">EMAIL USED AT CHECKOUT
-            <input type="email" required value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} className="mt-3 block w-full border border-bone-white/30 bg-black p-3 text-bone-white" />
-          </label>
-          {recoverySent ? <p role="status">IF THE DETAILS MATCH, A SECURE LINK HAS BEEN SENT.</p> : <SickoButton type="submit" tone="blood" full>EMAIL ME ACCESS</SickoButton>}
-          <SickoButton href="/track-order" tone="ghost" full>RETURN TO TRACKER</SickoButton>
-        </form>
+        <p className="mb-4 font-body text-sm text-concrete-gray">This order requires the private access link saved during checkout. Email recovery is temporarily disabled; your order is not publicly accessible.</p>
+        <SickoButton href="/track-order" tone="blood">OPEN ORDER TRACKER</SickoButton>
       </RecordShell>
     );
   }
@@ -105,7 +96,7 @@ export default function OrderFile({
         index="00"
         eyebrow="ORDER FILE / NO MATCH"
         title="FILE NOT FOUND"
-        subtitle="The reference could not be located. Use the tracker with the same email or phone used at checkout."
+        subtitle="The reference could not be located. Open your order using the private link saved at checkout."
       >
         <div className="max-w-sm">
           <SickoButton href="/track-order" tone="blood" full>TRACK AN ORDER</SickoButton>
@@ -124,6 +115,15 @@ export default function OrderFile({
       title={confirmation ? "ORDER RECEIVED" : order.reference}
       subtitle={confirmation ? `Your order request has been recorded as ${order.reference}. Keep this reference.` : "Everything cleared for the customer is shown below."}
     >
+      <div className="mb-7 flex flex-wrap items-center gap-4 border border-bone-white/20 bg-off-black p-4">
+        <button type="button" className="border border-bone-white/50 px-4 py-3 font-body text-xs font-semibold uppercase tracking-widest text-bone-white" onClick={async () => {
+          const link = privateAccessLink("order", reference);
+          if (!link) { setSignal("PRIVATE TOKEN NOT AVAILABLE ON THIS DEVICE."); return; }
+          try { await navigator.clipboard.writeText(link); setSignal("PRIVATE ORDER LINK COPIED. STORE IT SAFELY."); }
+          catch { setSignal("COULD NOT COPY. CHECK BROWSER CLIPBOARD PERMISSIONS."); }
+        }}>COPY PRIVATE ORDER LINK</button>
+        <p className="font-body text-xs text-concrete-gray">Save this link privately. No email recovery is available yet.</p>
+      </div>
       <div className="grid gap-10 xl:grid-cols-12">
         <div className="space-y-8 xl:col-span-8">
           <section className="border border-bone-white/15 bg-off-black p-6">
