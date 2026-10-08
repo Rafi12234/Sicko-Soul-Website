@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { checkoutRateLimit, accessRecoveryRateLimit } from "../../middleware/sensitive-rate-limit.js";
 import {
   adminGetOrderController,
   adminListOrdersController,
@@ -9,8 +10,8 @@ import {
 } from "./orders.controller.js";
 
 export const ordersRouter = Router();
-ordersRouter.post("/", createOrderController);
-ordersRouter.post("/lookup", lookupOrderController);
+ordersRouter.post("/", checkoutRateLimit, createOrderController);
+ordersRouter.post("/lookup", accessRecoveryRateLimit, lookupOrderController);
 ordersRouter.get("/:reference", getOrderController);
 
 export const adminOrdersRouter = Router();
