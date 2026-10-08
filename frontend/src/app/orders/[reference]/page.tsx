@@ -4,7 +4,7 @@ import OrderFile from "@/components/commerce/OrderFile";
 
 type Props = { params: Promise<{ reference: string }> };
 
-export const metadata: Metadata = { title: "Order File — SICKO SOUL" };
+export const metadata: Metadata = { title: "Order File — SICKO SOUL", robots: { index: false, follow: false } };
 
 export default async function OrderPage({ params }: Props) {
   const { reference } = await params;
