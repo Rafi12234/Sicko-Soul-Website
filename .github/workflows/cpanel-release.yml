@@ -301,15 +301,15 @@ jobs:
           {
             echo "## Sicko Soul Release Prepared (NOT DEPLOYED)"
             echo
-            echo "- Source commit: \x60${GITHUB_SHA}\x60"
-            echo "- Release commit: \x60${RELEASE_SHA}\x60"
+            echo "- Source commit: ${GITHUB_SHA}"
+            echo "- Release commit: ${RELEASE_SHA}"
             echo "- Hosting has NOT been updated by this workflow."
             echo
             echo "### Deploy manually when ready"
             echo "In cPanel Terminal, run:"
-            echo "\x60\x60\x60bash"
+            echo "bash"
             echo "bash /home/sickosou/repositories/Sicko-Soul-Website/sicko-release-watch.sh"
-            echo "\x60\x60\x60"
+            echo ""
             echo
             echo "This fetches the latest cpanel-release, stages builds,"
             echo "performs read-only database schema checks and health checks,"
