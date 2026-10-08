@@ -1,3 +1,4 @@
+import { Prisma } from "../../../generated/prisma/client.js";
 import type { shipments_status } from "../../../generated/prisma/client.js";
 import { AppError } from "../../errors/app-error.js";
 import { prisma } from "../../lib/prisma.js";
@@ -67,26 +68,21 @@ export async function createShipmentForAdmin(
   },
   audit: AuditContext,
 ) {
-  const order = await prisma.orders.findUnique({
-    where: { order_reference: input.orderReference },
-  });
-  if (!order) throw new AppError({ statusCode: 404, code: "ORDER_NOT_FOUND", message: "Order was not found." });
-  if (!["CONFIRMED", "PROCESSING", "SHIPPED"].includes(order.order_status)) {
-    throw new AppError({
-      statusCode: 409,
-      code: "SHIPMENT_NOT_ALLOWED",
-      message: "A shipment can only be created after the order is confirmed.",
-    });
-  }
-
-  const existing = await prisma.shipments.findFirst({
-    where: { order_id: order.order_id, status: { notIn: ["DELIVERED", "RETURNED", "CANCELLED"] } },
-  });
-  if (existing) {
-    throw new AppError({ statusCode: 409, code: "ACTIVE_SHIPMENT_EXISTS", message: "This order already has an active shipment." });
-  }
-
   const row = await prisma.$transaction(async (tx) => {
+    // Lock order first so concurrent cancellation/shipment creation is serialized.
+    const locked = await tx.$queryRaw<Array<{ order_id: bigint }>>(
+      Prisma.sql`SELECT order_id FROM orders WHERE order_reference = ${input.orderReference} FOR UPDATE`,
+    );
+    if (!locked[0]) throw new AppError({ statusCode: 404, code: "ORDER_NOT_FOUND", message: "Order was not found." });
+    const order = await tx.orders.findUnique({ where: { order_id: locked[0].order_id } });
+    if (!order) throw new AppError({ statusCode: 404, code: "ORDER_NOT_FOUND", message: "Order was not found." });
+    if (!["CONFIRMED", "PROCESSING", "SHIPPED"].includes(order.order_status)) {
+      throw new AppError({ statusCode: 409, code: "SHIPMENT_NOT_ALLOWED", message: "A shipment can only be created after order confirmation." });
+    }
+    const existing = await tx.shipments.findFirst({
+      where: { order_id: order.order_id, status: { notIn: ["DELIVERED", "RETURNED", "CANCELLED"] } },
+    });
+    if (existing) throw new AppError({ statusCode: 409, code: "ACTIVE_SHIPMENT_EXISTS", message: "This order already has an active shipment." });
     const shipment = await tx.shipments.create({
       data: {
         order_id: order.order_id,
@@ -159,6 +155,25 @@ export async function updateShipmentForAdmin(
       },
     });
     if (!shipment) throw new AppError({ statusCode: 404, code: "SHIPMENT_NOT_FOUND", message: "Shipment was not found." });
+    // Serialize shipment and order status changes with the same order row lock.
+    await tx.$queryRaw<Array<{ order_id: bigint }>>(
+      Prisma.sql`SELECT order_id FROM orders WHERE order_id = ${shipment.order_id} FOR UPDATE`,
+    );
+    const currentOrder = await tx.orders.findUnique({ where: { order_id: shipment.order_id }, select: { order_status: true } });
+    if (!currentOrder) throw new AppError({ statusCode: 404, code: "ORDER_NOT_FOUND", message: "Order was not found." });
+    if (["CANCELLED", "REJECTED", "RETURNED"].includes(currentOrder.order_status) && shipment.status !== input.status) {
+      throw new AppError({ statusCode: 409, code: "ORDER_CLOSED", message: "A closed order cannot change shipment status." });
+    }
+    if (["DISPATCHED", "IN_TRANSIT"].includes(input.status) && !["PROCESSING", "SHIPPED"].includes(currentOrder.order_status)) {
+      throw new AppError({ statusCode: 409, code: "ORDER_NOT_READY_TO_SHIP", message: "The order must be processing before dispatch." });
+    }
+    if (input.status === "DELIVERED" && currentOrder.order_status !== "SHIPPED") {
+      throw new AppError({ statusCode: 409, code: "ORDER_NOT_SHIPPED", message: "Only shipped orders can be delivered." });
+    }
+    if (input.status === "RETURNED" && !["SHIPPED", "DELIVERED"].includes(currentOrder.order_status)) {
+      throw new AppError({ statusCode: 409, code: "ORDER_NOT_RETURNABLE", message: "The order is not in a returnable shipment state." });
+    }
+    const changed = shipment.status !== input.status;
 
     if (shipment.status !== input.status && !allowedTransitions[shipment.status].includes(input.status)) {
       throw new AppError({
@@ -196,8 +211,8 @@ export async function updateShipmentForAdmin(
       });
     }
 
-    if (input.status === "DISPATCHED" || input.status === "IN_TRANSIT") {
-      if (shipment.orders.order_status !== "SHIPPED") {
+    if (changed && (input.status === "DISPATCHED" || input.status === "IN_TRANSIT")) {
+      if (currentOrder.order_status !== "SHIPPED") {
         await tx.orders.update({
           where: { order_id: shipment.order_id },
           data: {
@@ -233,8 +248,8 @@ export async function updateShipmentForAdmin(
       });
     }
 
-    if (input.status === "DELIVERED") {
-      if (shipment.orders.order_status !== "DELIVERED") {
+    if (changed && input.status === "DELIVERED") {
+      if (currentOrder.order_status !== "DELIVERED") {
         await tx.orders.update({
           where: { order_id: shipment.order_id },
           data: {
@@ -266,7 +281,7 @@ export async function updateShipmentForAdmin(
       });
     }
 
-    if (input.status === "RETURNED" && shipment.orders.order_status !== "RETURNED") {
+    if (changed && input.status === "RETURNED" && currentOrder.order_status !== "RETURNED") {
       const quantities = shipment.orders.order_items
         .filter(
           (item): item is { variant_id: bigint; quantity: number } =>
@@ -274,7 +289,7 @@ export async function updateShipmentForAdmin(
         )
         .map((item) => ({ variantId: item.variant_id, quantity: item.quantity }));
 
-      if (["SHIPPED", "DELIVERED"].includes(shipment.orders.order_status)) {
+      if (["SHIPPED", "DELIVERED"].includes(currentOrder.order_status)) {
         await returnSoldStock(tx, quantities, shipment.order_id, audit.staff.id);
       }
 
