@@ -1,12 +1,10 @@
 import type { RequestHandler } from "express";
 import { requireCustomerAccess, signCustomerAccess } from "../customer-access/customer-access.js";
-import { sendCustomerAccessLink } from "../customer-access/customer-access.service.js";
 import { auditContextFromRequest } from "../../utils/audit-context.js";
 import {
   adminOrderListQuerySchema,
   adminOrderStatusSchema,
   createOrderSchema,
-  orderLookupSchema,
   orderReferenceParamsSchema,
 } from "./orders.schema.js";
 import {
@@ -28,13 +26,6 @@ export const getOrderController: RequestHandler = async (req, res) => {
   requireCustomerAccess(req, "order", reference);
   res.set("Cache-Control", "no-store");
   res.json(await getOrder(reference));
-};
-
-export const lookupOrderController: RequestHandler = async (req, res) => {
-  const input = orderLookupSchema.parse(req.body);
-  await sendCustomerAccessLink("order", input.reference, input.identifier);
-  res.set("Cache-Control", "no-store");
-  res.json({ message: "If the reference and email match, a secure access link will be sent." });
 };
 
 export const adminListOrdersController: RequestHandler = async (req, res) => {
