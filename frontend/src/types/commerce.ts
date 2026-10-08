@@ -239,6 +239,7 @@ export type PaymentRecord = {
 };
 
 export type CustomerOrder = {
+  accessToken?: string;
   reference: string;
   source: "CART" | "BUY_NOW";
   customerName: string;
@@ -316,6 +317,7 @@ export type ComplaintMessage = {
 };
 
 export type ComplaintCase = {
+  accessToken?: string;
   reference: string;
   category: ComplaintCategoryCode;
   orderReference?: string;
