@@ -390,13 +390,22 @@ export async function updateOrderStatus(
     const quantities = itemQuantities(order.order_items);
 
     if (order.order_status === "PENDING_CONFIRMATION" && input.status === "CONFIRMED") {
+      if (order.reservation_released_at !== null) {
+        // The worker released this hold after its TTL, but the COD order is
+        // still valid. Re-check actual available stock inside this locked
+        // transaction before committing the sale; never oversell.
+        await lockAndVerifyAvailableStock(tx, quantities);
+        await reserveStock(tx, quantities, order.order_id);
+      }
       await consumeReservedStock(tx, quantities, order.order_id, audit.staff.id);
     }
 
     if (
       order.order_status === "PENDING_CONFIRMATION" &&
-      (input.status === "CANCELLED" || input.status === "REJECTED")
+      (input.status === "CANCELLED" || input.status === "REJECTED") &&
+      order.reservation_released_at === null
     ) {
+      // A released reservation must not be released twice.
       await releaseReservedStock(tx, quantities, order.order_id, audit.staff.id);
     }
 
