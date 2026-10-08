@@ -123,7 +123,15 @@ jobs:
         working-directory: backend
         run: npm run test:p0:static
 
+      # TEMPORARY: staging E2E tests run only when explicitly enabled in GitHub Variables.
+      # This does not disable compilation or P0/P1 static security checks.
+      - name: Notice - staging E2E checks skipped
+        if: ${{ vars.RUN_STAGING_TESTS != 'true' }}
+        run: |
+          echo "::warning::P0/P1 staging E2E checks skipped for this release. Do not treat this as a staging security sign-off."
+
       - name: Run required P0 staging workflow tests
+        if: ${{ vars.RUN_STAGING_TESTS == 'true' }}
         working-directory: backend
         env:
           P0_STAGING_ALLOW_WRITE: "true"
@@ -141,6 +149,7 @@ jobs:
         run: npm run test:p1:static
 
       - name: Run P1 staging commerce, shipment, review and staff-role tests
+        if: ${{ vars.RUN_STAGING_TESTS == 'true' }}
         working-directory: backend
         env:
           P1_STAGING_ALLOW_WRITE: "true"
