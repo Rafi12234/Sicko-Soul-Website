@@ -1,6 +1,5 @@
 import { Router } from "express";
-import { requestComplaintAccessController } from "./complaints.access.controller.js";
-import { accessRecoveryRateLimit, complaintWriteRateLimit } from "../../middleware/sensitive-rate-limit.js";
+import { complaintWriteRateLimit } from "../../middleware/sensitive-rate-limit.js";
 import {
   adminGetComplaintController,
   adminListComplaintsController,
@@ -15,7 +14,6 @@ import {
 export const complaintsRouter = Router();
 complaintsRouter.get("/categories", listComplaintCategoriesController);
 complaintsRouter.post("/", complaintWriteRateLimit, createComplaintController);
-complaintsRouter.post("/access", accessRecoveryRateLimit, requestComplaintAccessController);
 complaintsRouter.get("/:caseReference", getComplaintController);
 complaintsRouter.post("/:caseReference/messages", complaintWriteRateLimit, replyComplaintController);
 
