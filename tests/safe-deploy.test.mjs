@@ -61,7 +61,7 @@ async function createFixture(badConfig=false) {
   });
   await new Promise(resolve=>publicServer.listen(0,'127.0.0.1',resolve));
   const url=`http://127.0.0.1:${publicServer.address().port}`;
-  const env={...process.env, SICKO_REPO_DIR:repo,SICKO_FRONTEND_DIR:front,SICKO_BACKEND_DIR:back,SICKO_DEPLOY_MARKER:marker,SICKO_DEPLOY_STATUS_FILE:status,SICKO_NODE_ACTIVATE_PATH:join(dir,'activate'),SICKO_PUBLIC_ORIGIN:url,SICKO_PREFLIGHT_ATTEMPTS:'5',SICKO_ACTIVATION_ATTEMPTS:'2',SICKO_PROBATION_CHECKS:'1',SICKO_PROBATION_INTERVAL_SECONDS:'0',npm_config_offline:'true'};
+  const env={...process.env, SICKO_REPO_DIR:repo,SICKO_FRONTEND_DIR:front,SICKO_BACKEND_DIR:back,SICKO_DEPLOY_MARKER:marker,SICKO_DEPLOY_STATUS_FILE:status,SICKO_NODE_ACTIVATE_PATH:join(dir,'activate'),SICKO_PUBLIC_ORIGIN:url,SICKO_PREFLIGHT_ATTEMPTS:'5',SICKO_ACTIVATION_ATTEMPTS:'2',SICKO_PROBATION_CHECKS:'1',SICKO_PROBATION_INTERVAL_SECONDS:'0',SICKO_MANUAL_SCHEMA_TEST_BYPASS:'1',npm_config_offline:'true'};
   return {dir,repo,front,back,marker,status,env,publicServer};
 }
 
