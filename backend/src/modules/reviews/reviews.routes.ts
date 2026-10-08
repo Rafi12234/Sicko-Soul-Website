@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { reviewWriteRateLimit } from "../../middleware/sensitive-rate-limit.js";
 import {
   adminListReviewsController,
   adminModerateReviewController,
@@ -12,7 +13,7 @@ publicReviewsRouter.get("/", listPublicReviewsController);
 
 export const productReviewsRouter = Router({ mergeParams: true });
 productReviewsRouter.get("/", listProductReviewsController);
-productReviewsRouter.post("/", submitProductReviewController);
+productReviewsRouter.post("/", reviewWriteRateLimit, submitProductReviewController);
 
 export const adminReviewsRouter = Router();
 adminReviewsRouter.get("/", adminListReviewsController);
