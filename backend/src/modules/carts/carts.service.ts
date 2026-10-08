@@ -71,6 +71,9 @@ export async function addCartItem(cartToken: string, input: { variantId: string;
   );
   const existing = cart.cart_items.find((item) => item.variant_id === variantId);
   const nextQty = (existing?.quantity ?? 0) + input.quantity;
+  if (nextQty > 20) {
+    throw new AppError({ statusCode: 422, code: "CART_ITEM_QUANTITY_LIMIT", message: "You can add at most 20 of one size." });
+  }
   if (nextQty > available) {
     throw new AppError({
       statusCode: 409,
