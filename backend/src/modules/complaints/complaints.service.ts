@@ -1,6 +1,5 @@
 import type { Prisma } from "../../../generated/prisma/client.js";
 import { AppError } from "../../errors/app-error.js";
-import { env } from "../../config/env.js";
 import { signCustomerAccess } from "../customer-access/customer-access.js";
 import { prisma } from "../../lib/prisma.js";
 import { recordAudit } from "../../services/audit.service.js";
@@ -102,7 +101,7 @@ export async function createComplaint(input: {
   const customer =
     order
       ? await prisma.customers.findUnique({ where: { customer_id: order.customer_id } })
-      : await prisma.customers.findUnique({ where: { email: input.contactEmail.toLowerCase() } });
+      : null; // Anonymous case contact email is not proof of customer identity.
 
   const complaint = await prisma.complaints.create({
     data: {
@@ -125,7 +124,7 @@ export async function createComplaint(input: {
           },
           {
             sender_type: "SYSTEM",
-            message: "CASE FILE CREATED. SUPPORT HAS BEEN NOTIFIED.",
+            message: "CASE FILE CREATED. A SUPPORT AGENT CAN REVIEW THIS CASE.",
           },
         ],
       },
@@ -133,20 +132,13 @@ export async function createComplaint(input: {
     include: complaintInclude,
   });
 
-  // Never grant immediate read access based on an unverified email address.
-  // Only the mailbox owner receives the short-lived case access capability.
-  const url = `${env.FRONTEND_ORIGIN}/support/case/${encodeURIComponent(complaint.case_reference)}#access=${encodeURIComponent(signCustomerAccess("complaint", complaint.case_reference, 30 * 60))}`;
-  await prisma.$transaction(async (tx) => {
-    await enqueueEmail(tx, {
-      dedupeKey: `new-complaint-access:${complaint.complaint_id.toString()}`,
-      eventType: "CUSTOMER_ACCESS", complaintId: complaint.complaint_id,
-      recipientEmail: complaint.contact_email,
-      subject: `SICKO SOUL / CASE ${complaint.case_reference} ACCESS`,
-      templateKey: "customer-access",
-      payload: { accessLink: url, expiresIn: "30 minutes", security: "Only the named mailbox can open this case." },
-    });
-  });
-  return { reference: complaint.case_reference, status: complaint.status };
+  // The creating browser receives a private capability for this NEW case only.
+  // We do not grant access to any existing complaint by reference or email.
+  return {
+    reference: complaint.case_reference,
+    status: complaint.status,
+    accessToken: signCustomerAccess("complaint", complaint.case_reference),
+  };
 }
 
 export async function getComplaintCase(reference: string) {
