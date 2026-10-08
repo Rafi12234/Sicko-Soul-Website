@@ -25,7 +25,7 @@ const statusOptions: Partial<Record<Resource, string[]>> = {
   payments: ["INITIATED", "PENDING", "PAID", "FAILED", "CANCELLED"],
 };
 const fieldNames: Record<Resource, string[]> = {
-  orders: ["reference", "customerName", "status", "paymentStatus", "grandTotal"],
+  orders: ["reference", "customerName", "status", "stockHoldStatus", "paymentStatus", "grandTotal"],
   inventory: ["variantId", "sku", "onHandQty", "reservedQty", "availableQty"],
   shipments: ["id", "orderReference", "status", "trackingCode", "courierName"],
   reviews: ["id", "productName", "displayName", "rating", "status"],
@@ -133,6 +133,12 @@ export default function AdminConsole() {
         <div className="mt-4 overflow-x-auto border border-white/20"><table className="w-full text-left text-sm"><thead className="bg-white/10"><tr>{columns.map(column=><th key={column} className="p-3 uppercase">{column}</th>)}</tr></thead><tbody>{rows.map((row,i)=><tr key={String(row.id ?? row.reference ?? row.variantId ?? i)} onClick={()=>{setSelected(row);setDesired("");setComment("");}} className="cursor-pointer border-t border-white/15 hover:bg-white/10">{columns.map(column=><td key={column} className="max-w-[15rem] truncate p-3">{String(row[column]??"—")}</td>)}</tr>)}</tbody></table></div>
         {selected && <section className="mt-8 border border-red-900 p-5"><h3 className="font-bold uppercase">Selected record</h3>
           <p className="mt-2 text-sm text-white/50">Sensitive customer information — staff only. Do not copy into external logs.</p>
+          {resource === "orders" && selected.status === "PENDING_CONFIRMATION" && selected.stockHoldStatus === "RELEASED" && (
+            <p role="status" className="mt-3 border-l-2 border-amber-500 p-3 text-sm text-amber-300">
+              STOCK HOLD EXPIRED — ORDER STILL PENDING. Confirmation will check current stock again.
+              If the product sold out, confirmation will be rejected safely; contact the customer before promising delivery.
+            </p>
+          )}
           <pre className="mt-3 max-h-64 overflow-auto whitespace-pre-wrap text-xs text-white/70">{JSON.stringify(selected,null,2)}</pre>
           <div className="mt-5 grid max-w-2xl gap-4 md:grid-cols-2"><label className="text-xs uppercase">Action / status
           {resource==="inventory"?<input type="number" className={`mt-2 block w-full ${surface}`} placeholder="On-hand stock delta" value={desired} onChange={e=>setDesired(e.target.value)}/>:
