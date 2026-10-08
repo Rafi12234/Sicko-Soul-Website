@@ -3,7 +3,8 @@
 import { useEffect, useState, type FormEvent } from "react";
 import RecordShell from "@/components/ui/RecordShell";
 import SickoButton from "@/components/ui/SickoButton";
-import { getComplaintCase, requestComplaintAccess, replyComplaint } from "@/lib/customerApi";
+import { getComplaintCase, replyComplaint } from "@/lib/customerApi";
+import { privateAccessLink } from "@/lib/customerAccess";
 import { humanizeStatus } from "@/lib/commerce";
 import type { ComplaintCase } from "@/types/commerce";
 
@@ -13,8 +14,7 @@ export default function ComplaintCaseFile({ caseReference }: { caseReference: st
   const [loadError, setLoadError] = useState("");
   const [sending, setSending] = useState(false);
   const [signal, setSignal] = useState("");
-  const [recoveryEmail, setRecoveryEmail] = useState("");
-  const [recoverySent, setRecoverySent] = useState(false);
+
 
   useEffect(() => {
     let alive = true;
@@ -66,16 +66,7 @@ export default function ComplaintCaseFile({ caseReference }: { caseReference: st
   if (loadError) {
     return (
       <RecordShell index="00" eyebrow="SUPPORT CASE / CONNECTION ERROR" title="CASE FILE UNAVAILABLE" subtitle={loadError}>
-        <form className="max-w-md space-y-4" onSubmit={async (event) => {
-          event.preventDefault();
-          try { await requestComplaintAccess(caseReference, recoveryEmail); setRecoverySent(true); }
-          catch (error) { setLoadError(error instanceof Error ? error.message : "COULD NOT SEND LINK."); }
-        }}>
-          <label className="block font-body text-sm">EMAIL USED FOR THIS CASE
-            <input type="email" required value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} className="mt-3 block w-full border border-bone-white/30 bg-black p-3 text-bone-white" />
-          </label>
-          {recoverySent ? <p role="status">IF THE CASE AND EMAIL MATCH, A PRIVATE LINK HAS BEEN SENT.</p> : <SickoButton type="submit" tone="blood">EMAIL ME ACCESS</SickoButton>}
-        </form>
+        <p className="font-body text-sm text-concrete-gray">The original browser stores this case's private access token. Use your saved private case link to restore access on another device. Email recovery is temporarily unavailable.</p>
       </RecordShell>
     );
   }
@@ -97,6 +88,16 @@ export default function ComplaintCaseFile({ caseReference }: { caseReference: st
       title="CASE FILE"
       subtitle={`${humanizeStatus(record.status)} / ${record.category.toUpperCase()}`}
     >
+      <div className="mb-7 flex flex-wrap items-center gap-4 border border-bone-white/20 bg-off-black p-4">
+        <button type="button" className="border border-bone-white/50 px-4 py-3 font-body text-xs font-semibold uppercase tracking-widest text-bone-white" onClick={async () => {
+          const link = privateAccessLink("complaint", caseReference);
+          if (!link) { setSignal("CASE ACCESS TOKEN NOT AVAILABLE."); return; }
+          try { await navigator.clipboard.writeText(link); setSignal("PRIVATE CASE LINK COPIED. KEEP IT SECRET."); }
+          catch { setSignal("COULD NOT COPY. CHECK BROWSER PERMISSIONS."); }
+        }}>COPY PRIVATE CASE LINK</button>
+        <p className="font-body text-xs text-concrete-gray">Save for later. Anyone with this link can view the case.</p>
+        {signal && <p role="status" className="font-body text-xs text-bone-white">{signal}</p>}
+      </div>
       <div className="grid gap-10 xl:grid-cols-12">
         <div className="xl:col-span-8">
           <div className="space-y-3">
