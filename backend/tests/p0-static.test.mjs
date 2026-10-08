@@ -31,7 +31,8 @@ test('stock expiry uses row lock and transactional release', () => {
   assert.match(code, /FOR UPDATE/);
   assert.match(code, /releaseReservedStock\(/);
   assert.match(code, /order\.order_status !== "PENDING_CONFIRMATION"/);
-  assert.match(code, /to_status: "REJECTED"/);
+  assert.match(code, /reservation_released_at: new Date\(\)/);
+  assert.doesNotMatch(code, /to_status: "REJECTED"/);
 });
 test('private order and complaint access uses capabilities without email recovery', () => {
   const order = read('../src/modules/orders/orders.routes.ts');
@@ -57,3 +58,6 @@ test('database migration permits recovery email event', () => {
   assert.match(schema, /CUSTOMER_ACCESS/);
   assert.match(sql, /CUSTOMER_ACCESS/);
 });
+
+// Included in the existing P0 CI command; no GitHub workflow edit required.
+import './order-stock-hold-static.test.mjs';
