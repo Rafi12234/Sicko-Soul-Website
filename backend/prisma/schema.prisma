@@ -299,6 +299,7 @@ model orders {
   order_id                                                        BigInt                 @id @default(autoincrement()) @db.UnsignedBigInt
   order_reference                                                 String                 @unique(map: "uq_orders_reference") @db.VarChar(32)
   idempotency_key                                                 String                 @unique(map: "uq_orders_idempotency") @db.VarChar(100)
+  request_fingerprint                                             String?                @db.Char(64)
   customer_id                                                     BigInt                 @db.UnsignedBigInt
   shipping_address_id                                             BigInt?                @db.UnsignedBigInt
   source_cart_id                                                  BigInt?                @unique(map: "uq_orders_source_cart") @db.UnsignedBigInt
@@ -616,6 +617,8 @@ enum complaint_messages_sender_type {
 }
 
 enum email_outbox_event_type {
+  CUSTOMER_ACCESS
+  ORDER_RECEIVED
   ORDER_CONFIRMED
   ORDER_SHIPPED
   ORDER_DELIVERED
@@ -795,4 +798,13 @@ enum orders_payment_status {
   FAILED
   PARTIALLY_REFUNDED
   REFUNDED
+}
+
+// P1: persistent cross-instance public-write throttling (no raw customer identifiers).
+model api_rate_limit_buckets {
+  bucket_key String   @id @db.Char(64)
+  hits       Int      @default(0) @db.UnsignedInt
+  expires_at DateTime @db.DateTime(0)
+
+  @@index([expires_at], map: "idx_api_limit_expiry")
 }
