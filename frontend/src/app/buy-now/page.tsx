@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Navbar from "@/components/ui/Navbar";
 import OrderIntake from "@/components/commerce/OrderIntake";
 import { ApiError } from "@/lib/apiClient";
-import { getCatalogProduct } from "@/lib/catalogApi";
+import { getCatalogProduct }  from "@/lib/catalogApi";
 
 export const metadata: Metadata = {
   title: "Order Intake — SICKO SOUL",
