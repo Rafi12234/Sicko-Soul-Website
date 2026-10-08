@@ -1,12 +1,6 @@
 import { z } from "zod";
 
-const paymentMethod = z.enum([
-  "COD",
-  "MANUAL",
-  "MOBILE_FINANCIAL_SERVICE",
-  "BANK_TRANSFER",
-  "CARD",
-]);
+const paymentMethod = z.enum(["COD", "MANUAL"]);
 
 export const createOrderSchema = z.object({
   idempotencyKey: z.string().trim().min(8).max(100),
@@ -41,7 +35,7 @@ export const orderReferenceParamsSchema = z.object({
 
 export const orderLookupSchema = z.object({
   reference: z.string().trim().min(3).max(32),
-  identifier: z.string().trim().min(3).max(255),
+  identifier: z.string().trim().email().max(255),
 });
 
 export const adminOrderListQuerySchema = z.object({
