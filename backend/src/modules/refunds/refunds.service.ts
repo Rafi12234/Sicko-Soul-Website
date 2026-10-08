@@ -46,14 +46,24 @@ export async function requestRefund(
     if (!order) {
       throw new AppError({ statusCode: 404, code: "ORDER_NOT_FOUND", message: "Order was not found." });
     }
-    if (["CANCELLED", "REJECTED"].includes(order.order_status)) {
+    if (!["DELIVERED", "RETURNED"].includes(order.order_status)) {
       throw new AppError({ statusCode: 409, code: "REFUND_NOT_ALLOWED", message: "A refund cannot be requested for this order status." });
     }
 
+    const hasActiveRequest = order.refunds.some((refund) => ["REQUESTED", "APPROVED", "PROCESSING"].includes(refund.status));
+    if (hasActiveRequest) {
+      throw new AppError({ statusCode: 409, code: "REFUND_ALREADY_PENDING", message: "A refund is already pending review." });
+    }
+    const paidTotal = order.payments
+      .filter((entry) => ["PAID", "PARTIALLY_REFUNDED", "REFUNDED"].includes(entry.status))
+      .reduce((sum, entry) => sum + decimalToNumber(entry.amount), 0);
+    if (paidTotal <= 0 || !["PAID", "PARTIALLY_REFUNDED"].includes(order.payment_status)) {
+      throw new AppError({ statusCode: 409, code: "REFUND_PAYMENT_REQUIRED", message: "Refunds require a verified paid order." });
+    }
     const committed = order.refunds
       .filter((refund) => refund.status !== "REJECTED")
       .reduce((sum, refund) => sum + decimalToNumber(refund.amount), 0);
-    const maxRefundable = Math.max(0, decimalToNumber(order.grand_total) - committed);
+    const maxRefundable = Math.max(0, Math.min(decimalToNumber(order.grand_total), paidTotal) - committed);
     if (input.amount > maxRefundable) {
       throw new AppError({
         statusCode: 422,
