@@ -1,4 +1,6 @@
 import type { RequestHandler } from "express";
+import { requireCustomerAccess } from "../customer-access/customer-access.js";
+import { sendCustomerAccessLink } from "../customer-access/customer-access.service.js";
 import { auditContextFromRequest } from "../../utils/audit-context.js";
 import {
   adminComplaintIdParamsSchema,
@@ -24,17 +26,24 @@ export const listComplaintCategoriesController: RequestHandler = async (_req, re
 
 export const createComplaintController: RequestHandler = async (req, res) => {
   const input = createComplaintSchema.parse(req.body);
-  res.status(201).json(await createComplaint(input));
+  if (input.orderReference) requireCustomerAccess(req, "order", input.orderReference);
+  res.set("Cache-Control", "no-store");
+  const complaint = await createComplaint(input);
+  res.status(201).json(complaint);
 };
 
 export const getComplaintController: RequestHandler = async (req, res) => {
   const { caseReference } = complaintReferenceParamsSchema.parse(req.params);
+  requireCustomerAccess(req, "complaint", caseReference);
+  res.set("Cache-Control", "no-store");
   res.json(await getComplaintCase(caseReference));
 };
 
 export const replyComplaintController: RequestHandler = async (req, res) => {
   const { caseReference } = complaintReferenceParamsSchema.parse(req.params);
   const { message } = complaintReplySchema.parse(req.body);
+  requireCustomerAccess(req, "complaint", caseReference);
+  res.set("Cache-Control", "no-store");
   res.json(await replyComplaintAsCustomer(caseReference, message));
 };
 
