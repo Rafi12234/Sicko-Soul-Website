@@ -34,27 +34,15 @@ export async function upsertCustomerAndAddress(
       phone: input.phone,
       email: input.email.toLowerCase(),
       status: "ACTIVE",
+      first_order_at: new Date(),
+      last_order_at: new Date(),
     },
-    update: {
-      full_name: input.name,
-      phone: input.phone,
-    },
+    update: {}, // Checkout does not prove email ownership; never mutate existing profile.
   });
 
-  const address = await tx.customer_addresses.create({
-    data: {
-      customer_id: customer.customer_id,
-      label: "ORDER",
-      recipient_name: input.name,
-      recipient_phone: input.phone,
-      address_line: input.shipping.address,
-      city: input.shipping.city,
-      district: input.shipping.district,
-      postal_code: input.shipping.postalCode ?? null,
-      landmark: input.shipping.landmark ?? null,
-      is_default: false,
-    },
-  });
+  // Checkout does not verify email ownership. Keep all shipping details on
+  // the order's immutable snapshot, not on the reusable customer profile.
+  // This also handles two unverified checkouts racing with the same email.
+  return { customer, address: null };
 
-  return { customer, address };
 }
