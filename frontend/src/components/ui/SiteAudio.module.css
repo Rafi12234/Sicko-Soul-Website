@@ -1,0 +1,89 @@
+/* One always-available control for the single root-layout soundtrack. */
+.toggle {
+  position: fixed;
+  z-index: 115; /* Above grain + page overlays, below the custom cursor. */
+  right: calc(18px + env(safe-area-inset-right, 0px));
+  bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  min-width: 144px;
+  min-height: 50px;
+  padding: 0 15px;
+  border: 1px solid rgba(242, 240, 235, 0.45);
+  border-left: 3px solid #8a0303;
+  border-radius: 0;
+  background: #0a0a0a;
+  color: #f2f0eb;
+  box-shadow: 4px 4px 0 rgba(0, 0, 0, 0.75);
+  font-family: "Archivo Narrow", "Arial Narrow", sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  transition: color 160ms ease, background-color 160ms ease, border-color 160ms ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+.toggle:hover {
+  border-color: #f2f0eb;
+  border-left-color: #8a0303;
+  background: #181818;
+}
+
+.toggle:focus-visible {
+  outline: 2px solid #f2f0eb;
+  outline-offset: 4px;
+}
+
+.symbol {
+  width: 21px;
+  height: 21px;
+  flex: 0 0 auto;
+}
+
+.label {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.state {
+  color: #f2f0eb;
+}
+
+.off .state {
+  color: #8a8a85;
+}
+
+.led {
+  flex: 0 0 auto;
+  width: 5px;
+  height: 5px;
+  background: #8a0303;
+}
+
+.off .led {
+  background: #8a8a85;
+}
+
+@media (max-width: 640px) {
+  .toggle {
+    min-width: 50px;
+    min-height: 50px;
+    width: 50px;
+    padding: 0;
+    gap: 0;
+  }
+  .label,
+  .led {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toggle { transition: none; }
+}

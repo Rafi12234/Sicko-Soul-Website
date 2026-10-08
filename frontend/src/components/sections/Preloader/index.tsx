@@ -6,6 +6,7 @@ import { gsap } from "@/lib/gsap";
 import { COLOR, EASE } from "@/styles/theme";
 import { useAppStore } from "@/store/useAppStore";
 import { PRELOADER_COPY } from "@/data/preloader";
+import { isMusicDisabledByUser } from "@/lib/audioPreference";
 import styles from "./Preloader.module.css";
 
 export default function Preloader() {
@@ -30,12 +31,15 @@ export default function Preloader() {
   const [ready, setReady] = useState(false);
   const [entering, setEntering] = useState(false);
   const [dismissed, setDismissed] = useState(false);
+  const [musicDisabled, setMusicDisabled] = useState(false);
 
   useLayoutEffect(() => {
     if (useAppStore.getState().hasEntered) {
       setDismissed(true);
       return;
     }
+
+    setMusicDisabled(isMusicDisabledByUser());
 
     const root = rootRef.current;
     if (!root) return;
@@ -295,7 +299,7 @@ export default function Preloader() {
      * This is the same browser-unlock principle used by LoveOS's Enter action.
      */
     const audio = document.getElementById("sicko-soul-audio") as HTMLAudioElement | null;
-    if (audio) {
+    if (audio && !isMusicDisabledByUser()) {
       audio.currentTime = 0;
       audio.volume = 1;
       void audio.play().catch(() => {
@@ -523,7 +527,9 @@ export default function Preloader() {
           onClick={handleEnter}
           onPointerMove={handlePointerMove}
           onPointerLeave={handlePointerLeave}
-          aria-label="Break the seal and enter Sicko Soul with sound"
+          aria-label={musicDisabled
+            ? "Break the seal and enter Sicko Soul with music off"
+            : "Break the seal and enter Sicko Soul with sound"}
         >
           <span className={`${styles.buttonSweep} pre-access-sweep`} aria-hidden />
           <span className={styles.buttonNoise} aria-hidden />
@@ -533,7 +539,7 @@ export default function Preloader() {
 
           <span className={styles.buttonCopy}>
             <span className={`${styles.buttonLabel} font-display`}>{PRELOADER_COPY.access.button}</span>
-            <span className={`${styles.buttonSub} font-stencil`}>{PRELOADER_COPY.access.buttonSub}</span>
+            <span className={`${styles.buttonSub} font-stencil`}>{musicDisabled ? "SOUND OFF / ENTER SITE" : PRELOADER_COPY.access.buttonSub}</span>
           </span>
 
           <span className={styles.buttonArrow} aria-hidden>
