@@ -4,17 +4,27 @@ import { env } from "../../config/env.js";
 import { prisma } from "../../lib/prisma.js";
 import { logger } from "../../lib/logger.js";
 import { releaseReservedStock } from "../inventory/inventory.service.js";
-import { enqueueEmail } from "../email/email.service.js";
 
+// ORDER_PENDING_TTL_MINUTES is now a STOCK-HOLD lifetime, NOT an order lifetime.
+// Preserve the order request for staff review even if its unverified hold expires.
+// Never auto-reject a COD/manual order because staff did not review it in time.
 export async function expirePendingOrders(limit = 30): Promise<number> {
   const cutoff = new Date(Date.now() - env.ORDER_PENDING_TTL_MINUTES * 60_000);
   const candidates = await prisma.orders.findMany({
-    where: { order_status: "PENDING_CONFIRMATION", created_at: { lt: cutoff } },
-    select: { order_id: true }, orderBy: [{ created_at: "asc" }], take: limit,
+    where: {
+      order_status: "PENDING_CONFIRMATION",
+      reservation_released_at: null,
+      created_at: { lt: cutoff },
+    },
+    select: { order_id: true },
+    orderBy: [{ created_at: "asc" }],
+    take: limit,
   });
-  let expired = 0;
+
+  let released = 0;
   for (const candidate of candidates) {
-    const didExpire = await prisma.$transaction(async (tx) => {
+    const didRelease = await prisma.$transaction(async (tx) => {
+      // Serialize with staff confirmation/cancellation on the same order row.
       const locked = await tx.$queryRaw<Array<{ order_id: bigint }>>(
         Prisma.sql`SELECT order_id FROM orders WHERE order_id = ${candidate.order_id} FOR UPDATE`,
       );
@@ -23,30 +33,28 @@ export async function expirePendingOrders(limit = 30): Promise<number> {
         where: { order_id: candidate.order_id },
         include: { order_items: { select: { variant_id: true, quantity: true } } },
       });
-      if (!order || order.order_status !== "PENDING_CONFIRMATION" || order.created_at >= cutoff) return false;
+      if (
+        !order ||
+        order.order_status !== "PENDING_CONFIRMATION" ||
+        order.reservation_released_at !== null ||
+        order.created_at >= cutoff
+      ) return false;
+
       await releaseReservedStock(tx, order.order_items
-        .filter((item): item is {variant_id: bigint; quantity: number} => item.variant_id !== null)
+        .filter((item): item is { variant_id: bigint; quantity: number } => item.variant_id !== null)
         .map((item) => ({ variantId: item.variant_id, quantity: item.quantity })), order.order_id);
+
+      // No change to order_status, payment_status, or cancellation fields.
+      // Mark once in the same transaction as stock release to prevent repeats.
       await tx.orders.update({
         where: { order_id: order.order_id },
-        data: { order_status: "REJECTED", cancelled_at: new Date(), cancellation_reason: "Pending order expired without staff confirmation." },
-      });
-      await tx.order_status_history.create({
-        data: { order_id: order.order_id, from_status: "PENDING_CONFIRMATION", to_status: "REJECTED", note: "Automatic timeout: stock released." },
-      });
-      await enqueueEmail(tx, {
-        dedupeKey: `order-expired:${order.order_id.toString()}`, eventType: "ORDER_CANCELLED",
-        orderId: order.order_id, customerId: order.customer_id,
-        recipientName: order.customer_name, recipientEmail: order.customer_email,
-        subject: `SICKO SOUL / ORDER ${order.order_reference} EXPIRED`,
-        templateKey: "order-cancelled",
-        payload: { orderReference: order.order_reference, status: "REJECTED", reason: "Pending order confirmation window expired." },
+        data: { reservation_released_at: new Date() },
       });
       return true;
     });
-    if (didExpire) expired++;
+    if (didRelease) released++;
   }
-  return expired;
+  return released;
 }
 
 export function startPendingExpiryWorker(): () => void {
@@ -56,10 +64,11 @@ export function startPendingExpiryWorker(): () => void {
     if (busy) return;
     busy = true;
     try {
-      const count = await expirePendingOrders(); if (count) logger.info({ count }, "expired pending order holds");
+      const count = await expirePendingOrders();
+      if (count) logger.info({ count }, "expired pending stock holds released; orders remain pending");
       if (Date.now() - lastCleanup > 60 * 60_000) { await cleanupRateLimitBuckets(); lastCleanup = Date.now(); }
     }
-    catch (err) { logger.error({ err }, "pending order expiry failed"); }
+    catch (err) { logger.error({ err }, "pending stock hold release failed"); }
     finally { busy = false; }
   };
   void run();
