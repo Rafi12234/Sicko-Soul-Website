@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { cartCreationRateLimit } from "../../middleware/sensitive-rate-limit.js";
 import {
   addCartItemController,
   createCartController,
@@ -9,7 +10,7 @@ import {
 
 export const cartsRouter = Router();
 
-cartsRouter.post("/", createCartController);
+cartsRouter.post("/", cartCreationRateLimit, createCartController);
 cartsRouter.get("/:cartToken", getCartController);
 cartsRouter.post("/:cartToken/items", addCartItemController);
 cartsRouter.patch("/:cartToken/items/:itemId", updateCartItemController);
