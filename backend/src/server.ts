@@ -47,8 +47,12 @@ async function bootstrap(): Promise<void> {
   await assertDatabaseConnection();
   logger.info("database connection verified");
 
-  stopEmailWorker = startEmailWorker();
-  stopExpiryWorker = startPendingExpiryWorker();
+  // The isolated deployment readiness probe validates real startup/database
+  // without running a second email or stock-expiry worker during rollout.
+  if (process.env.SICKO_DEPLOY_READINESS_ONLY !== "true") {
+    stopEmailWorker = startEmailWorker();
+    stopExpiryWorker = startPendingExpiryWorker();
+  }
 
   server = app.listen(env.PORT, () => {
     logger.info(
