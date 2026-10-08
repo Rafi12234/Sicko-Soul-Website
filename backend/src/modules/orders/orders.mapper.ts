@@ -18,6 +18,10 @@ export function mapOrder(row: OrderDetailRow) {
     paymentMethod: row.payment_method,
     paymentStatus: row.payment_status,
     status: row.order_status,
+    stockHoldStatus: row.order_status === "PENDING_CONFIRMATION"
+      ? (row.reservation_released_at === null ? "HELD" : "RELEASED")
+      : (row.order_status === "CONFIRMED" || row.order_status === "PROCESSING" || row.order_status === "SHIPPED" || row.order_status === "DELIVERED" ? "SOLD" : "CLOSED"),
+    reservationReleasedAt: row.reservation_released_at?.toISOString() ?? null,
     currency: row.currency,
     subtotal: decimalToNumber(row.subtotal),
     deliveryCharge: decimalToNumber(row.delivery_charge),
