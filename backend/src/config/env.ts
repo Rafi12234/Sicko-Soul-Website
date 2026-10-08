@@ -34,6 +34,8 @@ const envSchema = z.object({
     .default("development-only-sicko-soul-jwt-secret-change-me"),
   JWT_EXPIRES_IN: z.string().trim().min(1).default("8h"),
 
+  ORDER_PENDING_TTL_MINUTES: z.coerce.number().int().min(15).max(10080).default(120),
+  ORDER_EXPIRY_WORKER_INTERVAL_MS: z.coerce.number().int().min(10000).max(300000).default(60000),
   CART_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   DELIVERY_CHARGE_BDT: z.coerce.number().min(0).default(0),
 
@@ -75,5 +77,8 @@ if (
   throw new Error("RESEND_API_KEY is required when EMAIL_TRANSPORT=resend.");
 }
 
+if (parsed.data.NODE_ENV === "production" && (parsed.data.EMAIL_TRANSPORT !== "resend" || !parsed.data.EMAIL_WORKER_ENABLED)) {
+  throw new Error("P0 customer access recovery requires EMAIL_TRANSPORT=resend and EMAIL_WORKER_ENABLED=true in production.");
+}
 export const env = Object.freeze(parsed.data);
 export type AppEnv = typeof env;
