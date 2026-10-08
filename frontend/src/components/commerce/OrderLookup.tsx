@@ -3,42 +3,43 @@
 import { useState, type FormEvent } from "react";
 import RecordShell from "@/components/ui/RecordShell";
 import SickoButton from "@/components/ui/SickoButton";
-import { lookupOrder } from "@/lib/customerApi";
+import { getCustomerAccess, saveCustomerAccess } from "@/lib/customerAccess";
 
+// Without customer accounts or verified email, the private checkout capability
+// is the only safe way to retrieve an existing customer's information.
 export default function OrderLookup() {
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
-
-  async function submit(event: FormEvent<HTMLFormElement>) {
+  function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const form = new FormData(event.currentTarget);
     const reference = String(form.get("reference") ?? "").trim().toUpperCase();
-    const identifier = String(form.get("identifier") ?? "").trim();
+    const privateLink = String(form.get("privateLink") ?? "").trim();
+    if (!reference) { setError("ORDER REFERENCE IS REQUIRED."); return; }
 
-    if (!reference || !identifier) {
-      setError("REFERENCE AND CONTACT ARE REQUIRED.");
+    if (privateLink) {
+      let token = privateLink;
+      if (/^https?:\/\//i.test(privateLink)) {
+        try {
+          const link = new URL(privateLink);
+          if (link.pathname !== `/orders/${encodeURIComponent(reference)}`) {
+            setError("THAT PRIVATE LINK BELONGS TO A DIFFERENT ORDER."); return;
+          }
+          token = new URLSearchParams(link.hash.slice(1)).get("access") ?? "";
+        } catch { setError("INVALID PRIVATE LINK."); return; }
+      }
+      saveCustomerAccess("order", reference, token);
+    }
+    if (!getCustomerAccess("order", reference)) {
+      setError("PRIVATE ACCESS REQUIRED. USE THE SAME BROWSER AS CHECKOUT OR PASTE YOUR SAVED PRIVATE LINK.");
       return;
     }
-
-    setLoading(true);
-    setError("");
-    try {
-      await lookupOrder(reference, identifier);
-      setSent(true);
-      setLoading(false);
-    } catch (exception) {
-      setError(exception instanceof Error ? exception.message : "NO MATCH FOUND.");
-      setLoading(false);
-    }
+    window.location.assign(`/orders/${encodeURIComponent(reference)}`);
   }
 
   return (
     <RecordShell
-      index="06"
-      eyebrow="ORDER TRACKING / RESTRICTED LOOKUP"
-      title="FIND THE FILE"
-      subtitle="Enter your reference and checkout email. A private access link will be delivered to that inbox."
+      index="06" eyebrow="ORDER TRACKING / PRIVATE ACCESS" title="FIND THE FILE"
+      subtitle="Your order was saved securely on the device used for checkout. To open it elsewhere, use your private link. Email-based recovery is temporarily unavailable."
     >
       <form onSubmit={submit} className="grid max-w-4xl gap-6 border-l-2 border-blood-accent bg-off-black p-6 md:p-9">
         <label className="block">
@@ -46,12 +47,12 @@ export default function OrderLookup() {
           <input required name="reference" placeholder="SS-XXXXXXXXX" className="mt-3 block w-full border-b border-bone-white/20 bg-transparent py-4 font-display text-[clamp(2rem,4vw,4rem)] uppercase tracking-crushed text-bone-white outline-none focus:border-blood-accent" />
         </label>
         <label className="block">
-          <span className="font-body text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-concrete-gray">EMAIL</span>
-          <input required name="identifier" type="email" placeholder="YOUR CHECKOUT EMAIL" className="mt-3 block w-full border-b border-bone-white/20 bg-transparent py-4 font-body text-lg font-semibold text-bone-white outline-none placeholder:text-sm placeholder:uppercase placeholder:tracking-[0.12em] placeholder:text-concrete-gray focus:border-blood-accent" />
+          <span className="font-body text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-concrete-gray">PRIVATE ACCESS LINK OR TOKEN (IF USING A DIFFERENT DEVICE)</span>
+          <input name="privateLink" autoComplete="off" placeholder="PASTE THE PRIVATE LINK SAVED AT CHECKOUT" className="mt-3 block w-full border-b border-bone-white/20 bg-transparent py-4 font-body text-sm text-bone-white outline-none focus:border-blood-accent" />
         </label>
-        {sent && <p role="status" className="font-body text-sm text-bone-white">IF THE EMAIL AND REFERENCE MATCH, A PRIVATE LINK IS ON ITS WAY. CHECK YOUR INBOX.</p>}
-        {error && <p className="border-l border-blood-accent pl-4 font-body text-sm font-semibold uppercase tracking-[0.12em] text-blood-accent">{error}</p>}
-        <div className="max-w-sm"><SickoButton type="submit" tone="blood" full disabled={loading}>{loading ? "LOCATING..." : "SEND SECURE LINK"}</SickoButton></div>
+        {error && <p role="alert" className="border-l border-blood-accent pl-4 font-body text-sm font-semibold uppercase tracking-[0.12em] text-blood-accent">{error}</p>}
+        <p className="font-body text-sm text-concrete-gray">Never share your private link. It grants access to your order information for up to 30 days; contact support if it is lost.</p>
+        <div className="max-w-sm"><SickoButton type="submit" tone="blood" full>OPEN PRIVATE ORDER</SickoButton></div>
       </form>
     </RecordShell>
   );
