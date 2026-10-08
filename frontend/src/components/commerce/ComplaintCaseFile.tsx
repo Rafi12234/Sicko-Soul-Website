@@ -3,7 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import RecordShell from "@/components/ui/RecordShell";
 import SickoButton from "@/components/ui/SickoButton";
-import { getComplaintCase, replyComplaint } from "@/lib/customerApi";
+import { getComplaintCase, requestComplaintAccess, replyComplaint } from "@/lib/customerApi";
 import { humanizeStatus } from "@/lib/commerce";
 import type { ComplaintCase } from "@/types/commerce";
 
@@ -13,6 +13,8 @@ export default function ComplaintCaseFile({ caseReference }: { caseReference: st
   const [loadError, setLoadError] = useState("");
   const [sending, setSending] = useState(false);
   const [signal, setSignal] = useState("");
+  const [recoveryEmail, setRecoveryEmail] = useState("");
+  const [recoverySent, setRecoverySent] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -64,7 +66,16 @@ export default function ComplaintCaseFile({ caseReference }: { caseReference: st
   if (loadError) {
     return (
       <RecordShell index="00" eyebrow="SUPPORT CASE / CONNECTION ERROR" title="CASE FILE UNAVAILABLE" subtitle={loadError}>
-        <SickoButton href="/#complaints" tone="blood">OPEN COMPLAINT DESK</SickoButton>
+        <form className="max-w-md space-y-4" onSubmit={async (event) => {
+          event.preventDefault();
+          try { await requestComplaintAccess(caseReference, recoveryEmail); setRecoverySent(true); }
+          catch (error) { setLoadError(error instanceof Error ? error.message : "COULD NOT SEND LINK."); }
+        }}>
+          <label className="block font-body text-sm">EMAIL USED FOR THIS CASE
+            <input type="email" required value={recoveryEmail} onChange={(event) => setRecoveryEmail(event.target.value)} className="mt-3 block w-full border border-bone-white/30 bg-black p-3 text-bone-white" />
+          </label>
+          {recoverySent ? <p role="status">IF THE CASE AND EMAIL MATCH, A PRIVATE LINK HAS BEEN SENT.</p> : <SickoButton type="submit" tone="blood">EMAIL ME ACCESS</SickoButton>}
+        </form>
       </RecordShell>
     );
   }
