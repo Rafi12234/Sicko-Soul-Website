@@ -131,7 +131,9 @@ set -u
 
 cd "$BACK_RELEASE"
 # Stage dependencies in the NEW release; never mutate live node_modules.
-npm ci --omit=dev --no-audit --no-fund
+# Skip optional install scripts (not needed by generated Prisma runtime).
+# This avoids @prisma/engines postinstall SIGABRT on cPanel shared hosting.
+npm ci --omit=dev --omit=optional --no-audit --no-fund
 # Validate environment. Database schema changes are NEVER run by deployment.
 NODE_ENV=production node -e "import('./dist/src/config/env.js')"
 
