@@ -43,6 +43,11 @@ jobs:
             frontend/package-lock.json
             backend/package-lock.json
 
+      # Validate staging, promotion, failure recovery and gateway runtime SHA
+      # locally before building a deployable release (no real DB is touched).
+      - name: Verify safe deployment and rollback simulations
+        run: node --test tests/safe-deploy.test.mjs
+
       # ============================================================
       # FRONTEND
       # ============================================================
@@ -147,6 +152,10 @@ jobs:
       - name: Run P1 source checks
         working-directory: backend
         run: npm run test:p1:static
+
+      - name: Verify secure no-email customer access mode
+        working-directory: backend
+        run: npm run test:email-optional:static
 
       - name: Run P1 staging commerce, shipment, review and staff-role tests
         if: ${{ vars.RUN_STAGING_TESTS == 'true' }}
@@ -371,26 +380,39 @@ jobs:
                 || true
             )"
 
-            DEPLOYED="$(
+            INFO="$(
               printf '%s' "$RESPONSE" |
               python3 -c '
           import json
           import sys
 
           try:
-              payload = json.load(sys.stdin)
-              print(payload.get("deployedSource") or "")
+              p = json.load(sys.stdin)
+              status = p.get("deployment") or {}
+              print("|".join([
+                  p.get("deployedSource") or "",
+                  p.get("runtimeSource") or "",
+                  status.get("source") or "",
+                  status.get("state") or "",
+              ]))
           except Exception:
-              print("")
+              print("|||")
           '
             )"
+            IFS='|' read -r DEPLOYED RUNTIME ATTEMPTED STATE <<< "$INFO"
 
             echo "Check ${attempt}/60"
             echo "Expected: ${GITHUB_SHA}"
-            echo "Deployed: ${DEPLOYED:-waiting}"
+            echo "Recorded: ${DEPLOYED:-waiting}"
+            echo "Running:  ${RUNTIME:-waiting}"
+            echo "Release state: ${STATE:-unknown}"
 
-            if [ "$DEPLOYED" = "$GITHUB_SHA" ]; then
-              echo "Production deployment completed successfully."
+            if [ "$ATTEMPTED" = "$GITHUB_SHA" ] && [ "$STATE" = failed ]; then
+              echo "ERROR: Deployment failed and the server attempted rollback. Read cPanel deployment logs."
+              exit 1
+            fi
+            if [ "$DEPLOYED" = "$GITHUB_SHA" ] && [ "$RUNTIME" = "$GITHUB_SHA" ]; then
+              echo "The new version is active and passed server-side health checks."
               exit 0
             fi
 
@@ -445,6 +467,10 @@ jobs:
               raise SystemExit(
                   "Backend health check failed."
               )
+
+          import os
+          if payload.get("runtimeSource") != os.environ["GITHUB_SHA"]:
+              raise SystemExit("A stale gateway is serving the previous release.")
 
           print(
               "Gateway, frontend and backend are healthy."
