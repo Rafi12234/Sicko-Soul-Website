@@ -319,6 +319,8 @@ model orders {
   grand_total                                                     Decimal                @db.Decimal(12, 2)
   currency                                                        String                 @default("BDT") @db.Char(3)
   order_status                                                    orders_order_status    @default(PENDING_CONFIRMATION)
+  // An expired stock hold does not cancel or reject a pending order.
+  reservation_released_at                                         DateTime?              @db.DateTime(0)
   payment_status                                                  orders_payment_status  @default(UNPAID)
   confirmed_by_staff_id                                           BigInt?                @db.UnsignedBigInt
   last_status_changed_by_staff_id                                 BigInt?                @db.UnsignedBigInt
@@ -349,6 +351,7 @@ model orders {
   @@index([payment_status, created_at], map: "idx_orders_payment_status")
   @@index([customer_phone], map: "idx_orders_phone")
   @@index([order_status, created_at], map: "idx_orders_status_date")
+  @@index([order_status, reservation_released_at, created_at], map: "idx_orders_pending_hold")
 }
 
 model payments {
