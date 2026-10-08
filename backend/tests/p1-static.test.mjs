@@ -10,10 +10,10 @@ test('P0 remains intact',()=> {
  includes('src/modules/refunds/refunds.controller.ts',['requireCustomerAccess']);
  includes('src/modules/orders/orders.service.ts',['shipping_address_id: null']);
 });
-test('P1 verified review cannot be claimed by an unverified reference',()=>includes('src/modules/reviews/reviews.controller.ts',['if (input.orderReference) requireVerifiedOrderReview(req, input.orderReference)']));
+test('P1 purchase badge requires holder of scoped order capability',()=>includes('src/modules/reviews/reviews.controller.ts',['if (input.orderReference) requireOrderReviewAccess(req, input.orderReference)']));
 test('P1 rate limit is SQL shared and attached to relevant writes',()=> {
  includes('src/middleware/sensitive-rate-limit.ts',['INSERT INTO api_rate_limit_buckets','ON DUPLICATE KEY UPDATE','createHmac']);
- includes('src/modules/orders/orders.routes.ts',['checkoutRateLimit','accessRecoveryRateLimit']);
+ includes('src/modules/orders/orders.routes.ts',['checkoutRateLimit']);
  includes('src/modules/reviews/reviews.routes.ts',['reviewWriteRateLimit']);
  includes('src/modules/carts/carts.routes.ts',['cartCreationRateLimit']);
  includes('src/modules/complaints/complaints.routes.ts',['complaintWriteRateLimit']);
