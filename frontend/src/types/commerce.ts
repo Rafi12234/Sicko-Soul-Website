@@ -254,6 +254,8 @@ export type CustomerOrder = {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   status: OrderStatus;
+  stockHoldStatus?: "HELD" | "RELEASED" | "SOLD" | "CLOSED";
+  reservationReleasedAt?: string | null;
   currency: "BDT";
   subtotal: number;
   deliveryCharge: number;
