@@ -1,4 +1,5 @@
 import type { RequestHandler } from "express";
+import { requireCustomerAccess } from "../customer-access/customer-access.js";
 import { auditContextFromRequest } from "../../utils/audit-context.js";
 import { orderReferenceParamsSchema } from "../orders/orders.schema.js";
 import {
@@ -14,7 +15,9 @@ import {
 
 export const requestRefundController: RequestHandler = async (req, res) => {
   const { reference } = orderReferenceParamsSchema.parse(req.params);
+  requireCustomerAccess(req, "order", reference);
   const input = requestRefundSchema.parse(req.body);
+  res.set("Cache-Control", "no-store");
   res.status(201).json(await requestRefund(reference, input));
 };
 
