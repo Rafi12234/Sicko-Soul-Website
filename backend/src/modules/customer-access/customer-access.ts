@@ -8,8 +8,8 @@ const audience = "sicko-soul-customer";
 const issuer = "sicko-soul-api";
 
 // A reference is never proof of ownership. Token is scoped to one exact record.
-export function signCustomerAccess(kind: AccessKind, reference: string, expiresInSeconds = 60 * 60 * 12, emailVerified = false): string {
-  return jwt.sign({ kind, reference, emailVerified }, env.JWT_SECRET, {
+export function signCustomerAccess(kind: AccessKind, reference: string, expiresInSeconds = 60 * 60 * 24 * 30): string {
+  return jwt.sign({ kind, reference }, env.JWT_SECRET, {
     algorithm: "HS256", audience, issuer, expiresIn: expiresInSeconds,
   });
 }
@@ -29,13 +29,12 @@ export function requireCustomerAccess(req: Request, kind: AccessKind, reference:
   } catch { deny(); }
 }
 
-export function requireVerifiedOrderReview(req: Request, reference: string): void {
-  const claims = requireCustomerAccess(req, "order", reference);
-  if (claims.emailVerified !== true) {
-    throw new AppError({ statusCode: 403, code: "EMAIL_VERIFICATION_REQUIRED", message: "Verify your order email using the secure access link before claiming a Verified Purchase review." });
-  }
+// A verified PURCHASE badge means proof of control of the original checkout
+// capability plus delivered item, NOT verified ownership of the email inbox.
+export function requireOrderReviewAccess(req: Request, reference: string): void {
+  requireCustomerAccess(req, "order", reference);
 }
 
 function deny(): never {
-  throw new AppError({ statusCode: 401, code: "CUSTOMER_ACCESS_REQUIRED", message: "Verify access to this record using your email." });
+  throw new AppError({ statusCode: 401, code: "CUSTOMER_ACCESS_REQUIRED", message: "Private access token required. Use the token saved when the record was created." });
 }
