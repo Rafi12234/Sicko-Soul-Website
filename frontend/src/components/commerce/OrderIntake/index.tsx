@@ -46,6 +46,7 @@ type CheckoutLine = {
 export default function OrderIntake({ source, productId, size, quantity = 1, buyNowProduct }: OrderIntakeProps) {
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
+  const inFlightRef = useRef(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("COD");
@@ -129,7 +130,7 @@ export default function OrderIntake({ source, productId, size, quantity = 1, buy
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (lines.length === 0 || submitting) return;
+    if (lines.length === 0 || submitting || inFlightRef.current) return;
 
     const form = new FormData(event.currentTarget);
     const name = String(form.get("name") ?? "").trim();
@@ -148,7 +149,7 @@ export default function OrderIntake({ source, productId, size, quantity = 1, buy
     }
 
     const payload: CreateOrderRequest = {
-      idempotencyKey: createIdempotencyKey(),
+      idempotencyKey: "",
       source: isCart ? "CART" : "BUY_NOW",
       cartToken: isCart ? cartToken : null,
       customer: { name, phone, email },
@@ -168,16 +169,32 @@ export default function OrderIntake({ source, productId, size, quantity = 1, buy
       })),
     };
 
+    // Reuse a key only when this *entire* order payload is unchanged.
+    // sessionStorage survives refresh but does not retain the customer's form fields.
+    const storageName = "sicko-soul:checkout-attempt";
+    try {
+      const source = new TextEncoder().encode(JSON.stringify({ ...payload, idempotencyKey: undefined }));
+      const digest = await crypto.subtle.digest("SHA-256", source);
+      const signature = [...new Uint8Array(digest)].map((value) => value.toString(16).padStart(2, "0")).join("");
+      const previous = JSON.parse(sessionStorage.getItem(storageName) ?? "null") as { signature?: string; key?: string } | null;
+      payload.idempotencyKey = previous?.signature === signature && previous.key ? previous.key : createIdempotencyKey();
+      // Only a digest and opaque key are persisted, never checkout PII.
+      sessionStorage.setItem(storageName, JSON.stringify({ signature, key: payload.idempotencyKey }));
+    } catch { payload.idempotencyKey = createIdempotencyKey(); }
+    inFlightRef.current = true;
     setSubmitting(true);
     setError("");
 
     try {
       const order = await createOrder(payload);
+      try { sessionStorage.removeItem(storageName); } catch { /* browser storage can be disabled */ }
       if (isCart) markConverted();
       router.push(`/order-confirmation/${encodeURIComponent(order.reference)}`);
     } catch (exception) {
       setError(exception instanceof Error ? exception.message : "ORDER COULD NOT BE SEALED.");
       setSubmitting(false);
+    } finally {
+      inFlightRef.current = false;
     }
   }
 
