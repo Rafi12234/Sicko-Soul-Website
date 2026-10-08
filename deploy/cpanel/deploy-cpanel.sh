@@ -112,7 +112,6 @@ mkdir -p "$FRONT_RELEASE" "$BACK_RELEASE"
 tar -xzf "$REPO/frontend-release.tar.gz" -C "$FRONT_RELEASE"
 tar -xzf "$REPO/backend-release.tar.gz" -C "$BACK_RELEASE"
 for file in "$FRONT_RELEASE/server.js" "$BACK_RELEASE/dist/src/server.js" \
-            "$BACK_RELEASE/dist/src/scripts/migrate-production.js" \
             "$BACK_RELEASE/prisma/schema.prisma" "$BACK_RELEASE/package-lock.json"; do
   test -f "$file"
 done
@@ -133,12 +132,37 @@ set -u
 cd "$BACK_RELEASE"
 # Stage dependencies in the NEW release; never mutate live node_modules.
 npm ci --omit=dev --no-audit --no-fund
-# Check production configuration before running any schema migrations.
+# Validate environment. Database schema changes are NEVER run by deployment.
 NODE_ENV=production node -e "import('./dist/src/config/env.js')"
 
-# Database rollback is NOT attempted: migrations must remain backward-compatible.
-echo 'Applying forward-compatible database migrations...'
-npm run migrate:production
+# Read-only preflight: the store owner applies schema SQL in phpMyAdmin before deploy.
+# The explicit bypass exists ONLY for the isolated, database-free CI simulation.
+if [[ "${SICKO_MANUAL_SCHEMA_TEST_BYPASS:-0}" != "1" ]]; then
+  echo 'Checking manually managed database schema (read-only)...'
+  node --input-type=module <<'SICKO_SCHEMA_CHECK'
+import 'dotenv/config';
+import mariadb from 'mariadb';
+const connection = await mariadb.createConnection({
+  host: process.env.DATABASE_HOST,
+  port: Number(process.env.DATABASE_PORT || 3306),
+  user: process.env.DATABASE_USER,
+  password: process.env.DATABASE_PASSWORD,
+  database: process.env.DATABASE_NAME,
+  multipleStatements: false,
+});
+try {
+  const rows = await connection.query(
+    "SELECT COUNT(*) AS amount FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'orders' AND COLUMN_NAME = 'reservation_released_at'"
+  );
+  if (Number(rows[0]?.amount ?? 0) !== 1) {
+    throw new Error('Manual phpMyAdmin SQL not yet applied: orders.reservation_released_at is missing. No database changes were made.');
+  }
+  console.log('Required orders stock-hold column exists; no SQL changes made.');
+} finally {
+  await connection.end();
+}
+SICKO_SCHEMA_CHECK
+fi
 
 free_port() {
   node -e 'const n=require("net").createServer();n.listen(0,"127.0.0.1",()=>{console.log(n.address().port);n.close()})'
