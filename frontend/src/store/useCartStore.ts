@@ -2,7 +2,7 @@
 
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { API_BASE_URL } from "@/lib/apiClient";
+import { API_BASE_URL, ApiError } from "@/lib/apiClient";
 import {
   addServerCartItem,
   createOrResumeCart,
@@ -108,16 +108,16 @@ export const useCartStore = create<CartState>()(
         try {
           const cart = await getServerCart(token);
           set({ ...stateFromServer(cart), syncing: false });
-        } catch {
-          // Expired, converted or legacy carts are not restored. A fresh cart is
-          // created lazily the next time a customer adds a product.
-          set({
-            cartToken: null,
-            status: "ACTIVE",
-            items: [],
-            subtotal: 0,
-            syncing: false,
-          });
+        } catch (error) {
+          // Only a *confirmed* missing/invalid cart may be discarded. Network,
+          // timeout, rate-limit and 5xx responses must preserve its opaque token.
+          const terminal = error instanceof ApiError &&
+            (error.status === 404 || (error.status === 409 && ["CART_NOT_ACTIVE", "CART_EXPIRED"].includes(error.code ?? "")));
+          if (terminal) {
+            set({ cartToken: null, status: "ACTIVE", items: [], subtotal: 0, syncing: false, error: null });
+          } else {
+            set({ syncing: false, error: "CART TEMPORARILY UNAVAILABLE. RETRY WHEN CONNECTED." });
+          }
         }
       },
 
