@@ -1,10 +1,8 @@
 name: Build and Deploy Sicko Soul
 
 on:
-  push:
-    branches:
-      - main
-
+  # Manual only while hosting deployments are paused.
+  # Re-enable push after cPanel API access is confirmed.
   workflow_dispatch:
 
 permissions:
