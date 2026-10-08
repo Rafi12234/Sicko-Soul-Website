@@ -1,5 +1,5 @@
 import type { RequestHandler } from "express";
-import { requireVerifiedOrderReview } from "../customer-access/customer-access.js";
+import { requireOrderReviewAccess } from "../customer-access/customer-access.js";
 import { auditContextFromRequest } from "../../utils/audit-context.js";
 import {
   moderateReviewSchema,
@@ -30,9 +30,9 @@ export const listProductReviewsController: RequestHandler = async (req, res) => 
 export const submitProductReviewController: RequestHandler = async (req, res) => {
   const { productId } = reviewProductParamsSchema.parse(req.params);
   const input = submitReviewSchema.parse(req.body);
-  // A supplied order reference must be proven using the P0 verified-order token.
+  // Supplied order reference must be proven by a scoped checkout capability.
   // Anonymous reviews remain supported, but can never claim Verified Purchase.
-  if (input.orderReference) requireVerifiedOrderReview(req, input.orderReference);
+  if (input.orderReference) requireOrderReviewAccess(req, input.orderReference);
   res.status(201).json(await submitReview(productId, input));
 };
 
