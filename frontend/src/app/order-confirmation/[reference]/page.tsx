@@ -1,3 +1,5 @@
+import type { Metadata } from "next";
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 import Navbar from "@/components/ui/Navbar";
 import OrderFile from "@/components/commerce/OrderFile";
 
