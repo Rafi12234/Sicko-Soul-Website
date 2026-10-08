@@ -33,13 +33,6 @@ export async function getOrder(orderReference: string): Promise<CustomerOrder | 
   }
 }
 
-export async function lookupOrder(orderReference: string, identifier: string) {
-  return apiRequest<{ message: string }>("/orders/lookup", {
-    method: "POST", cache: "no-store",
-    body: JSON.stringify({ reference: orderReference, identifier }),
-  });
-}
-
 export async function requestRefund(input: {
   orderReference: string;
   amount: number;
@@ -49,12 +42,6 @@ export async function requestRefund(input: {
     method: "POST",
     body: JSON.stringify({ amount: input.amount, reason: input.reason }),
     headers: authHeaders("order", input.orderReference), cache: "no-store",
-  });
-}
-
-export async function requestComplaintAccess(caseReference: string, email: string): Promise<{message: string}> {
-  return apiRequest<{message: string}>("/complaints/access", {
-    method: "POST", cache: "no-store", body: JSON.stringify({ caseReference, email }),
   });
 }
 
@@ -69,12 +56,13 @@ export async function createComplaint(input: {
   orderReference?: string;
   subject?: string;
   message: string;
-}): Promise<Pick<ComplaintCase, "reference" | "status">> {
-  const complaint = await apiRequest<Pick<ComplaintCase, "reference" | "status">>("/complaints", {
+}): Promise<Pick<ComplaintCase, "reference" | "status"> & { accessToken?: string }> {
+  const complaint = await apiRequest<Pick<ComplaintCase, "reference" | "status"> & { accessToken?: string }>("/complaints", {
     method: "POST", cache: "no-store",
     headers: input.orderReference ? authHeaders("order", input.orderReference) : {},
     body: JSON.stringify(input),
   });
+  if (complaint.accessToken) saveCustomerAccess("complaint", complaint.reference, complaint.accessToken);
   return complaint;
 }
 
