@@ -8,10 +8,12 @@ import {
 } from "./lib/prisma.js";
 import { logger } from "./lib/logger.js";
 import { startEmailWorker } from "./modules/email/email.service.js";
+import { startPendingExpiryWorker } from "./modules/orders/orders.expiry.js";
 
 let server: Server | undefined;
 let shuttingDown = false;
 let stopEmailWorker: (() => void) | undefined;
+let stopExpiryWorker: (() => void) | undefined;
 
 async function shutdown(signal: NodeJS.Signals): Promise<void> {
   if (shuttingDown) return;
@@ -19,6 +21,7 @@ async function shutdown(signal: NodeJS.Signals): Promise<void> {
 
   logger.info({ signal }, "shutdown requested");
   stopEmailWorker?.();
+  stopExpiryWorker?.();
 
   const forceTimer = setTimeout(() => {
     logger.fatal("graceful shutdown timed out");
@@ -45,6 +48,7 @@ async function bootstrap(): Promise<void> {
   logger.info("database connection verified");
 
   stopEmailWorker = startEmailWorker();
+  stopExpiryWorker = startPendingExpiryWorker();
 
   server = app.listen(env.PORT, () => {
     logger.info(
