@@ -24,6 +24,9 @@ export async function enqueueEmail(
     payload: EmailPayload;
   },
 ): Promise<void> {
+  // No background sender configured: keep checkout/support independent of email,
+  // and never accumulate sensitive messages in a permanently unsent outbox.
+  if (!env.EMAIL_WORKER_ENABLED) return;
   await tx.email_outbox.upsert({
     where: { dedupe_key: input.dedupeKey },
     create: {
