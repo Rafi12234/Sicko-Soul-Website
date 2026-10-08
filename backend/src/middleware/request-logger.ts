@@ -11,7 +11,8 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
       {
         requestId: res.locals.requestId,
         method: req.method,
-        path: req.originalUrl,
+        // Use only the Express route template: never log resource tokens, query strings or PII.
+        path: typeof req.route?.path === "string" ? req.route.path : "[unmatched]",
         statusCode: res.statusCode,
         durationMs: Number(elapsedMs.toFixed(2)),
       },
