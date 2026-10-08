@@ -8,7 +8,6 @@
     "start": "node dist/src/server.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit -p tsconfig.json",
-
     "prisma:pull": "prisma db pull",
     "prisma:generate": "prisma generate",
     "prisma:validate": "prisma validate",
@@ -17,15 +16,17 @@
     "prisma:baseline:mark": "prisma migrate resolve --applied 0_init",
     "prisma:migrate:deploy": "prisma migrate deploy",
     "prisma:studio": "prisma studio",
-
     "migrate:production": "node dist/src/scripts/migrate-production.js",
-
     "admin:bootstrap": "tsx src/scripts/bootstrap-admin.ts",
     "seed:catalog": "tsx src/scripts/seed-catalog.ts",
     "smoke:public": "tsx src/scripts/smoke-public.ts",
-
     "seed:catalog:prod": "node dist/src/scripts/seed-catalog.js",
-    "admin:bootstrap:prod": "node dist/src/scripts/bootstrap-admin.js"
+    "admin:bootstrap:prod": "node dist/src/scripts/bootstrap-admin.js",
+    "test:p0:staging": "node --test tests/p0-staging.test.mjs",
+    "test:p0:static": "node --test tests/p0-static.test.mjs",
+    "test:p1:static": "node --test tests/p1-static.test.mjs",
+    "test:p1:staging": "node --test tests/p1-staging.test.mjs",
+    "smoke:p1:deploy": "node scripts/p1-deployment-smoke.mjs"
   },
   "dependencies": {
     "@prisma/adapter-mariadb": "^7.0.0",
