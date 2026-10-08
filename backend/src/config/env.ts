@@ -39,7 +39,7 @@ const envSchema = z.object({
   CART_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
   DELIVERY_CHARGE_BDT: z.coerce.number().min(0).default(0),
 
-  EMAIL_WORKER_ENABLED: boolFromEnv.default(true),
+  EMAIL_WORKER_ENABLED: boolFromEnv.default(false),
   EMAIL_WORKER_INTERVAL_MS: z.coerce.number().int().min(5_000).default(30_000),
   EMAIL_WORKER_BATCH_SIZE: z.coerce.number().int().min(1).max(50).default(10),
   EMAIL_WORKER_LOCK_TIMEOUT_MS: z.coerce.number().int().min(60_000).default(10 * 60 * 1000),
@@ -69,16 +69,22 @@ if (
   throw new Error("JWT_SECRET must be replaced before production deployment.");
 }
 
+// Transactional emails are OPTIONAL. Customer-record access remains bearer-token
+// protected even with no email provider. Do not crash the storefront when email
+// is disabled. Reject misconfiguration only if real sending was explicitly enabled.
 if (
-  parsed.data.NODE_ENV === "production" &&
+  parsed.data.EMAIL_WORKER_ENABLED &&
   parsed.data.EMAIL_TRANSPORT === "resend" &&
   !parsed.data.RESEND_API_KEY
 ) {
-  throw new Error("RESEND_API_KEY is required when EMAIL_TRANSPORT=resend.");
+  throw new Error("RESEND_API_KEY is required when email sending is enabled with Resend.");
 }
-
-if (parsed.data.NODE_ENV === "production" && (parsed.data.EMAIL_TRANSPORT !== "resend" || !parsed.data.EMAIL_WORKER_ENABLED)) {
-  throw new Error("P0 customer access recovery requires EMAIL_TRANSPORT=resend and EMAIL_WORKER_ENABLED=true in production.");
+if (
+  parsed.data.NODE_ENV === "production" &&
+  parsed.data.EMAIL_WORKER_ENABLED &&
+  parsed.data.EMAIL_TRANSPORT !== "resend"
+) {
+  throw new Error("Production email sending requires EMAIL_TRANSPORT=resend; disable EMAIL_WORKER_ENABLED until configured.");
 }
 export const env = Object.freeze(parsed.data);
 export type AppEnv = typeof env;
