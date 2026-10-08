@@ -65,7 +65,8 @@ async function sendEmail(input: {
   payload: EmailPayload;
 }): Promise<string> {
   if (env.EMAIL_TRANSPORT === "console") {
-    logger.info({ to: input.to, subject: input.subject, payload: input.payload }, "email console delivery");
+    // Local console mode must not leak customer access links or customer details.
+    logger.info({ mode: "console", subjectCategory: input.subject.split(" /")[0] }, "email simulated (not delivered)");
     return `console-${Date.now()}-${randomUUID()}`;
   }
 
