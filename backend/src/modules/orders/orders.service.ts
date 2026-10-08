@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { Prisma, type orders_order_status } from "../../../generated/prisma/client.js";
 import { env } from "../../config/env.js";
 import { AppError } from "../../errors/app-error.js";
@@ -53,13 +54,34 @@ type CreateOrderInput = {
     landmark?: string | undefined;
   };
   note?: string | undefined;
-  paymentMethod: "COD" | "MANUAL" | "MOBILE_FINANCIAL_SERVICE" | "BANK_TRANSFER" | "CARD";
+  paymentMethod: "COD" | "MANUAL";
   items: Array<{ productId: string; variantId: string; quantity: number }>;
 };
 
+function checkoutFingerprint(input: CreateOrderInput): string {
+  // Normalize user-provided data so logically identical retries hash identically.
+  // Never include the idempotency key in the digest.
+  const document = {
+    source: input.source, cartToken: input.cartToken ?? null,
+    customer: { name: input.customer.name.trim(), phone: input.customer.phone.trim(), email: input.customer.email.trim().toLowerCase() },
+    shipping: { address: input.shipping.address.trim(), city: input.shipping.city.trim(), district: input.shipping.district.trim(), postalCode: input.shipping.postalCode ?? "", landmark: input.shipping.landmark ?? "" },
+    note: input.note ?? "", paymentMethod: input.paymentMethod,
+    items: [...input.items].map(item => ({ ...item })).sort((a,b) => a.variantId.localeCompare(b.variantId) || a.productId.localeCompare(b.productId)),
+  };
+  return createHash("sha256").update(JSON.stringify(document)).digest("hex");
+}
+
+function validateReplay(stored: { request_fingerprint: string | null }, fingerprint: string): void {
+  if (stored.request_fingerprint !== fingerprint) {
+    throw new AppError({ statusCode: 409, code: "IDEMPOTENCY_KEY_REUSED", message: "This checkout attempt changed. Start a new checkout to continue." });
+  }
+}
+
 export async function createOrder(input: CreateOrderInput) {
+  // Even pre-migration legacy orders must not reveal private order data via reused keys.
+  const fingerprint = checkoutFingerprint(input);
   const existing = await findOrderByIdempotencyKey(input.idempotencyKey);
-  if (existing) return mapOrder(existing);
+  if (existing) { validateReplay(existing, fingerprint); return mapOrder(existing); }
 
   let createdId: bigint;
   try {
@@ -107,6 +129,7 @@ export async function createOrder(input: CreateOrderInput) {
         const key = variant.variant_id.toString();
         const current = resolved.get(key);
         if (current) {
+          if (current.quantity + line.quantity > 20) throw new AppError({ statusCode: 422, code: "ORDER_ITEM_QUANTITY_LIMIT", message: "A size cannot exceed 20 units per order." });
           current.quantity += line.quantity;
         } else {
           resolved.set(key, { variant, quantity: line.quantity });
@@ -138,7 +161,7 @@ export async function createOrder(input: CreateOrderInput) {
       })),
     );
 
-    const { customer, address } = await upsertCustomerAndAddress(tx, {
+    const { customer } = await upsertCustomerAndAddress(tx, {
       ...input.customer,
       shipping: input.shipping,
     });
@@ -200,8 +223,9 @@ export async function createOrder(input: CreateOrderInput) {
       data: {
         order_reference: reference,
         idempotency_key: input.idempotencyKey,
+        request_fingerprint: fingerprint,
         customer_id: customer.customer_id,
-        shipping_address_id: address.address_id,
+        shipping_address_id: null,
         source_cart_id: sourceCartId,
         source: input.source,
         customer_name: input.customer.name,
@@ -267,6 +291,16 @@ export async function createOrder(input: CreateOrderInput) {
       },
     });
 
+    await enqueueEmail(tx, {
+      dedupeKey: `order-received:${order.order_id.toString()}`,
+      eventType: "ORDER_RECEIVED",
+      orderId: order.order_id, customerId: customer.customer_id,
+      recipientName: order.customer_name, recipientEmail: order.customer_email,
+      subject: `SICKO SOUL / ORDER ${order.order_reference} RECEIVED`,
+      templateKey: "order-received",
+      payload: { orderReference: order.order_reference, status: "PENDING_CONFIRMATION", paymentMethod: order.payment_method },
+    });
+
     if (sourceCartId) {
       await tx.carts.update({
         where: { cart_id: sourceCartId },
@@ -274,21 +308,15 @@ export async function createOrder(input: CreateOrderInput) {
       });
     }
 
-    const now = new Date();
-    await tx.customers.update({
-      where: { customer_id: customer.customer_id },
-      data: {
-        first_order_at: customer.first_order_at ?? now,
-        last_order_at: now,
-      },
-    });
+    // An anonymous checkout does not verify ownership of the email address.
+    // Do not update reusable customer profile metadata for existing customers.
 
       return order.order_id;
     });
   } catch (error) {
     if (isPrismaUniqueError(error)) {
       const raced = await findOrderByIdempotencyKey(input.idempotencyKey);
-      if (raced) return mapOrder(raced);
+      if (raced) { validateReplay(raced, fingerprint); return mapOrder(raced); }
     }
     throw error;
   }
@@ -301,22 +329,6 @@ export async function createOrder(input: CreateOrderInput) {
 export async function getOrder(reference: string) {
   const row = await findOrderByReference(reference);
   if (!row) throw new AppError({ statusCode: 404, code: "ORDER_NOT_FOUND", message: "Order was not found." });
-  return mapOrder(row);
-}
-
-export async function lookupOrder(reference: string, identifier: string) {
-  const row = await findOrderByReference(reference);
-  const needle = identifier.trim().toLowerCase();
-  if (
-    !row ||
-    (row.customer_email.toLowerCase() !== needle && row.customer_phone.toLowerCase() !== needle)
-  ) {
-    throw new AppError({
-      statusCode: 404,
-      code: "ORDER_LOOKUP_MISMATCH",
-      message: "No order matched that reference and contact.",
-    });
-  }
   return mapOrder(row);
 }
 
@@ -360,6 +372,13 @@ export async function updateOrderStatus(
     if (!order) throw new AppError({ statusCode: 404, code: "ORDER_NOT_FOUND", message: "Order was not found." });
 
     if (order.order_status === input.status) return order.order_id;
+    if (["SHIPPED", "DELIVERED", "RETURNED"].includes(input.status)) {
+      throw new AppError({ statusCode: 409, code: "SHIPMENT_WORKFLOW_REQUIRED", message: "Shipping and delivery must be recorded through the shipment workflow." });
+    }
+    if (input.status === "CANCELLED") {
+      const active = await tx.shipments.count({ where: { order_id: order.order_id, status: { notIn: ["CANCELLED", "RETURNED"] } } });
+      if (active > 0) throw new AppError({ statusCode: 409, code: "SHIPMENT_MUST_BE_CANCELLED", message: "Close the existing shipment before cancelling this order." });
+    }
     if (!transitions[order.order_status].includes(input.status)) {
       throw new AppError({
         statusCode: 409,
