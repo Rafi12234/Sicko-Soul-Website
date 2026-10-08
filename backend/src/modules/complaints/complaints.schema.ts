@@ -13,6 +13,11 @@ export const complaintReferenceParamsSchema = z.object({
   caseReference: z.string().trim().min(3).max(32),
 });
 
+export const complaintAccessSchema = z.object({
+  caseReference: z.string().trim().min(3).max(32),
+  email: z.string().trim().email().max(255),
+});
+
 export const complaintReplySchema = z.object({
   message: z.string().trim().min(2).max(10000),
 });
