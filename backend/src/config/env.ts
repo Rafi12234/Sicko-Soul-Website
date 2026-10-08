@@ -34,6 +34,8 @@ const envSchema = z.object({
     .default("development-only-sicko-soul-jwt-secret-change-me"),
   JWT_EXPIRES_IN: z.string().trim().min(1).default("8h"),
 
+  // Backward-compatible name: now releases the STOCK HOLD, not the order.
+  // Set a different duration (15..10080 min) in production if needed.
   ORDER_PENDING_TTL_MINUTES: z.coerce.number().int().min(15).max(10080).default(120),
   ORDER_EXPIRY_WORKER_INTERVAL_MS: z.coerce.number().int().min(10000).max(300000).default(60000),
   CART_TTL_DAYS: z.coerce.number().int().min(1).max(365).default(30),
