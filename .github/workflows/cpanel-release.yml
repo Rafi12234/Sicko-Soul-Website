@@ -117,6 +117,50 @@ jobs:
           test -f dist/src/server.js
           test -f dist/src/scripts/migrate-production.js
 
+      # P0 release blocker: requires an independent staging API/database.
+      # No missing secrets / failed tests may be treated as a successful deploy.
+      - name: Run P0 source-security checks
+        working-directory: backend
+        run: npm run test:p0:static
+
+      - name: Run required P0 staging workflow tests
+        working-directory: backend
+        env:
+          P0_STAGING_ALLOW_WRITE: "true"
+          P0_STAGING_API_URL: ${{ secrets.P0_STAGING_API_URL }}
+          P0_STAGING_PRODUCT_ID: ${{ vars.P0_STAGING_PRODUCT_ID }}
+          P0_STAGING_VARIANT_ID: ${{ vars.P0_STAGING_VARIANT_ID }}
+          P0_STAGING_CUSTOMER_EMAIL: ${{ secrets.P0_STAGING_CUSTOMER_EMAIL }}
+          P0_STAGING_CUSTOMER_PHONE: ${{ secrets.P0_STAGING_CUSTOMER_PHONE }}
+          P0_STAGING_ADMIN_EMAIL: ${{ secrets.P0_STAGING_ADMIN_EMAIL }}
+          P0_STAGING_ADMIN_PASSWORD: ${{ secrets.P0_STAGING_ADMIN_PASSWORD }}
+        run: npm run test:p0:staging
+
+      - name: Run P1 source checks
+        working-directory: backend
+        run: npm run test:p1:static
+
+      - name: Run P1 staging commerce, shipment, review and staff-role tests
+        working-directory: backend
+        env:
+          P1_STAGING_ALLOW_WRITE: "true"
+          P1_STAGING_API_URL: ${{ secrets.P0_STAGING_API_URL }}
+          P1_STAGING_PRODUCT_ID: ${{ vars.P0_STAGING_PRODUCT_ID }}
+          P1_STAGING_VARIANT_ID: ${{ vars.P0_STAGING_VARIANT_ID }}
+          P1_STAGING_CUSTOMER_EMAIL: ${{ secrets.P0_STAGING_CUSTOMER_EMAIL }}
+          P1_STAGING_CUSTOMER_PHONE: ${{ secrets.P0_STAGING_CUSTOMER_PHONE }}
+          P1_STAGING_ADMIN_EMAIL: ${{ secrets.P0_STAGING_ADMIN_EMAIL }}
+          P1_STAGING_ADMIN_PASSWORD: ${{ secrets.P0_STAGING_ADMIN_PASSWORD }}
+          P1_STAGING_SUPPORT_EMAIL: ${{ secrets.P1_STAGING_SUPPORT_EMAIL }}
+          P1_STAGING_SUPPORT_PASSWORD: ${{ secrets.P1_STAGING_SUPPORT_PASSWORD }}
+          P1_STAGING_ORDER_MANAGER_EMAIL: ${{ secrets.P1_STAGING_ORDER_MANAGER_EMAIL }}
+          P1_STAGING_ORDER_MANAGER_PASSWORD: ${{ secrets.P1_STAGING_ORDER_MANAGER_PASSWORD }}
+          P1_STAGING_INVENTORY_MANAGER_EMAIL: ${{ secrets.P1_STAGING_INVENTORY_MANAGER_EMAIL }}
+          P1_STAGING_INVENTORY_MANAGER_PASSWORD: ${{ secrets.P1_STAGING_INVENTORY_MANAGER_PASSWORD }}
+          P1_STAGING_TEST_INBOX_URL: ${{ secrets.P1_STAGING_TEST_INBOX_URL }}
+          P1_STAGING_TEST_INBOX_BEARER: ${{ secrets.P1_STAGING_TEST_INBOX_BEARER }}
+        run: npm run test:p1:staging
+
       - name: Prepare backend release archive
         working-directory: backend
         run: |
