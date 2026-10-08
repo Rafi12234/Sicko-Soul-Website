@@ -403,7 +403,7 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
                   <option value="2">2 / ROUGH</option>
                   <option value="1">1 / FAILED</option>
                 </select>
-                <input name="orderReference" placeholder="ORDER REFERENCE / OPTIONAL" className={styles.formInput} />
+                <input name="orderReference" placeholder="ORDER REFERENCE / VERIFIED ACCESS REQUIRED" className={styles.formInput} />
                 <input name="title" placeholder="HEADLINE / OPTIONAL" className={styles.formInput} />
                 <textarea required name="text" rows={5} placeholder="WHAT HAPPENED?" className={`${styles.formInput} resize-none`} />
               </div>
