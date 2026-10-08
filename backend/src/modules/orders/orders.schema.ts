@@ -33,11 +33,6 @@ export const orderReferenceParamsSchema = z.object({
   reference: z.string().trim().min(3).max(32),
 });
 
-export const orderLookupSchema = z.object({
-  reference: z.string().trim().min(3).max(32),
-  identifier: z.string().trim().email().max(255),
-});
-
 export const adminOrderListQuerySchema = z.object({
   status: z.enum([
     "PENDING_CONFIRMATION",
