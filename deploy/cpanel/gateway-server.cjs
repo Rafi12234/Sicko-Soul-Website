@@ -14,17 +14,30 @@ const BACKEND_ROOT =
   process.env.SICKO_BACKEND_ROOT ||
   "/home/sickosou/sicko-backend-prod";
 
-const NEXT_SERVER = path.join(
-  FRONTEND_RELEASE,
-  "server.js",
-);
+// Versioned releases let the deployer replace a symlink, not live binaries.
+// Before the first safe deployment, keep supporting the legacy backend.
+const BACKEND_ACTIVE = path.join(BACKEND_ROOT, "current");
+const BACKEND_RUNTIME = fs.existsSync(
+  path.join(BACKEND_ACTIVE, "dist", "src", "server.js"),
+) ? BACKEND_ACTIVE : BACKEND_ROOT;
 
-const BACKEND_SERVER = path.join(
-  BACKEND_ROOT,
-  "dist",
-  "src",
-  "server.js",
-);
+const NEXT_SERVER = path.join(FRONTEND_RELEASE, "server.js");
+const BACKEND_SERVER = path.join(BACKEND_RUNTIME, "dist", "src", "server.js");
+
+// Computed once at PROCESS startup: the previous Passenger process cannot
+// claim a new SHA merely because a deploy script updates marker files.
+function activeRuntimeSource() {
+  try {
+    const frontSha = path.basename(fs.realpathSync(FRONTEND_RELEASE));
+    const backSha = path.basename(fs.realpathSync(BACKEND_RUNTIME));
+    return /^[a-f0-9]{40}$/.test(frontSha) && frontSha === backSha
+      ? frontSha
+      : null;
+  } catch {
+    return null;
+  }
+}
+const RUNTIME_SOURCE = activeRuntimeSource();
 
 const PUBLIC_PORT = Number(
   process.env.PORT || 3000,
@@ -52,7 +65,22 @@ const DEPLOY_LOG =
   "/home/sickosou/logs/sicko-webhook-deploy.log";
 
 const DEPLOY_MARKER =
+  process.env.SICKO_DEPLOY_MARKER ||
   "/home/sickosou/.sicko-deployed-source";
+const DEPLOY_STATUS_FILE =
+  process.env.SICKO_DEPLOY_STATUS_FILE ||
+  "/home/sickosou/.sicko-deploy-status.json";
+
+function deploymentState() {
+  try {
+    const status = JSON.parse(fs.readFileSync(DEPLOY_STATUS_FILE, "utf8"));
+    if (typeof status.source === "string" &&
+        ["preparing", "activating", "active", "failed"].includes(status.state)) {
+      return { source: status.source, state: status.state };
+    }
+  } catch { /* No deployment in progress. */ }
+  return null;
+}
 
 let stopping = false;
 let gateway;
@@ -782,7 +810,7 @@ async function bootstrap() {
   startChild(
     "backend",
     BACKEND_SERVER,
-    BACKEND_ROOT,
+    BACKEND_RUNTIME,
     {
       NODE_ENV:
         "production",
@@ -1002,6 +1030,8 @@ async function bootstrap() {
 
               deployedSource:
                 deployedSource(),
+              runtimeSource: RUNTIME_SOURCE,
+              deployment: deploymentState(),
             },
           );
 
@@ -1030,6 +1060,7 @@ async function bootstrap() {
 
               backend:
                 true,
+              runtimeSource: RUNTIME_SOURCE,
             },
           );
 
