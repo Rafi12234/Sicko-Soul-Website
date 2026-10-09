@@ -337,8 +337,10 @@ export default function Drop() {
         const video = backgroundVideoRef.current;
         if (!video) return;
 
-        if (active) void video.play().catch(() => {});
-        else video.pause();
+        const shouldPlay = active && !document.hidden &&
+          !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        if (shouldPlay && video.paused) void video.play().catch(() => {});
+        else if (!shouldPlay && !video.paused) video.pause();
       };
 
       const runtimeTrigger = ScrollTrigger.create({
