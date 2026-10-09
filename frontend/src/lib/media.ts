@@ -25,7 +25,7 @@ export const MEDIA = {
     manShirt3: `${CLOUDINARY_ORIGIN}/image/upload/v1789785496/man_shirt_3_ha5vdh.png`,
   },
   originals: {
-    heroVideo: `${CLOUDINARY_ORIGIN}/video/upload/v1789785536/hero-loop_i2kzjv.mp4`,
+    heroVideo: `${CLOUDINARY_ORIGIN}/video/upload/v1791569661/WhatsApp_Video_2026-10-09_at_12.22.53_AM_ahq4cf.mp4`,
     dropVideo: `${CLOUDINARY_ORIGIN}/video/upload/v1789785530/new_drop_lolbzp.mp4`,
   },
 audio: {
@@ -68,10 +68,10 @@ export function cloudinaryVideoPoster(src: string, width = 1920) {
   return framed;
 }
 
-export const HERO_VIDEO_MOBILE = cloudinaryVideoUrl(MEDIA.originals.heroVideo, 960);
-export const HERO_VIDEO_TABLET = cloudinaryVideoUrl(MEDIA.originals.heroVideo, 1440);
-export const HERO_VIDEO = cloudinaryVideoUrl(MEDIA.originals.heroVideo, 1920);
-export const HERO_POSTER = cloudinaryVideoPoster(MEDIA.originals.heroVideo, 1600);
+export const HERO_VIDEO_MOBILE = cloudinaryVideoUrl(MEDIA.originals.heroVideo, 768);
+export const HERO_VIDEO_TABLET = cloudinaryVideoUrl(MEDIA.originals.heroVideo, 1080);
+export const HERO_VIDEO = cloudinaryVideoUrl(MEDIA.originals.heroVideo, 1440);
+export const HERO_POSTER = cloudinaryVideoPoster(MEDIA.originals.heroVideo, 1280);
 
 export const DROP_VIDEO_MOBILE = cloudinaryVideoUrl(MEDIA.originals.dropVideo, 960);
 export const DROP_VIDEO_TABLET = cloudinaryVideoUrl(MEDIA.originals.dropVideo, 1440);
