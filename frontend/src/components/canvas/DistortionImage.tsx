@@ -117,7 +117,7 @@ export default function DistortionImage({ src, alt, velocityRef, className = "" 
 
     const simplify =
       window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
-      window.matchMedia("(max-width: 767px)").matches;
+      window.matchMedia("(max-width: 1023px), (pointer: coarse)").matches;
 
     if (simplify) {
       setUseFallback(true);
@@ -133,10 +133,10 @@ export default function DistortionImage({ src, alt, velocityRef, className = "" 
 
       let renderer: Renderer;
       try {
-        // 1.5 DPR keeps the shader sharp on Retina screens without asking the
-        // GPU to shade 4x as many pixels as a 1x display.
+        // Cap shader fill-rate. The distorted frame remains sharp enough at
+        // this size; video+scroll compositing gets first claim on GPU time.
         renderer = new Renderer({
-          dpr: Math.min(window.devicePixelRatio, 1.5),
+          dpr: Math.min(window.devicePixelRatio, 1.25),
           alpha: false,
           antialias: false,
         });
@@ -231,7 +231,7 @@ export default function DistortionImage({ src, alt, velocityRef, className = "" 
 
       const visibility = new IntersectionObserver(
         ([entry]) => (entry.isIntersecting ? startRendering() : stopRendering()),
-        { rootMargin: "250px 300px" },
+        { rootMargin: "100px 120px" },
       );
       visibility.observe(container);
 
@@ -249,16 +249,15 @@ export default function DistortionImage({ src, alt, velocityRef, className = "" 
       };
     };
 
-    // Creating eight WebGL contexts at page mount was one of the heaviest
-    // invisible costs on the landing page. Initialize each frame only as it
-    // approaches the viewport; 1000px gives the texture enough time to arrive.
+    // Avoid initializing several shader contexts far ahead of the viewport.
+    // The browser still gets time to fetch their Cloudinary textures.
     const prewarm = new IntersectionObserver(
       ([entry]) => {
         if (!entry.isIntersecting) return;
         initialize();
         prewarm.disconnect();
       },
-      { rootMargin: "1000px 800px" },
+      { rootMargin: "500px 350px" },
     );
     prewarm.observe(container);
 
