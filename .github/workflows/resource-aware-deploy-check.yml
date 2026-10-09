@@ -29,4 +29,4 @@ jobs:
       - name: Validate Bash syntax
         run: bash -n deploy/cpanel/deploy-cpanel.sh
       - name: Exercise activation and rollback simulations
-        run: node --test tests/safe-deploy.test.mjs
+        run: node --test tests/safe-deploy.test.mjs tests/sequential-preflight.test.mjs
