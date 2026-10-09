@@ -1,0 +1,26 @@
+name: One-time Sicko Soul release build trigger
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/sicko-one-time-release-trigger.yml
+
+permissions:
+  actions: write
+
+jobs:
+  launch-manual-build:
+    name: Dispatch existing manual release workflow once
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Dispatch the manual build; do not deploy
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/actions/workflows/cpanel-release.yml/dispatches" \
+            --field ref=main
+          echo "Dispatched existing manual build. No cPanel deployment triggered."
