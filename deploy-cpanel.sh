@@ -173,7 +173,7 @@ BACK_PORT="$(free_port)"
 FRONT_PORT="$(free_port)"
 [[ "$BACK_PORT" != "$FRONT_PORT" ]] || FRONT_PORT="$(free_port)"
 
-NODE_ENV=production PORT="$BACK_PORT" API_PREFIX=/api/v1 \
+UV_THREADPOOL_SIZE=1 NODE_ENV=production PORT="$BACK_PORT" API_PREFIX=/api/v1 \
  FRONTEND_ORIGIN=https://sickosoul.shop SICKO_DEPLOY_READINESS_ONLY=true \
  node "$BACK_RELEASE/dist/src/server.js" > "$BACK_RELEASE/deploy-smoke.log" 2>&1 &
 BACK_PID="$!"
@@ -192,8 +192,14 @@ wait_backend() {
 }
 wait_backend
 
+# Avoid overlapping new frontend and backend processes on CloudLinux shared hosting.
+# Each candidate was already checked independently; stop backend before frontend.
+kill "$BACK_PID" 2>/dev/null || true
+wait "$BACK_PID" 2>/dev/null || true
+BACK_PID=""
+
 cd "$FRONT_RELEASE"
-NODE_ENV=production HOSTNAME=127.0.0.1 PORT="$FRONT_PORT" \
+UV_THREADPOOL_SIZE=1 NODE_ENV=production HOSTNAME=127.0.0.1 PORT="$FRONT_PORT" \
  NEXT_PUBLIC_API_BASE_URL=/api/v1 \
  SICKO_INTERNAL_API_BASE_URL="http://127.0.0.1:$BACK_PORT/api/v1" \
  node "$FRONT_RELEASE/server.js" > "$FRONT_RELEASE/deploy-smoke.log" 2>&1 &
@@ -202,7 +208,14 @@ FRONT_PID="$!"
 wait_frontend() {
   for _ in $(seq 1 "${SICKO_PREFLIGHT_ATTEMPTS:-45}"); do
     if ! kill -0 "$FRONT_PID" 2>/dev/null; then break; fi
-    if curl -fsS --connect-timeout 1 --max-time 5 "http://127.0.0.1:$FRONT_PORT/" -o /dev/null 2>/dev/null; then return 0; fi
+    # The candidate backend has stopped to conserve NPROC; route rendering may
+    # return a temporary 5xx until activation. Check that Next is accepting
+    # requests here; production activation verifies successful HTTP afterward.
+    local http_status
+    http_status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+      --connect-timeout 1 --max-time 5 \
+      "http://127.0.0.1:$FRONT_PORT/" 2>/dev/null || true)"
+    if [[ "$http_status" =~ ^[1-5][0-9][0-9]$ ]]; then return 0; fi
     sleep 1
   done
   echo 'ERROR: New frontend failed readiness; last log lines:' >&2
