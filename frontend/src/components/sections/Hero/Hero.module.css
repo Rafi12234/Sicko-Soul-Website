@@ -1,16 +1,18 @@
+/* The video stays stationary during scroll: don't reserve two extra
+   animated full-screen GPU layers for a filtered, decoding video. */
 .videoWrap {
-  will-change: transform;
+  isolation: isolate;
 }
 
 .videoInner {
-  will-change: transform;
+  overflow: hidden;
 }
 
-/* Vignette kept light across the lockup band so the knockout line stays legible. */
+/* Keep the video visible across the entire headline, including its final line. */
 .vignette {
   background:
-    radial-gradient(ellipse 95% 75% at 64% 34%, rgb(10 10 10 / 0) 0%, rgb(10 10 10 / 0.72) 100%),
-    linear-gradient(to top, rgb(10 10 10 / 0.8) 0%, rgb(10 10 10 / 0.1) 42%);
+    radial-gradient(ellipse 95% 75% at 64% 34%, rgb(10 10 10 / 0) 0%, rgb(10 10 10 / 0.43) 100%),
+    linear-gradient(to top, rgb(10 10 10 / 0.4) 0%, rgb(10 10 10 / 0.1) 42%);
 }
 
 .scanlines {
@@ -24,18 +26,17 @@
   opacity: 0.45;
 }
 
-/*
- * Video-through-text. Multiply against the footage: the black plate resolves to
- * black and pure-white glyphs resolve to the backdrop, so the type becomes a
- * window into the video. #fff here is blend math, not a brand colour token.
- */
+/* The old multiply/black knockout slab covered the actual hero footage.
+   Keep the third headline bold, with NO opaque rectangle behind it. */
 .knockout {
-  background-color: var(--black);
-  mix-blend-mode: multiply;
+  background: transparent;
+  mix-blend-mode: normal;
 }
 
 .knockoutText {
-  color: #fff;
+  color: var(--bone-white);
+  text-shadow: 0 3px 22px rgba(0, 0, 0, 0.5);
+  -webkit-text-stroke: 1px rgba(10, 10, 10, 0.18);
 }
 
 .marqueeTrack {
