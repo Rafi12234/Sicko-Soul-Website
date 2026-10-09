@@ -192,6 +192,12 @@ wait_backend() {
 }
 wait_backend
 
+# Avoid overlapping new frontend and backend processes on CloudLinux shared hosting.
+# Each candidate was already checked independently; stop backend before frontend.
+kill "$BACK_PID" 2>/dev/null || true
+wait "$BACK_PID" 2>/dev/null || true
+BACK_PID=""
+
 cd "$FRONT_RELEASE"
 NODE_ENV=production HOSTNAME=127.0.0.1 PORT="$FRONT_PORT" \
  NEXT_PUBLIC_API_BASE_URL=/api/v1 \
