@@ -1,287 +1,342 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
-import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
-import { COLOR, EASE, STAGGER } from "@/styles/theme";
+import Image from "next/image";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type TouchEvent } from "react";
+import { gsap, SplitText } from "@/lib/gsap";
+import { EASE, STAGGER } from "@/styles/theme";
 import { LOOKBOOK_COPY, LOOKBOOK_FRAMES } from "@/data/lookbook";
-import DistortionImage from "@/components/canvas/DistortionImage";
 import styles from "./Lookbook.module.css";
 
+const FRAME_COUNT = LOOKBOOK_FRAMES.length;
+const ROTATION_MS = 4600;
+
+/** Shortest signed offset, so the ends of the carousel join without a jump. */
+function circularOffset(index: number, active: number) {
+  const forward = (index - active + FRAME_COUNT) % FRAME_COUNT;
+  return forward > FRAME_COUNT / 2 ? forward - FRAME_COUNT : forward;
+}
+
+/**
+ * SICKO SOUL / 3D surveillance archive.
+ * Cards occupy real cover-flow positions in perspective, rather than a moving
+ * flat strip. Only the five nearest cards are visible and interactive.
+ */
 export default function Lookbook() {
   const rootRef = useRef<HTMLElement>(null);
-  const pinRef = useRef<HTMLDivElement>(null);
-  const trackRef = useRef<HTMLDivElement>(null);
-  const counterRef = useRef<HTMLSpanElement>(null);
-  const progressRef = useRef<HTMLSpanElement>(null);
-  /** Written by the scroll trigger, read every frame by each shader. */
-  const velocityRef = useRef(0);
+  const touchStartX = useRef<number | null>(null);
+  const touchSwiped = useRef(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [flippedIndex, setFlippedIndex] = useState<number | null>(null);
+  const [manuallyPaused, setManuallyPaused] = useState(false);
+  const [hovered, setHovered] = useState(false);
+  const [focusWithin, setFocusWithin] = useState(false);
+  const [visible, setVisible] = useState(false);
+  const [reducedMotion, setReducedMotion] = useState(false);
 
   useLayoutEffect(() => {
+    const section = rootRef.current;
+    if (!section) return;
     const ctx = gsap.context(() => {
-      const q = gsap.utils.selector(rootRef);
-
-      const headingSplit = new SplitText(".lookbook-heading", { type: "chars" });
-      const intro = gsap.timeline({
+      const split = new SplitText(".lookbook-heading", { type: "chars" });
+      const reveal = gsap.timeline({
         scrollTrigger: {
           id: "lookbook-intro",
-          trigger: rootRef.current,
-          start: "top 70%",
-          toggleActions: "play none none reverse",
+          trigger: section,
+          start: "top 85%",
+          toggleActions: "play none none none",
+          once: true,
         },
       });
-
-      intro
-        .from(headingSplit.chars, {
-          yPercent: 115,
+      reveal
+        .from(split.chars, {
           autoAlpha: 0,
+          yPercent: 110,
           rotate: 5,
-          duration: 1,
+          duration: 0.85,
           stagger: STAGGER.chars,
           ease: EASE.expo,
         })
-        .from(
-          ".lookbook-script",
-          { autoAlpha: 0, scale: 0.82, rotate: -14, duration: 0.9, ease: EASE.overshoot },
-          "-=0.5",
-        )
-        .from(
-          ".lookbook-meta",
-          { autoAlpha: 0, y: 18, duration: 0.7, stagger: 0.07, ease: EASE.hard },
-          "-=0.6",
-        );
-
-      /* ---- Caption plates wipe open on hover. ---- */
-      const captionCleanups = q(".lookbook-frame").map((frame) => {
-        const caption = frame.querySelector<HTMLElement>(".lookbook-caption");
-        const rule = frame.querySelector<HTMLElement>(".lookbook-rule");
-
-        const onOver = () => {
-          gsap.to(caption, {
-            clipPath: "inset(0 0% 0 0)",
-            duration: 0.55,
-            ease: EASE.expo,
-            overwrite: "auto",
-          });
-          gsap.to(rule, { scaleX: 1, duration: 0.6, ease: EASE.expo, overwrite: "auto" });
-          gsap.to(frame, { borderColor: COLOR.bloodAccent, duration: 0.35, overwrite: "auto" });
-        };
-        const onOut = () => {
-          gsap.to(caption, {
-            clipPath: "inset(0 100% 0 0)",
-            duration: 0.4,
-            ease: EASE.inOut,
-            overwrite: "auto",
-          });
-          gsap.to(rule, { scaleX: 0, duration: 0.35, ease: EASE.inOut, overwrite: "auto" });
-          gsap.to(frame, {
-            borderColor: "rgba(242,240,235,0.15)",
-            duration: 0.45,
-            overwrite: "auto",
-          });
-        };
-
-        frame.addEventListener("pointerenter", onOver);
-        frame.addEventListener("pointerleave", onOut);
-        return () => {
-          frame.removeEventListener("pointerenter", onOver);
-          frame.removeEventListener("pointerleave", onOut);
-        };
-      });
-
-      const mm = gsap.matchMedia();
-
-      /* ---- Desktop: pin the section and drag the row sideways. ---- */
-      mm.add("(min-width: 768px)", () => {
-        const track = trackRef.current;
-        if (!track) return;
-
-        const distance = () => Math.max(0, track.scrollWidth - window.innerWidth);
-        let shown = -1;
-
-        // Velocity has to decay on its own or the last flick never settles, but
-        // there is no reason to keep that callback alive outside this pinned scene.
-        const decay = () => {
-          velocityRef.current *= 0.92;
-        };
-        let decaying = false;
-        const setDecayActive = (active: boolean) => {
-          if (active === decaying) return;
-          decaying = active;
-          if (active) gsap.ticker.add(decay);
-          else {
-            gsap.ticker.remove(decay);
-            velocityRef.current = 0;
-          }
-        };
-
-        gsap.to(track, {
-          x: () => -distance(),
-          ease: "none",
-          scrollTrigger: {
-            id: "lookbook-track",
-            trigger: rootRef.current,
-            start: "top top",
-            // Pin runs longer than the travel so the row drags rather than snaps.
-            end: () => `+=${distance() * 1.5}`,
-            pin: pinRef.current,
-            scrub: 1,
-            anticipatePin: 1,
-            invalidateOnRefresh: true,
-            onToggle: (self) => setDecayActive(self.isActive),
-            onUpdate: (self) => {
-              // Feeds the shaders; clamped so a flick never tears the image apart.
-              velocityRef.current = gsap.utils.clamp(-1, 1, self.getVelocity() / 3000);
-              gsap.set(progressRef.current, { scaleX: self.progress });
-
-              const next = Math.min(
-                LOOKBOOK_FRAMES.length - 1,
-                Math.floor(self.progress * LOOKBOOK_FRAMES.length),
-              );
-              if (next === shown) return;
-              shown = next;
-              gsap.to(counterRef.current, {
-                duration: 0.4,
-                ease: "power2.inOut",
-                scrambleText: {
-                  text: LOOKBOOK_FRAMES[next].index,
-                  chars: "0123456789",
-                  speed: 1,
-                },
-                overwrite: "auto",
-              });
-            },
-          },
-        });
-
-        return () => setDecayActive(false);
-      });
-
-      /* ---- Below md the row becomes a normal vertical stack. ---- */
-      mm.add("(max-width: 767px)", () => {
-        ScrollTrigger.batch(q(".lookbook-frame"), {
-          start: "top 85%",
-          onEnter: (batch) =>
-            gsap.from(batch, {
-              autoAlpha: 0,
-              yPercent: 14,
-              duration: 0.95,
-              stagger: STAGGER.images,
-              ease: EASE.expo,
-              overwrite: true,
-            }),
-        });
-      });
-
-      return () => {
-        headingSplit.revert();
-        captionCleanups.forEach((fn) => fn());
-      };
-    }, rootRef);
-
+        .from(".lookbook-script", {
+          autoAlpha: 0,
+          rotate: -12,
+          scale: 0.85,
+          duration: 0.75,
+          ease: EASE.overshoot,
+        }, "-=0.55")
+        .from(".lookbook-meta", {
+          autoAlpha: 0,
+          y: 18,
+          stagger: 0.06,
+          duration: 0.55,
+          ease: EASE.hard,
+        }, "-=0.5");
+      return () => split.revert();
+    }, section);
     return () => ctx.revert();
   }, []);
 
+  useEffect(() => {
+    const section = rootRef.current;
+    if (!section || typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const observer = new IntersectionObserver(
+      ([entry]) => setVisible(Boolean(entry?.isIntersecting)),
+      { rootMargin: "100px 0px 100px 0px" },
+    );
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const onChange = () => setReducedMotion(media.matches);
+    onChange();
+    media.addEventListener?.("change", onChange);
+    return () => media.removeEventListener?.("change", onChange);
+  }, []);
+
+  const isStopped = manuallyPaused || hovered || focusWithin || flippedIndex !== null || !visible || reducedMotion;
+
+  useEffect(() => {
+    if (isStopped) return;
+    const timer = window.setInterval(() => {
+      setActiveIndex((current) => (current + 1) % FRAME_COUNT);
+    }, ROTATION_MS);
+    return () => window.clearInterval(timer);
+  }, [activeIndex, isStopped]);
+
+  function navigate(direction: number) {
+    setFlippedIndex(null);
+    setActiveIndex((current) => (current + direction + FRAME_COUNT) % FRAME_COUNT);
+  }
+
+  function selectFrame(index: number) {
+    if (touchSwiped.current) {
+      touchSwiped.current = false;
+      return;
+    }
+    if (index !== activeIndex) {
+      setActiveIndex(index);
+      setFlippedIndex(index);
+    } else {
+      setFlippedIndex((current) => current === index ? null : index);
+    }
+  }
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (event.key === "ArrowLeft") {
+      event.preventDefault();
+      navigate(-1);
+    } else if (event.key === "ArrowRight") {
+      event.preventDefault();
+      navigate(1);
+    } else if (event.key === "Escape" && flippedIndex !== null) {
+      event.preventDefault();
+      setFlippedIndex(null);
+    }
+  }
+
+  function onTouchEnd(event: TouchEvent<HTMLDivElement>) {
+    if (touchStartX.current === null) return;
+    const delta = event.changedTouches[0]?.clientX ?? touchStartX.current;
+    const distance = delta - touchStartX.current;
+    touchStartX.current = null;
+    if (Math.abs(distance) > 48) {
+      touchSwiped.current = true;
+      window.setTimeout(() => { touchSwiped.current = false; }, 450);
+      navigate(distance < 0 ? 1 : -1);
+    }
+  }
+
+  const activeFrame = LOOKBOOK_FRAMES[activeIndex]!;
+
   return (
-    <section ref={rootRef} id="lookbook" className="relative bg-black">
-      <div ref={pinRef} className="relative overflow-hidden py-[12vh] md:h-screen md:py-0">
-        <span
-          aria-hidden
-          className={`${styles.edge} pointer-events-none absolute left-2 top-[30vh] hidden font-stencil text-[0.6rem] tracking-stencil text-concrete-gray/60 xl:block`}
-        >
-          {LOOKBOOK_COPY.hint}
-        </span>
-
-        <div className="px-gutter md:pt-[9vh]">
-          <div className="lookbook-meta flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
-            <p className="font-stencil text-stamp text-concrete-gray">{LOOKBOOK_COPY.eyebrow}</p>
-            <p className="font-stencil text-stamp text-concrete-gray">{LOOKBOOK_COPY.aside}</p>
-          </div>
-          <div className="hairline mt-4" />
-
-          {/* Display word with the brush script slung across its shoulder —
-              a lockup that appears nowhere else on the page. */}
-          <div className="relative mt-6 inline-block">
+    <section ref={rootRef} id="lookbook" className={`${styles.section} relative bg-black`}>
+      <div className={styles.masthead}>
+        <div className="lookbook-meta flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between sm:gap-8">
+          <p className="font-stencil text-stamp text-concrete-gray">{LOOKBOOK_COPY.eyebrow}</p>
+          <p className="font-stencil text-stamp text-concrete-gray">{LOOKBOOK_COPY.aside}</p>
+        </div>
+        <div className={styles.rule} />
+        <div className={styles.titleRow}>
+          <div className="relative inline-block">
             <span className="split-mask block pb-[0.08em]">
               <span className="lookbook-heading text-distress block font-display text-display-xl leading-[0.85] text-bone-white">
                 {LOOKBOOK_COPY.heading}
               </span>
             </span>
-            <span
-              aria-hidden
-              className={`${styles.script} lookbook-script pointer-events-none absolute -bottom-[0.3em] left-[58%] whitespace-nowrap font-script text-[clamp(2.2rem,6vw,5rem)] leading-none text-blood-accent`}
-            >
+            <span className={`${styles.script} lookbook-script font-script text-blood-accent`} aria-hidden>
               {LOOKBOOK_COPY.headingScript}
             </span>
           </div>
-        </div>
-
-        {/* Row is the thing that translates; each frame keeps its own width. */}
-        <div
-          ref={trackRef}
-          className={`${styles.track} lookbook-track mt-[6vh] flex flex-col gap-[8vh] px-gutter md:mt-[5vh] md:w-max md:flex-row md:items-start md:gap-[4vw] md:pr-[22vw]`}
-        >
-          {LOOKBOOK_FRAMES.map((frame) => (
-            <article
-              key={frame.id}
-              className={`${styles.frame} lookbook-frame relative shrink-0 border border-bone-white/15 ${frame.width} md:w-auto ${frame.offset}`}
+          <div className={styles.controls}>
+            <span className={styles.feedStatus}>
+              <span className={styles.signal} aria-hidden />
+              {flippedIndex !== null ? "CLASSIFIED / OPEN" : isStopped ? "SIGNAL PAUSED" : "SIGNAL / LIVE"}
+            </span>
+            <button
+              type="button"
+              className={styles.pauseButton}
+              onClick={() => setManuallyPaused((current) => !current)}
+              aria-label={manuallyPaused ? "Resume automatic carousel rotation" : "Pause automatic carousel rotation"}
+              aria-pressed={manuallyPaused}
               data-cursor="hover"
             >
-              <div className={`relative ${frame.aspect} ${frame.height} md:w-auto`}>
-                <DistortionImage src={frame.src} alt={frame.alt} velocityRef={velocityRef} />
+              {manuallyPaused ? "▶ RESUME" : "Ⅱ HOLD FEED"}
+            </button>
+          </div>
+        </div>
+      </div>
 
-                <span className="pointer-events-none absolute left-3 top-3 z-10 font-stencil text-[0.58rem] tracking-stencil text-bone-white/70">
-                  {frame.index}
-                </span>
+      <div
+        className={styles.gallery}
+        role="region"
+        aria-roledescription="3D carousel"
+        aria-label="Caught on Camera: floating photographic archive. Click any photograph to flip it and reveal a message."
+        onMouseEnter={() => setHovered(true)}
+        onMouseLeave={() => setHovered(false)}
+        onFocusCapture={(event) => {
+          // Pointer interaction is governed by hover/flip; keyboard focus must pause too.
+          if (event.target instanceof HTMLElement && event.target.matches(":focus-visible")) setFocusWithin(true);
+        }}
+        onBlurCapture={(event) => {
+          if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setFocusWithin(false);
+        }}
+        onKeyDown={onKeyDown}
+        onTouchStart={(event) => { touchStartX.current = event.touches[0]?.clientX ?? null; touchSwiped.current = false; }}
+        onTouchEnd={onTouchEnd}
+      >
+        <div className={styles.stage}>
+          <div className={styles.glow} aria-hidden />
+          <div className={styles.ghostType} aria-hidden>SICKO</div>
+          <div className={styles.stageTop} aria-hidden>
+            <span>SS / PRIVATE ARCHIVE</span>
+            <span>001 — {String(FRAME_COUNT).padStart(3, "0")}</span>
+          </div>
 
-                <div
-                  className={`${styles.caption} lookbook-caption pointer-events-none absolute bottom-0 left-0 right-0 z-10 bg-black/80 px-4 py-3`}
+          {LOOKBOOK_FRAMES.map((frame, index) => {
+            const offset = circularOffset(index, activeIndex);
+            const distance = Math.abs(offset);
+            const side = Math.sign(offset);
+            const inView = distance <= 2;
+            const shift = distance === 0 ? 0 : distance === 1 ? 76 : 146;
+            const rotation = distance === 0 ? 0 : distance === 1 ? 37 : 57;
+            const scale = distance === 0 ? 1 : distance === 1 ? 0.85 : 0.7;
+            const depth = distance === 0 ? 110 : distance === 1 ? -70 : -250;
+            const opacity = !inView ? 0 : distance === 0 ? 1 : distance === 1 ? 0.88 : 0.57;
+            const cardStyle: CSSProperties = {
+              transform: `translate(-50%, -50%) translate3d(${side * shift}%, 0, ${depth}px) rotateY(${-side * rotation}deg) scale(${scale})`,
+              opacity,
+              zIndex: distance === 0 ? 10 : distance === 1 ? 7 : 4,
+              pointerEvents: inView ? "auto" : "none",
+            };
+            const isFlipped = flippedIndex === index;
+            return (
+              <article
+                key={frame.id}
+                className={`${styles.card} ${distance === 0 ? styles.centerCard : ""} ${isFlipped ? styles.flipped : ""}`}
+                style={cardStyle}
+                data-distance={distance}
+                data-active={distance === 0}
+                aria-hidden={!inView}
+              >
+                <button
+                  type="button"
+                  className={styles.flipButton}
+                  onClick={() => selectFrame(index)}
+                  aria-label={`${frame.title}. ${isFlipped ? "Close the message" : "Flip to reveal the message"}. Frame ${index + 1} of ${FRAME_COUNT}.`}
+                  aria-pressed={isFlipped}
+                  tabIndex={inView ? 0 : -1}
+                  data-cursor="hover"
                 >
-                  <p className="font-display text-[clamp(1rem,1.5vw,1.4rem)] leading-none tracking-crushed text-bone-white">
-                    {frame.title}
-                  </p>
-                  <p className="mt-2 font-stencil text-[0.55rem] tracking-stencil text-blood-accent">
-                    {frame.spec}
-                  </p>
-                </div>
-              </div>
+                  <span className={styles.cardInner}>
+                    <span className={styles.faceFront}>
+                      <span className={styles.photoWrap}>
+                        <Image
+                          src={frame.src}
+                          alt={frame.alt}
+                          fill
+                          sizes="(max-width: 620px) 72vw, (max-width: 1150px) 34vw, 390px"
+                          className={styles.photo}
+                          priority={index === 0}
+                        />
+                      </span>
+                      <span className={styles.glassTint} aria-hidden />
+                      <span className={styles.faceTop}>
+                        <span>SS.0{index + 1} / SURVEILLANCE</span>
+                        <span className={styles.recording}>● REC</span>
+                      </span>
+                      <span className={styles.faceBottom}>
+                        <span className={styles.cardSpec}>{frame.spec}</span>
+                        <strong className={styles.cardName}>{frame.title}</strong>
+                        <span className={styles.cardCaption}>{frame.line}</span>
+                      </span>
+                      <span className={styles.flipPrompt} aria-hidden>OPEN FILE ↗</span>
+                    </span>
+                    <span className={styles.faceBack}>
+                      <span className={styles.backCorners} aria-hidden />
+                      <span className={styles.backTop}>FILE {frame.index} / CONFIDENTIAL</span>
+                      <span className={styles.backInsignia} aria-hidden>✳</span>
+                      <span className={styles.backLabel}>ONE MESSAGE. NO EXPLANATION.</span>
+                      <strong className={styles.backMessage}>{frame.reveal}</strong>
+                      <span className={styles.backAccent} aria-hidden />
+                      <span className={styles.backBottom}>SS / LEAVE NO TRACE</span>
+                      <span className={styles.backReturn}>TAP AGAIN TO RETURN ↵</span>
+                    </span>
+                  </span>
+                </button>
+                <span className={styles.cardEdge} aria-hidden />
+              </article>
+            );
+          })}
 
-              <span
-                aria-hidden
-                className="lookbook-rule block h-px origin-left scale-x-0 bg-blood-accent"
-              />
-              <p className="mt-3 font-body text-[0.9rem] leading-snug text-concrete-gray">
-                {frame.line}
-              </p>
-            </article>
-          ))}
-
-          {/* Sign-off rides at the end of the row, not under it. */}
-          <div className="shrink-0 self-center md:w-[24vw]">
-            <p className="font-body text-[clamp(1.2rem,2vw,1.8rem)] font-semibold uppercase leading-[1.08] tracking-[-0.01em] text-bone-white">
-              {LOOKBOOK_COPY.outro}
-            </p>
-            <div className="hairline mt-5" />
-            <p className="mt-4 font-stencil text-[0.55rem] tracking-stencil text-concrete-gray">
-              {LOOKBOOK_COPY.outroMeta}
-            </p>
+          <div className={styles.stageBottom} aria-hidden>
+            <span>FOCUS / {String(activeIndex + 1).padStart(2, "0")}</span>
+            <span>DRAG THE EVIDENCE / NEVER THE PAGE</span>
           </div>
         </div>
 
-        {/* Scrub bar reads as a tape transport, not a scrollbar. */}
-        <div className="absolute inset-x-0 bottom-[5vh] hidden items-center gap-5 px-gutter md:flex">
-          <span className="font-display text-[1.6rem] leading-none tracking-crushed text-bone-white">
-            <span ref={counterRef}>01</span>
-            <span className="text-concrete-gray">
-              {` / ${String(LOOKBOOK_FRAMES.length).padStart(2, "0")}`}
-            </span>
+        <div className={styles.dock}>
+          <button type="button" className={styles.navButton} onClick={() => navigate(-1)} aria-label="Previous photograph" data-cursor="hover">
+            <span aria-hidden>←</span>
+          </button>
+          <span className={styles.dockThumb} aria-hidden>
+            <Image src={activeFrame.src} alt="" fill sizes="52px" className={styles.dockPhoto} />
           </span>
-          <span className="relative block h-px flex-1 bg-bone-white/15">
-            <span
-              ref={progressRef}
-              className={`${styles.progressFill} absolute inset-0 block bg-blood-accent`}
-            />
-          </span>
+          <div className={styles.dockInfo}>
+            <span>NOW VIEWING / {String(activeIndex + 1).padStart(2, "0")}</span>
+            <strong>{activeFrame.title}</strong>
+          </div>
+          <span className={styles.dockDivider} aria-hidden />
+          <button type="button" className={styles.navButton} onClick={() => navigate(1)} aria-label="Next photograph" data-cursor="hover">
+            <span aria-hidden>→</span>
+          </button>
         </div>
+        <div className={styles.dots} aria-label="Choose a photograph">
+          {LOOKBOOK_FRAMES.map((frame, index) => (
+            <button
+              type="button"
+              key={frame.id}
+              className={`${styles.dot} ${index === activeIndex ? styles.activeDot : ""}`}
+              aria-label={`Show frame ${index + 1}: ${frame.title}`}
+              aria-current={index === activeIndex ? "true" : undefined}
+              onClick={() => { setFlippedIndex(null); setActiveIndex(index); }}
+              data-cursor="hover"
+            />
+          ))}
+        </div>
+        <p className={styles.galleryInstruction}>
+          <span>HOVER TO FREEZE THE SCENE</span>
+          <span>CLICK A FRAME / UNSEAL THE MESSAGE</span>
+          <span>SWIPE OR USE THE ARROWS</span>
+        </p>
+      </div>
+
+      <div className={styles.signoff}>
+        <span>{LOOKBOOK_COPY.outro}</span>
+        <span>{LOOKBOOK_COPY.outroMeta}</span>
       </div>
     </section>
   );

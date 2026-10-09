@@ -481,3 +481,48 @@
     transition-duration: 0.01ms;
   }
 }
+
+/* ENTRY CLEARANCE — fluid in both axes. Small laptop viewports get the full
+   seal control without the CTA falling below the visible screen. */
+.accessGate {
+  max-height: calc(100dvh - 2rem);
+  overflow-y: auto;
+  scrollbar-width: none;
+  overscroll-behavior: contain;
+}
+.accessGate::-webkit-scrollbar { display: none; }
+
+@media (min-width: 768px) and (max-height: 820px) {
+  .accessGate { width: min(780px, calc(100vw - 5rem)); }
+  .accessMeta, .accessFooter { padding-block: clamp(0.25rem, 1.1vh, 0.55rem); }
+  .accessTitle { padding-block: clamp(0.35rem, 1.4vh, 0.8rem); }
+  .accessTitle > div:first-child span { font-size: clamp(1.8rem, 8vh, 4.2rem); }
+  .accessTitle > div:last-child span { font-size: clamp(3rem, 18.5vh, 8.6rem); }
+  .accessInstruction { padding: clamp(0.25rem, 0.9vh, 0.65rem) 0; }
+  .accessButton {
+    min-height: clamp(3.9rem, 14vh, 6.5rem);
+    margin-top: clamp(0.15rem, 0.7vh, 0.45rem);
+    padding-block: clamp(0.5rem, 1.3vh, 0.8rem);
+  }
+  .buttonLabel { font-size: clamp(1.65rem, 5.6vh, 3.8rem); }
+  .buttonSub { margin-top: 0.3rem; }
+}
+
+@media (max-height: 590px) {
+  .accessGate { max-height: calc(100dvh - 0.8rem); }
+  .accessMeta, .accessFooter { padding-block: 0.18rem; }
+  .accessTitle { padding-block: 0.15rem 0.3rem; }
+  .accessTitle > div:first-child span { font-size: clamp(1.5rem, 7vh, 2.8rem); }
+  .accessTitle > div:last-child span { font-size: clamp(2.7rem, 16vh, 6rem); }
+  .accessInstruction { padding: 0.15rem 0; }
+  .accessButton { min-height: 3.55rem; margin-top: 0.22rem; padding-block: 0.35rem; }
+  .buttonLabel { font-size: clamp(1.25rem, 6vh, 2.5rem); }
+  .buttonSub { margin-top: 0.16rem; }
+}
+
+@media (max-width: 767px) and (max-height: 680px) {
+  .accessTitle > div:last-child span { font-size: clamp(2.7rem, 17vh, 5.5rem); }
+  .accessButton { min-height: clamp(3.7rem, 12vh, 5.5rem); }
+  .buttonLabel { font-size: clamp(1.25rem, 5.6vh, 2.5rem); }
+  .buttonSub { letter-spacing: 0.1em; }
+}

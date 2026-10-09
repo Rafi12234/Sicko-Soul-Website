@@ -17,7 +17,7 @@ export const FOOTER_COPY = {
         { label: "Products", href: "/products" },
         { label: "Cart", href: "/cart" },
         { label: "Track Order", href: "/track-order" },
-        { label: "The Arsenal", href: "#segments" },
+        { label: "New Drop", href: "#drop" },
         { label: "The Rack", href: "#rack" },
         { label: "The Streets", href: "#the-streets" },
         { label: "Lookbook", href: "#lookbook" },

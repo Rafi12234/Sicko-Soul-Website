@@ -6,7 +6,6 @@ import Hero from "@/components/sections/Hero";
 import Lookbook from "@/components/sections/Lookbook";
 import Manifesto from "@/components/sections/Manifesto";
 import Rack from "@/components/sections/Rack";
-import Segments from "@/components/sections/Segments";
 import Streets from "@/components/sections/Streets";
 import Navbar from "@/components/ui/Navbar";
 import StatementBand from "@/components/ui/StatementBand";
@@ -23,14 +22,13 @@ export default async function Home() {
       <Navbar />
       <main>
         <Hero />
-        <Segments categories={catalogCategories} />
         <Manifesto />
         <StatementBand statement={STATEMENTS.entry} />
+        <Drop />
         <Rack catalogCategories={catalogCategories} />
         <Streets />
         <StatementBand statement={STATEMENTS.seen} />
         <Lookbook />
-        <Drop />
         <StatementBand statement={STATEMENTS.ask} />
         <Cred />
         <Feedback />

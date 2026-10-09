@@ -8,7 +8,6 @@ import styles from "./Manifesto.module.css";
 
 export default function Manifesto() {
   const rootRef = useRef<HTMLElement>(null);
-  const pinRef = useRef<HTMLDivElement>(null);
   const ghostRef = useRef<HTMLSpanElement>(null);
   const spineRef = useRef<HTMLSpanElement>(null);
   const glowRef = useRef<HTMLSpanElement>(null);
@@ -24,49 +23,41 @@ export default function Manifesto() {
       gsap.set(split.words, { autoAlpha: 0.2 });
       gsap.set(".manifesto-verdict", { autoAlpha: 0, yPercent: 40 });
 
-      const buildRead = (pinned: boolean) => {
-        const tl = gsap.timeline({
+      // The creed reveals as the visitor arrives, but NEVER pins the page or
+      // scrubs against the scroll wheel. Reading is optional; scrolling stays free.
+      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (prefersReducedMotion) {
+        gsap.set(split.words, { autoAlpha: 1 });
+        gsap.set(".manifesto-verdict", { autoAlpha: 1, yPercent: 0 });
+        gsap.set(".manifesto-stamp", { autoAlpha: 1, scale: 1, rotate: -9 });
+        gsap.set(spineRef.current, { scaleY: 1 });
+      } else {
+        const read = gsap.timeline({
           scrollTrigger: {
             id: "manifesto-read",
             trigger: rootRef.current,
-            start: pinned ? "top top" : "top 78%",
-            end: pinned ? () => `+=${window.innerHeight * 1.9}` : "bottom 40%",
-            pin: pinned ? pinRef.current : false,
-            anticipatePin: pinned ? 1 : 0,
-            scrub: 0.6,
-            invalidateOnRefresh: true,
+            start: "top 76%",
+            toggleActions: "play none none none",
+            once: true,
           },
         });
-
-        // The spotlight: words burn in one after another, never as a block.
-        tl.to(
-          split.words,
-          { autoAlpha: 1, duration: 1, stagger: 0.35, ease: "none" },
-          0,
-        )
-          .to(spineRef.current, { scaleY: 1, duration: split.words.length * 0.35, ease: "none" }, 0)
-          .to(ghostRef.current, { yPercent: -22, autoAlpha: 0.1, ease: "none" }, 0)
-          .to(
-            ".manifesto-verdict",
-            { autoAlpha: 1, yPercent: 0, duration: 2.2, ease: "power2.out" },
-            ">-1.2",
-          )
+        read
+          .to(split.words, {
+            autoAlpha: 1,
+            duration: 0.4,
+            stagger: 0.048,
+            ease: "power1.out",
+          })
+          .to(spineRef.current, { scaleY: 1, duration: 0.8, ease: EASE.expo }, 0)
+          .to(ghostRef.current, { yPercent: -12, autoAlpha: 0.1, duration: 2.4 }, 0)
+          .to(".manifesto-verdict", { autoAlpha: 1, yPercent: 0, duration: 0.7, ease: "power2.out" }, "-=0.12")
           .fromTo(
             ".manifesto-stamp",
-            { autoAlpha: 0, scale: 1.8, rotate: -18 },
-            { autoAlpha: 1, scale: 1, rotate: -9, duration: 1.4, ease: EASE.overshoot },
-            ">-0.6",
+            { autoAlpha: 0, scale: 1.35, rotate: -18 },
+            { autoAlpha: 1, scale: 1, rotate: -9, duration: 0.6, ease: EASE.overshoot },
+            "-=0.35",
           );
-
-        return tl;
-      };
-
-      mm.add("(min-width: 768px)", () => {
-        buildRead(true);
-      });
-      mm.add("(max-width: 767px)", () => {
-        buildRead(false);
-      });
+      }
 
       /* ---- Masthead sits outside the pin so it reads before the creed. ---- */
       gsap.from(q(".manifesto-meta"), {
@@ -124,7 +115,7 @@ export default function Manifesto() {
 
   return (
     <section ref={rootRef} id="manifesto" className="theme-graphite relative bg-black">
-      <div ref={pinRef} className="relative flex min-h-screen flex-col justify-center overflow-hidden py-[12vh]">
+      <div className="relative flex min-h-screen flex-col justify-center overflow-hidden py-[12vh]">
         <span
           ref={glowRef}
           aria-hidden
@@ -173,8 +164,7 @@ export default function Manifesto() {
             </span>
           </div>
 
-          {/* The creed is a sheet laid on the table, not a white section.
-              Sized so the whole page reads inside one pinned viewport. */}
+          {/* Document plate sits in the normal page flow; nothing holds the scroll. */}
           <div
             className={`${styles.sheet} theme-light relative max-w-[50rem] bg-black px-[5vw] py-[4.5vh] shadow-print lg:ml-[4%] lg:px-[3vw]`}
           >
@@ -217,7 +207,7 @@ export default function Manifesto() {
           </div>
         </div>
 
-        {/* Slams on once the creed has fully burned in. */}
+        {/* Slams on once the creed has revealed, without locking the scroll. */}
         <span
           aria-hidden
           className={`${styles.stamp} manifesto-stamp pointer-events-none absolute bottom-[9vh] right-[6vw] z-10 hidden border-2 border-blood-accent px-6 py-3 font-stencil text-[clamp(0.7rem,1.6vw,1.1rem)] tracking-stencil text-blood-accent opacity-0 md:block`}
