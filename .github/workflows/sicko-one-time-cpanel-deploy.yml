@@ -1,0 +1,103 @@
+name: One-time requested cPanel release deployment
+
+on:
+  push:
+    branches: [main]
+    paths: [.github/workflows/sicko-one-time-cpanel-deploy.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-once:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      CPANEL_HOST: ${{ vars.CPANEL_HOST }}
+      CPANEL_UAPI_TOKEN: ${{ secrets.CPANEL_UAPI_TOKEN }}
+      EXPECTED_SOURCE: d045547b7ec89d694536120902183a4f492d1b31
+      REPO_ROOT: /home/sickosou/repositories/Sicko-Soul-Website
+    steps:
+      - name: Verify release; update managed Git repository; request existing safe deployment
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          test -n "${CPANEL_HOST:-}"
+          test -n "${CPANEL_UAPI_TOKEN:-}"
+          response="$(mktemp)"
+          trap 'rm -f "$response"' EXIT
+
+          uapi() {
+            local endpoint="$1"
+            shift
+            local http
+            http="$(curl --silent --show-error --connect-timeout 10 --max-time 90 \
+              --get "https://${CPANEL_HOST}:2083/execute/${endpoint}" \
+              --header "Authorization: cpanel sickosou:${CPANEL_UAPI_TOKEN}" \
+              --header 'Accept: application/json' \
+              "$@" -o "$response" -w '%{http_code}')"
+            echo "${endpoint}: HTTP ${http}"
+            test "$http" = 200
+            if ! jq -e '.status == 1 and ((.errors // []) | length == 0)' "$response" >/dev/null; then
+              echo "API failure (error messages only):"
+              jq -c '{status,errors,messages}' "$response"
+              exit 1
+            fi
+          }
+
+          echo "Verifying prepared release matches expected source..."
+          git_sha="$(curl -fsSL --connect-timeout 10 --max-time 20 \
+            'https://raw.githubusercontent.com/Rafi12234/Sicko-Soul-Website/cpanel-release/source-commit.txt' | tr -d '\r\n')"
+          test "$git_sha" = "$EXPECTED_SOURCE"
+          echo "Confirmed intended release source: $EXPECTED_SOURCE"
+
+          echo "Reading managed repository..."
+          uapi VersionControl/retrieve
+          repo_entry="$(jq -c --arg root "$REPO_ROOT" '.data[] | select(.repository_root==$root)' "$response")"
+          test -n "$repo_entry"
+          test "$(jq -r '.branch' <<< "$repo_entry")" = cpanel-release
+          test "$(jq -r '.deployable' <<< "$repo_entry")" = 1
+          repo_name="$(jq -r '.name' <<< "$repo_entry")"
+          test -n "$repo_name"
+
+          echo "Updating cPanel-managed checkout from origin/cpanel-release..."
+          uapi VersionControl/update \
+            --data-urlencode "name=${repo_name}" \
+            --data-urlencode "repository_root=${REPO_ROOT}" \
+            --data-urlencode "branch=cpanel-release" \
+            --data-urlencode 'source_repository={"remote_name":"origin"}'
+
+          echo "Verifying updated checkout revision..."
+          uapi VersionControl/retrieve
+          new_entry="$(jq -c --arg root "$REPO_ROOT" '.data[] | select(.repository_root==$root)' "$response")"
+          checked_out_sha="$(jq -r '.last_update.identifier // empty' <<< "$new_entry")"
+          published_sha="$(curl -fsSL --connect-timeout 10 --max-time 20 \
+            'https://api.github.com/repos/Rafi12234/Sicko-Soul-Website/commits/cpanel-release' | jq -r '.sha')"
+          echo "Managed checkout SHA: $checked_out_sha"
+          echo "Prepared release SHA: $published_sha"
+          if [[ "$checked_out_sha" != "$published_sha" ]]; then
+            echo "FAIL: Checkout not verified at prepared release. Will not deploy."
+            exit 1
+          fi
+
+          echo "Requesting cPanel deployment using existing .cpanel.yml..."
+          uapi VersionControlDeployment/create --data-urlencode "repository_root=${REPO_ROOT}"
+          echo "Deployment API accepted request. Waiting for production health..."
+
+          for i in $(seq 1 100); do
+            health="$(curl -fsS --max-time 7 'https://sickosoul.shop/__sicko_gateway_health' 2>/dev/null || true)"
+            source="$(jq -r '.runtimeSource // empty' <<< "$health" 2>/dev/null || true)"
+            if [[ "$source" == "$EXPECTED_SOURCE" ]]; then
+              echo "PASS: New release is active: $source"
+              exit 0
+            fi
+            if (( i % 10 == 0 )); then
+              echo "Still waiting for new release ($i checks). Current runtime: ${source:-unavailable}"
+              uapi VersionControlDeployment/retrieve || true
+              jq -c '{status,errors,deployments:(.data // [] | if type == "array" then map({log_path,status,state}) else . end)}' "$response" || true
+            fi
+            sleep 5
+          done
+
+          echo "FAIL: New release not verified active. The existing release should remain active if preflight failed."
+          exit 1
