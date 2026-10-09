@@ -109,3 +109,33 @@ jobs:
           query_api "VersionControlDeployment/retrieve" "$deploy_response"
           echo "Deployment status records: $(jq -r '(.data // []) | if type == "array" then length else 1 end' "$deploy_response")"
           echo "PASS: Read-only deployment API endpoint is accessible."
+
+      - name: Inspect active release and recent cPanel deployment state
+        shell: bash
+        env:
+          CPANEL_HOST: ${{ vars.CPANEL_HOST }}
+          CPANEL_UAPI_TOKEN: ${{ secrets.CPANEL_UAPI_TOKEN }}
+        run: |
+          set -euo pipefail
+          repo_response="$(mktemp)"
+          deploy_response="$(mktemp)"
+          trap 'rm -f "$repo_response" "$deploy_response"' EXIT
+          curl -fsS --max-time 20 \
+            -H "Authorization: cpanel sickosou:${CPANEL_UAPI_TOKEN}" \
+            -H 'Accept: application/json' \
+            "https://${CPANEL_HOST}:2083/execute/VersionControl/retrieve" -o "$repo_response"
+          echo "cPanel managed repository state:"
+          jq -c '
+            (.data // [])[] |
+            select(.repository_root == "/home/sickosou/repositories/Sicko-Soul-Website") |
+            {branch,deployable,checkedOutCommit:.last_update.identifier,last_deployment}
+          ' "$repo_response"
+          curl -fsS --max-time 20 \
+            -H "Authorization: cpanel sickosou:${CPANEL_UAPI_TOKEN}" \
+            -H 'Accept: application/json' \
+            "https://${CPANEL_HOST}:2083/execute/VersionControlDeployment/retrieve" -o "$deploy_response"
+          echo "cPanel deployment records:"
+          jq -c '{status,errors,data}' "$deploy_response" | cut -c 1-3500
+          echo "Public site health:"
+          curl -fsS --max-time 15 'https://sickosoul.shop/__sicko_gateway_health' || true
+          echo
