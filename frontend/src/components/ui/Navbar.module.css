@@ -6,25 +6,208 @@
   will-change: transform, filter;
 }
 
-/* Full-bleed menu plate wipes in from the top edge — no fade, no slide-over. */
-.overlay {
-  clip-path: inset(0 0 100% 0);
-  will-change: clip-path;
+/* Compact, high-contrast actions stay visible over any hero-video frame. */
+.cartAction,
+.menuTrigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 12px;
+  font-family: "Archivo Narrow", "Arial Narrow", sans-serif;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  line-height: 1;
+  text-decoration: none;
+  transition: background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease;
 }
 
+.cartAction {
+  gap: 10px;
+  color: var(--bone-white);
+  border: 1px solid rgba(242, 240, 235, 0.58);
+  background: #171719;
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.45);
+}
+.cartAction:hover,
+.cartAction:focus-visible {
+  background: #29292b;
+  border-color: var(--bone-white);
+  box-shadow: 3px 3px 0 var(--blood-accent);
+}
+.cartIcon {
+  font-family: "Archivo Narrow", sans-serif;
+  font-size: 1.25rem;
+  font-weight: 400;
+  line-height: 0.5;
+  color: #d74444;
+}
+.cartCount {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 29px;
+  height: 26px;
+  padding: 0 5px;
+  color: var(--bone-white);
+  background: var(--blood-accent);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.menuDock {
+  position: relative;
+  isolation: isolate;
+}
+.menuTrigger {
+  position: relative;
+  gap: 11px;
+  color: var(--bone-white);
+  border: 1px solid #c24b4b;
+  background: var(--blood-accent);
+  box-shadow: 3px 3px 0 rgba(0, 0, 0, 0.6);
+}
+.menuTrigger:hover,
+.menuTrigger:focus-visible,
+.menuTrigger[aria-expanded="true"] {
+  background: #a30a0a;
+  border-color: #e67777;
+  box-shadow: 3px 3px 0 #f2f0eb;
+}
+.menuMark {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  width: 18px;
+}
+.menuMark span {
+  width: 100%;
+  height: 1.5px;
+  background: currentColor;
+}
+.menuMark span:nth-child(2) { width: 70%; }
+.chevron {
+  font-size: 1.3rem;
+  font-weight: 400;
+  line-height: 0.5;
+  transform: translateY(-2px);
+  transition: transform 170ms ease;
+}
+.chevronActive { transform: translateY(1px) rotate(180deg); }
+
+/* Padding bridges trigger and dropdown so the pointer never crosses a dead gap. */
+.dropdownShell {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  width: min(410px, calc(100vw - 40px));
+  padding-top: 8px;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-9px);
+  transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
+  z-index: 10;
+}
+.dropdownOpen {
+  visibility: visible;
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateY(0);
+}
+.dropdown {
+  max-height: calc(100dvh - 85px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 16px 20px 20px;
+  /* Solid charcoal, not a translucent plate that competes with the video. */
+  background: #1c1c1e;
+  border: 1px solid rgba(242, 240, 235, 0.24);
+  border-top: 4px solid var(--blood-accent);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.7);
+  scrollbar-width: thin;
+  scrollbar-color: #8a0303 #1c1c1e;
+}
+.dropdownHeading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2px 0 15px;
+  color: #b6b2ac;
+  font: 700 0.65rem/1 "Archivo Narrow", sans-serif;
+  letter-spacing: 0.25em;
+  border-bottom: 1px solid rgba(242, 240, 235, 0.15);
+}
 .link {
-  display: block;
-  will-change: transform;
+  display: grid;
+  grid-template-columns: 32px minmax(0, 1fr) 20px;
+  gap: 12px;
+  align-items: center;
+  min-height: 60px;
+  padding: 7px 5px;
+  color: var(--bone-white);
+  border-bottom: 1px solid rgba(242, 240, 235, 0.12);
+  transition: background-color 160ms ease, color 160ms ease, padding-left 160ms ease;
+}
+.link:hover,
+.link:focus-visible {
+  padding-left: 13px;
+  background: #2d2224;
+  outline: none;
+}
+.link:focus-visible { box-shadow: inset 3px 0 var(--bone-white); }
+.linkIndex {
+  font: 400 0.7rem/1 "Special Elite", monospace;
+  letter-spacing: 0.12em;
+  color: #d66565;
+}
+.linkLabel {
+  font-family: "Anton", Impact, sans-serif;
+  font-size: clamp(1.35rem, 2.1vw, 1.75rem);
+  font-weight: 400;
+  line-height: 1;
+  text-transform: uppercase;
+}
+.linkArrow {
+  font-size: 1.2rem;
+  color: #d66565;
+  text-align: right;
+  transition: transform 160ms ease;
+}
+.link:hover .linkArrow,
+.link:focus-visible .linkArrow { transform: translate(2px, -2px); }
+.cartLink {
+  margin-top: 8px;
+  padding-right: 10px;
+  background: var(--blood-accent);
+  border-bottom-color: transparent;
+}
+.cartLink .linkIndex,
+.cartLink .linkArrow { color: var(--bone-white); }
+.cartLink:hover,
+.cartLink:focus-visible { background: #a30a0a; }
+.dropdownAside {
+  margin-top: 18px;
+  max-width: 28ch;
+  color: #b6b2ac;
+  font: 400 0.66rem/1.5 "Special Elite", monospace;
+  letter-spacing: 0.12em;
 }
 
-.linkInner {
-  display: inline-block;
-  will-change: transform;
+@media (max-width: 520px) {
+  .cartLabel { display: none; }
+  .cartAction { gap: 6px; padding: 0 9px; }
+  .menuTrigger { gap: 7px; padding: 0 9px; }
+  .dropdown { padding: 14px 16px 16px; }
 }
 
-/* Hairline that draws left-to-right under each menu row on hover. */
-.linkRule {
-  transform: scaleX(0);
-  transform-origin: left center;
-  will-change: transform;
+@media (prefers-reduced-motion: reduce) {
+  .dropdownShell, .link, .linkArrow, .chevron, .menuTrigger, .cartAction { transition: none; }
+}
+
+@media (max-width: 420px) {
+  .cartIcon, .chevron { display: none; }
+  .cartAction, .menuTrigger { gap: 5px; padding: 0 7px; font-size: 0.72rem; }
 }
