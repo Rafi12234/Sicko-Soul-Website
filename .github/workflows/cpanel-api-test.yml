@@ -58,3 +58,54 @@ jobs:
 
           echo "cPanel API Status: 1"
           echo "PASS: GitHub Actions can authenticate with cPanel UAPI."
+
+      - name: Inspect Git repository and deployment status (read-only)
+        shell: bash
+        env:
+          CPANEL_HOST: ${{ vars.CPANEL_HOST }}
+          CPANEL_UAPI_TOKEN: ${{ secrets.CPANEL_UAPI_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          repo_response="$(mktemp)"
+          deploy_response="$(mktemp)"
+          trap 'rm -f "$repo_response" "$deploy_response"' EXIT
+
+          query_api() {
+            local endpoint="$1"
+            local output="$2"
+            local code
+
+            code="$(curl --silent --show-error \
+              --connect-timeout 10 \
+              --max-time 25 \
+              --output "$output" \
+              --write-out '%{http_code}' \
+              --header "Authorization: cpanel sickosou:${CPANEL_UAPI_TOKEN}" \
+              --header 'Accept: application/json' \
+              "https://${CPANEL_HOST}:2083/execute/${endpoint}")"
+
+            echo "$endpoint HTTP status: $code"
+
+            if [[ "$code" != 200 ]]; then
+              echo "FAIL: UAPI did not return HTTP 200."
+              exit 1
+            fi
+            if ! jq -e 'type == "object" and .status == 1 and ((.errors // []) | length == 0)' "$output" > /dev/null; then
+              echo "FAIL: UAPI endpoint did not return successful JSON."
+              exit 1
+            fi
+          }
+
+          query_api "VersionControl/retrieve" "$repo_response"
+          echo "Registered Sicko Soul repository:"
+          jq -r '
+            (.data // []) |
+            (if type == "array" then .[] else . end) |
+            select(.repository_root == "/home/sickosou/repositories/Sicko-Soul-Website") |
+            "  Path: \(.repository_root)\n  Branch: \(.branch // .branch_name // "unknown")\n  Deployable: \(.deployable // "unknown")"
+          ' "$repo_response"
+
+          query_api "VersionControlDeployment/retrieve" "$deploy_response"
+          echo "Deployment status records: $(jq -r '(.data // []) | if type == "array" then length else 1 end' "$deploy_response")"
+          echo "PASS: Read-only deployment API endpoint is accessible."
