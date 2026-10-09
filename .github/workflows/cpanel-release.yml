@@ -1,9 +1,9 @@
-name: Build Sicko Soul Release (Manual)
+name: Build and release Sicko Soul
 
 on:
-  # Manual only while hosting deployments are paused.
-  # Re-enable push after cPanel API access is confirmed.
   workflow_dispatch:
+  push:
+    branches: [main]
 
 permissions:
   contents: write
@@ -18,7 +18,7 @@ env:
 
 jobs:
   build-release:
-    name: Build release for manual hosting deployment
+    name: Test and publish release artifacts
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -316,3 +316,101 @@ jobs:
             echo "and activates the release. Apply any required SQL yourself"
             echo "through phpMyAdmin BEFORE running the command."
           } >> "$GITHUB_STEP_SUMMARY"
+
+  deploy-cpanel:
+    name: Activate tested release using cPanel UAPI
+    needs: build-release
+    # Deliberately OFF until a manual release using this optimized script passes
+    # on the actual 100-NPROC account. No variable = no production change.
+    if: ${{ github.event_name == 'push' && vars.SICKO_AUTODEPLOY_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    environment: production
+    steps:
+      - name: Check published release and deploy through cPanel
+        shell: bash
+        env:
+          CPANEL_HOST: ${{ vars.CPANEL_HOST }}
+          CPANEL_UAPI_TOKEN: ${{ secrets.CPANEL_UAPI_TOKEN }}
+          EXPECTED_SOURCE: ${{ github.sha }}
+          REPO_ROOT: /home/sickosou/repositories/Sicko-Soul-Website
+        run: |
+          set -Eeuo pipefail
+          test -n "${CPANEL_HOST:-}" && test -n "${CPANEL_UAPI_TOKEN:-}"
+          response="$(mktemp)"
+          trap 'rm -f "$response"' EXIT
+
+          api() {
+            local endpoint="$1"
+            shift
+            local http
+            http="$(curl --silent --show-error --connect-timeout 10 --max-time 90 \
+              --get "https://${CPANEL_HOST}:2083/execute/${endpoint}" \
+              --header "Authorization: cpanel sickosou:${CPANEL_UAPI_TOKEN}" \
+              --header 'Accept: application/json' \
+              "$@" --output "$response" --write-out '%{http_code}')"
+            echo "${endpoint}: HTTP ${http}"
+            test "$http" = "200"
+            if ! jq -e '.status == 1 and ((.errors // []) | length == 0)' "$response" >/dev/null; then
+              jq -c '{status,errors,messages}' "$response"
+              exit 1
+            fi
+          }
+
+          actual_source="$(curl -fsSL --connect-timeout 10 --max-time 25 \
+            'https://raw.githubusercontent.com/Rafi12234/Sicko-Soul-Website/cpanel-release/source-commit.txt' \
+            | tr -d '\r\n')"
+          [[ "$actual_source" == "$EXPECTED_SOURCE" ]] || {
+            echo "Release branch does not match this build. Refusing to deploy."
+            exit 1
+          }
+
+          api VersionControl/retrieve
+          repo_entry="$(jq -c --arg root "$REPO_ROOT" \
+            '.data[] | select(.repository_root == $root)' "$response")"
+          [[ -n "$repo_entry" ]]
+          [[ "$(jq -r '.branch' <<< "$repo_entry")" == "cpanel-release" ]]
+          [[ "$(jq -r '.deployable' <<< "$repo_entry")" == "1" ]]
+          repo_name="$(jq -r '.name // empty' <<< "$repo_entry")"
+          [[ -n "$repo_name" ]]
+
+          api VersionControl/update \
+            --data-urlencode "name=${repo_name}" \
+            --data-urlencode "repository_root=${REPO_ROOT}" \
+            --data-urlencode "branch=cpanel-release" \
+            --data-urlencode 'source_repository={"remote_name":"origin"}'
+
+          api VersionControl/retrieve
+          checked_out_sha="$(jq -r --arg root "$REPO_ROOT" \
+            '.data[] | select(.repository_root == $root) | .last_update.identifier // empty' \
+            "$response")"
+          published_sha="$(curl -fsSL --connect-timeout 10 --max-time 25 \
+            'https://api.github.com/repos/Rafi12234/Sicko-Soul-Website/commits/cpanel-release' \
+            | jq -r '.sha')"
+          [[ -n "$checked_out_sha" && "$checked_out_sha" == "$published_sha" ]] || {
+            echo "cPanel checkout is not the published release. Refusing to deploy."
+            exit 1
+          }
+
+          api VersionControlDeployment/create \
+            --data-urlencode "repository_root=${REPO_ROOT}"
+          echo "cPanel accepted deployment; verifying the running release..."
+
+          for i in $(seq 1 100); do
+            health="$(curl -fsS --connect-timeout 5 --max-time 10 \
+              'https://sickosoul.shop/__sicko_gateway_health' 2>/dev/null || true)"
+            if jq -e --arg sha "$EXPECTED_SOURCE" \
+              '.status == "ok" and .frontend == true and .backend == true and .runtimeSource == $sha' \
+              <<< "$health" >/dev/null 2>&1; then
+              curl -fsS --connect-timeout 5 --max-time 10 \
+                'https://sickosoul.shop/api/v1/health' >/dev/null
+              curl -fsS --connect-timeout 5 --max-time 10 \
+                'https://sickosoul.shop/' >/dev/null
+              echo "PASS: Verified the new release is serving production."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "FAIL: cPanel activation did not verify the intended source."
+          echo "Inspect the cPanel deployment log; do not mark deployment successful."
+          exit 1
