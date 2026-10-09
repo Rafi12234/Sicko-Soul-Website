@@ -18,8 +18,6 @@ const formatTimecode = (totalSeconds: number) => {
 
 export default function Hero() {
   const rootRef = useRef<HTMLElement>(null);
-  const videoWrapRef = useRef<HTMLDivElement>(null);
-  const videoInnerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cycleRef = useRef<HTMLSpanElement>(null);
   const taglineRef = useRef<HTMLSpanElement>(null);
@@ -165,13 +163,16 @@ export default function Hero() {
       let sectionActive = false;
 
       const syncAmbient = () => {
-        const active = entered && sectionActive;
+        const active = entered && sectionActive && !document.hidden;
         ambient.forEach((animation) => (active ? animation.resume() : animation.pause()));
 
         const video = videoRef.current;
         if (!video) return;
-        if (active) void video.play().catch(() => {});
-        else video.pause();
+        // Leave decoding completely idle outside the hero, while hidden,
+        // or when the visitor requested less animation.
+        const playVideo = active && !prefersReducedMotion;
+        if (playVideo && video.paused) void video.play().catch(() => {});
+        else if (!playVideo && !video.paused) video.pause();
       };
 
       const visibilityTrigger = ScrollTrigger.create({
@@ -189,6 +190,7 @@ export default function Hero() {
         },
       });
       sectionActive = visibilityTrigger.isActive;
+      document.addEventListener("visibilitychange", syncAmbient);
       syncAmbient();
 
       const unsubscribe = useAppStore.subscribe((state) => {
@@ -198,72 +200,28 @@ export default function Hero() {
         syncAmbient();
       });
 
-      /* ---- Ken Burns + parallax lift, scrubbed. ---- */
+      // Scroll only the headline, never the full-screen filtered video.
+      // Animating the video while it decodes forces large compositor updates
+      // and causes scroll frame drops, especially on shared/mobile GPUs.
       const mm = gsap.matchMedia();
-
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        // Ken Burns owns the wrapper, pointer parallax owns the inner layer,
-        // so the two never fight over the same transform.
-        gsap.to(videoWrapRef.current, {
-          scale: 1.16,
-          yPercent: 7,
-          // Scrub tweens must map linearly to scroll; `scrub: 1` supplies the feel.
-          ease: "none",
-          scrollTrigger: {
-            id: "hero-ken-burns",
-            trigger: rootRef.current,
-            start: "top top",
-            end: "bottom top",
-            scrub: 1,
-          },
-        });
-
+      mm.add("(min-width: 1024px) and (prefers-reduced-motion: no-preference)", () => {
         gsap.to(".hero-headline", {
-          yPercent: -20,
-          autoAlpha: 0.2,
+          yPercent: -15,
+          autoAlpha: 0.35,
           ease: "none",
           scrollTrigger: {
             id: "hero-headline-parallax",
             trigger: rootRef.current,
             start: "top top",
             end: "bottom top",
-            scrub: 1,
+            scrub: 0.35,
           },
         });
       });
 
-      mm.add("(min-width: 768px) and (prefers-reduced-motion: no-preference)", () => {
-        const videoX = gsap.quickTo(videoInnerRef.current, "x", { duration: 1.4, ease: EASE.expo });
-        const videoY = gsap.quickTo(videoInnerRef.current, "y", { duration: 1.4, ease: EASE.expo });
-
-        // Footage drifts toward the pointer only while the pointer is actually
-        // inside Hero. The old window listener kept doing work on every page area.
-        const root = rootRef.current;
-        if (!root) return;
-
-        const onMove = (event: PointerEvent) => {
-          // Same mapping as before, but without a layout read on every pointer event.
-          const nx = event.clientX / window.innerWidth - 0.5;
-          const ny = event.clientY / window.innerHeight - 0.5;
-          videoX(nx * 46);
-          videoY(ny * 30);
-        };
-        const onLeave = () => {
-          videoX(0);
-          videoY(0);
-        };
-
-        root.addEventListener("pointermove", onMove, { passive: true });
-        root.addEventListener("pointerleave", onLeave, { passive: true });
-        return () => {
-          root.removeEventListener("pointermove", onMove);
-          root.removeEventListener("pointerleave", onLeave);
-        };
-      });
-
-
       return () => {
         unsubscribe();
+        document.removeEventListener("visibilitychange", syncAmbient);
         split.revert();
       };
     }, rootRef);
@@ -277,8 +235,8 @@ export default function Hero() {
       id="top"
       className="relative h-screen w-full overflow-hidden bg-black"
     >
-      <div ref={videoWrapRef} className={`${styles.videoWrap} absolute inset-0`}>
-        <div ref={videoInnerRef} className={`${styles.videoInner} absolute inset-[-6%]`}>
+      <div className={`${styles.videoWrap} absolute inset-0`}>
+        <div className={`${styles.videoInner} absolute inset-0`}>
           <video
             ref={videoRef}
             className="media-treat h-full w-full object-cover"
@@ -358,7 +316,7 @@ export default function Hero() {
               </span>
             </span>
 
-            {/* 3 — knockout band: the footage plays inside the letterforms */}
+            {/* 3 — solid display lettering directly over the uncovered footage */}
             <span className="relative -mt-[0.24em] block">
               <span className={`${styles.knockout} block px-gutter`}>
                 <span
