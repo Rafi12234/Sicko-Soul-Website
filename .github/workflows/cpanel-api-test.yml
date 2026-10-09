@@ -1,0 +1,60 @@
+name: Test cPanel API Connection (Read Only)
+
+on:
+  workflow_dispatch:
+  # Run once when this test workflow is added; unrelated pushes do not trigger it.
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/cpanel-api-test.yml
+
+permissions:
+  contents: read
+
+jobs:
+  test-api:
+    name: Read-only cPanel UAPI authentication check
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+
+    steps:
+      - name: Verify cPanel API is accessible from GitHub Actions
+        shell: bash
+        env:
+          CPANEL_HOST: ${{ vars.CPANEL_HOST }}
+          CPANEL_UAPI_TOKEN: ${{ secrets.CPANEL_UAPI_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${CPANEL_HOST:-}" || -z "${CPANEL_UAPI_TOKEN:-}" ]]; then
+            echo "FAIL: CPANEL_HOST variable or CPANEL_UAPI_TOKEN secret is not configured."
+            exit 1
+          fi
+
+          response_file="$(mktemp)"
+          trap 'rm -f "$response_file"' EXIT
+
+          http_code="$(curl --silent --show-error \
+            --connect-timeout 10 \
+            --max-time 25 \
+            --output "$response_file" \
+            --write-out '%{http_code}' \
+            --header "Authorization: cpanel sickosou:${CPANEL_UAPI_TOKEN}" \
+            --header 'Accept: application/json' \
+            "https://${CPANEL_HOST}:2083/execute/VersionControl/retrieve")"
+
+          echo "HTTP Status: $http_code"
+
+          if [[ "$http_code" != "200" ]]; then
+            echo "FAIL: cPanel API did not return HTTP 200."
+            exit 1
+          fi
+
+          if ! jq -e 'type == "object" and (.status == 1) and ((.errors // []) | length == 0)' "$response_file" >/dev/null 2>&1; then
+            echo "FAIL: Response was not successful cPanel UAPI JSON."
+            exit 1
+          fi
+
+          echo "cPanel API Status: 1"
+          echo "PASS: GitHub Actions can authenticate with cPanel UAPI."
