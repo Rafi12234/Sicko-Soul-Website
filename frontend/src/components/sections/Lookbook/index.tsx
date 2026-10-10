@@ -4,16 +4,15 @@ import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type TouchEvent } from "react";
 import { gsap, SplitText } from "@/lib/gsap";
 import { EASE, STAGGER } from "@/styles/theme";
-import { LOOKBOOK_COPY, LOOKBOOK_FRAMES } from "@/data/lookbook";
+import { LOOKBOOK_COPY, type LookbookFrame } from "@/data/lookbook"; // SICKO_DYNAMIC_SITE_MEDIA
 import styles from "./Lookbook.module.css";
 
-const FRAME_COUNT = LOOKBOOK_FRAMES.length;
 const ROTATION_MS = 4600;
 
 /** Shortest signed offset, so the ends of the carousel join without a jump. */
-function circularOffset(index: number, active: number) {
-  const forward = (index - active + FRAME_COUNT) % FRAME_COUNT;
-  return forward > FRAME_COUNT / 2 ? forward - FRAME_COUNT : forward;
+function circularOffset(index: number, active: number, count: number) {
+  const forward = (index - active + count) % count;
+  return forward > count / 2 ? forward - count : forward;
 }
 
 /**
@@ -21,11 +20,13 @@ function circularOffset(index: number, active: number) {
  * Cards occupy real cover-flow positions in perspective, rather than a moving
  * flat strip. Only the five nearest cards are visible and interactive.
  */
-export default function Lookbook() {
+export default function Lookbook({ frames }: { frames: LookbookFrame[] }) {
+  const FRAME_COUNT = frames.length;
   const rootRef = useRef<HTMLElement>(null);
   const touchStartX = useRef<number | null>(null);
   const touchSwiped = useRef(false);
   const [activeIndex, setActiveIndex] = useState(0);
+  // Updates can change the gallery length while this client component is mounted.
   const [flippedIndex, setFlippedIndex] = useState<number | null>(null);
   const [manuallyPaused, setManuallyPaused] = useState(false);
   const [hovered, setHovered] = useState(false);
@@ -97,7 +98,9 @@ export default function Lookbook() {
     return () => media.removeEventListener?.("change", onChange);
   }, []);
 
-  const isStopped = manuallyPaused || hovered || focusWithin || flippedIndex !== null || !visible || reducedMotion;
+  useEffect(() => { setActiveIndex(0); setFlippedIndex(null); }, [FRAME_COUNT]);
+
+  const isStopped = FRAME_COUNT <= 1 || manuallyPaused || hovered || focusWithin || flippedIndex !== null || !visible || reducedMotion;
 
   useEffect(() => {
     if (isStopped) return;
@@ -105,7 +108,7 @@ export default function Lookbook() {
       setActiveIndex((current) => (current + 1) % FRAME_COUNT);
     }, ROTATION_MS);
     return () => window.clearInterval(timer);
-  }, [activeIndex, isStopped]);
+  }, [activeIndex, isStopped, FRAME_COUNT]);
 
   function navigate(direction: number) {
     setFlippedIndex(null);
@@ -150,7 +153,7 @@ export default function Lookbook() {
     }
   }
 
-  const activeFrame = LOOKBOOK_FRAMES[activeIndex]!;
+  const activeFrame = frames[activeIndex % FRAME_COUNT]!;
 
   return (
     <section ref={rootRef} id="lookbook" className={`${styles.section} relative bg-black`}>
@@ -216,8 +219,8 @@ export default function Lookbook() {
             <span>001 — {String(FRAME_COUNT).padStart(3, "0")}</span>
           </div>
 
-          {LOOKBOOK_FRAMES.map((frame, index) => {
-            const offset = circularOffset(index, activeIndex);
+          {frames.map((frame, index) => {
+            const offset = circularOffset(index, activeIndex, FRAME_COUNT);
             const distance = Math.abs(offset);
             const side = Math.sign(offset);
             const inView = distance <= 2;
@@ -254,14 +257,14 @@ export default function Lookbook() {
                   <span className={styles.cardInner}>
                     <span className={styles.faceFront}>
                       <span className={styles.photoWrap}>
-                        <Image
+                        {inView && <Image
                           src={frame.src}
                           alt={frame.alt}
                           fill
                           sizes="(max-width: 620px) 72vw, (max-width: 1150px) 34vw, 390px"
                           className={styles.photo}
-                          priority={index === 0}
-                        />
+                          loading="lazy"
+                        />}
                       </span>
                       <span className={styles.glassTint} aria-hidden />
                       <span className={styles.faceTop}>
@@ -299,7 +302,7 @@ export default function Lookbook() {
         </div>
 
         <div className={styles.dock}>
-          <button type="button" className={styles.navButton} onClick={() => navigate(-1)} aria-label="Previous photograph" data-cursor="hover">
+          <button type="button" className={styles.navButton} onClick={() => navigate(-1)} disabled={FRAME_COUNT <= 1} aria-label="Previous photograph" data-cursor="hover">
             <span aria-hidden>←</span>
           </button>
           <span className={styles.dockThumb} aria-hidden>
@@ -310,12 +313,12 @@ export default function Lookbook() {
             <strong>{activeFrame.title}</strong>
           </div>
           <span className={styles.dockDivider} aria-hidden />
-          <button type="button" className={styles.navButton} onClick={() => navigate(1)} aria-label="Next photograph" data-cursor="hover">
+          <button type="button" className={styles.navButton} onClick={() => navigate(1)} disabled={FRAME_COUNT <= 1} aria-label="Next photograph" data-cursor="hover">
             <span aria-hidden>→</span>
           </button>
         </div>
         <div className={styles.dots} aria-label="Choose a photograph">
-          {LOOKBOOK_FRAMES.map((frame, index) => (
+          {frames.map((frame, index) => (
             <button
               type="button"
               key={frame.id}
