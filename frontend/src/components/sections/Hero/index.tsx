@@ -5,7 +5,7 @@ import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { EASE, STAGGER } from "@/styles/theme";
 import { useAppStore } from "@/store/useAppStore";
 import { HERO_COPY } from "@/data/hero";
-import { HERO_POSTER, HERO_VIDEO, HERO_VIDEO_MOBILE, HERO_VIDEO_TABLET } from "@/lib/media";
+import { cloudinaryVideoPoster, cloudinaryVideoUrl } from "@/lib/media"; // SICKO_DYNAMIC_SITE_MEDIA
 import styles from "./Hero.module.css";
 
 const formatTimecode = (totalSeconds: number) => {
@@ -16,7 +16,7 @@ const formatTimecode = (totalSeconds: number) => {
   return `${hh}:${mm}:${ss}`;
 };
 
-export default function Hero() {
+export default function Hero({ videoUrl }: { videoUrl: string }) {
   const rootRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cycleRef = useRef<HTMLSpanElement>(null);
@@ -238,18 +238,19 @@ export default function Hero() {
       <div className={`${styles.videoWrap} absolute inset-0`}>
         <div className={`${styles.videoInner} absolute inset-0`}>
           <video
+            key={videoUrl}
             ref={videoRef}
             className="media-treat h-full w-full object-cover"
-            poster={HERO_POSTER}
+            poster={cloudinaryVideoPoster(videoUrl, 1280)}
             muted
             loop
             playsInline
-            preload="auto"
+            preload="metadata"
             aria-hidden
           >
-            <source media="(max-width: 767px)" src={HERO_VIDEO_MOBILE} />
-            <source media="(max-width: 1279px)" src={HERO_VIDEO_TABLET} />
-            <source src={HERO_VIDEO} />
+            <source media="(max-width: 767px)" src={cloudinaryVideoUrl(videoUrl, 768)} />
+            <source media="(max-width: 1279px)" src={cloudinaryVideoUrl(videoUrl, 1080)} />
+            <source src={cloudinaryVideoUrl(videoUrl, 1440)} />
           </video>
         </div>
       </div>
