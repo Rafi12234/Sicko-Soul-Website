@@ -11,24 +11,25 @@ import Navbar from "@/components/ui/Navbar";
 import StatementBand from "@/components/ui/StatementBand";
 import { STATEMENTS } from "@/data/statements";
 import { getCatalogArchive } from "@/lib/catalogApi";
+import { getHomepageMedia } from "@/lib/siteMedia"; // SICKO_DYNAMIC_SITE_MEDIA
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const catalogCategories = await getCatalogArchive();
+  const [catalogCategories, siteMedia] = await Promise.all([getCatalogArchive(), getHomepageMedia()]);
 
   return (
     <>
       <Navbar />
       <main>
-        <Hero />
+        <Hero videoUrl={siteMedia.heroVideoUrl} />
         <Manifesto />
         <StatementBand statement={STATEMENTS.entry} />
-        <Drop />
+        <Drop videoUrl={siteMedia.dropVideoUrl} />
         <Rack catalogCategories={catalogCategories} />
         <Streets />
         <StatementBand statement={STATEMENTS.seen} />
-        <Lookbook />
+        {siteMedia.lookbookFrames.length > 0 && <Lookbook frames={siteMedia.lookbookFrames} />}
         <StatementBand statement={STATEMENTS.ask} />
         <Cred />
         <Feedback />
