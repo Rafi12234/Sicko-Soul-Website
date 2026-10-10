@@ -6,14 +6,14 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER } from "@/styles/theme";
 import { DROP_COPY, type DropDrawer } from "@/data/drop";
-import { DROP_POSTER, DROP_VIDEO, DROP_VIDEO_MOBILE, DROP_VIDEO_TABLET } from "@/lib/media";
+import { cloudinaryVideoPoster, cloudinaryVideoUrl } from "@/lib/media"; // SICKO_DYNAMIC_SITE_MEDIA
 import { archiveProductFromApi, listCatalogCategories } from "@/lib/catalogApi";
 import { listCollections } from "@/lib/customerApi";
 import type { CollectionRecord, PublicCategoryRecord } from "@/types/commerce";
 import styles from "./Drop.module.css";
 
 
-export default function Drop() {
+export default function Drop({ videoUrl }: { videoUrl: string }) {
   const rootRef = useRef<HTMLElement>(null);
   const videoWrapRef = useRef<HTMLDivElement>(null);
   const backgroundVideoRef = useRef<HTMLVideoElement>(null);
@@ -556,18 +556,19 @@ export default function Drop() {
       {/* Plate sits behind everything and is only uncovered by an open drawer. */}
       <div ref={videoWrapRef} className="pointer-events-none absolute inset-0 z-0">
         <video
+          key={videoUrl}
           ref={backgroundVideoRef}
           className="media-treat h-full w-full object-cover opacity-[0.22]"
-          poster={DROP_POSTER}
+          poster={cloudinaryVideoPoster(videoUrl, 960)}
           muted
           loop
           playsInline
-          preload="metadata"
+          preload="none"
           aria-hidden
         >
-          <source media="(max-width: 767px)" src={DROP_VIDEO_MOBILE} />
-          <source media="(max-width: 1279px)" src={DROP_VIDEO_TABLET} />
-          <source src={DROP_VIDEO} />
+          <source media="(max-width: 767px)" src={cloudinaryVideoUrl(videoUrl, 640)} />
+          <source media="(max-width: 1279px)" src={cloudinaryVideoUrl(videoUrl, 960)} />
+          <source src={cloudinaryVideoUrl(videoUrl, 1280)} />
         </video>
       </div>
       <div className={`${styles.vignette} pointer-events-none absolute inset-0 z-0`} />
