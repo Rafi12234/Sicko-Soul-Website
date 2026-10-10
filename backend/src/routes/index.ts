@@ -9,10 +9,12 @@ import { orderRefundsRouter } from "../modules/refunds/refunds.routes.js";
 import { productsRouter } from "../modules/products/products.routes.js";
 import { productReviewsRouter, publicReviewsRouter } from "../modules/reviews/reviews.routes.js";
 import { adminRouter } from "./admin.js";
+import { siteMediaRouter } from "./site-media.js"; // SICKO_DYNAMIC_SITE_MEDIA
 
 export const apiRouter = Router();
 
 apiRouter.use("/health", healthRouter);
+apiRouter.use("/site-media", siteMediaRouter);
 apiRouter.use("/categories", categoriesRouter);
 apiRouter.use("/collections", collectionsRouter);
 apiRouter.use("/carts", cartsRouter);
