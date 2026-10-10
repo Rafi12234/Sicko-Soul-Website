@@ -811,3 +811,20 @@ model api_rate_limit_buckets {
 
   @@index([expires_at], map: "idx_api_limit_expiry")
 }
+
+// SICKO_DYNAMIC_SITE_MEDIA: Manually created and seeded through Workbench/phpMyAdmin.
+model site_media {
+  media_id    BigInt   @id @default(autoincrement()) @db.UnsignedBigInt
+  slot        String   @db.VarChar(24)
+  media_url   String   @db.VarChar(1200)
+  sort_order  Int      @default(0) @db.UnsignedInt
+  title       String?  @db.VarChar(160)
+  alt_text    String?  @db.VarChar(255)
+  spec        String?  @db.VarChar(160)
+  caption     String?  @db.VarChar(255)
+  reveal      String?  @db.VarChar(255)
+  created_at  DateTime @default(now()) @db.DateTime(0)
+  updated_at  DateTime @default(now()) @db.DateTime(0)
+
+  @@unique([slot, sort_order], map: "uq_site_media_slot_order")
+}
