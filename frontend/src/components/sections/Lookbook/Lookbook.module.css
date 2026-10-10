@@ -380,3 +380,13 @@
   .card,.cardInner,.photo,.faceFront::after,.flipPrompt,.navButton,.dot::after { transition-duration: .01ms !important; }
   .signal { animation: none; }
 }
+
+/* SICKO_DYNAMIC_SITE_MEDIA: show actual Cloudinary colors in every gallery card. */
+.card, .card[data-distance="0"], .card[data-distance="1"],
+.card[data-distance="2"], .card:hover, .card:focus-within { filter: none; }
+.photo, .card:hover .photo, .card:focus-within .photo { filter: none; }
+.dockPhoto { filter: none; }
+.glassTint {
+  background: linear-gradient(to bottom, transparent 0%, transparent 60%, rgba(0,0,0,.72) 100%);
+  box-shadow: none;
+}
