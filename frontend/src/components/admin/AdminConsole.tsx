@@ -2,6 +2,7 @@
 
 import { useCallback, useState, type FormEvent } from "react";
 import { apiRequest } from "@/lib/apiClient";
+import SiteMediaEditor from "@/components/admin/SiteMediaEditor"; // SICKO_DYNAMIC_SITE_MEDIA
 
 type Staff = { fullName: string; email: string; role: string };
 type RecordRow = Record<string, unknown>;
@@ -39,6 +40,7 @@ export default function AdminConsole() {
   // Tokens are kept in component memory only, not localStorage or cookies.
   // Refresh/sign-out drops the staff token. API always revalidates staff role.
   const [token, setToken] = useState("");
+  const [showSiteMedia, setShowSiteMedia] = useState(false);
   const [staff, setStaff] = useState<Staff | null>(null);
   const [resource, setResource] = useState<Resource>("orders");
   const [rows, setRows] = useState<RecordRow[]>([]);
@@ -120,6 +122,12 @@ export default function AdminConsole() {
       </form> : <>
         <div className="mt-5 flex flex-wrap items-center justify-between gap-3 text-sm text-white/70"><p>{staff.fullName} / {staff.role}</p><button className={button} onClick={()=>{ setStaff(null);setToken("");setRows([]);setSelected(null); }}>SIGN OUT</button></div>
         <nav aria-label="Operations" className="mt-9 flex flex-wrap gap-2">{permitted.map(item=><button key={item.resource} className={`${button} ${resource===item.resource?"border-red-600 text-red-500":""}`} onClick={()=>choose(item.resource)}>{item.resource.replace("/outbox"," OUTBOX")}</button>)}</nav>
+        {(staff.role === "SUPER_ADMIN" || staff.role === "ADMIN") && <div className="mt-5">
+          <button type="button" className={`${button} ${showSiteMedia ? "border-red-600 bg-red-950" : ""}`} onClick={() => setShowSiteMedia(value => !value)}>
+            {showSiteMedia ? "CLOSE SITE MEDIA EDITOR" : "EDIT HERO / DROP / CAUGHT ON CAMERA"}
+          </button>
+        </div>}
+        {showSiteMedia && (staff.role === "SUPER_ADMIN" || staff.role === "ADMIN") && <SiteMediaEditor token={token} />}
         <div className="mt-6 flex items-center justify-between"><h2 className="text-xl font-bold uppercase">{resource} / {rows.length} records</h2><button onClick={()=>void refresh()} disabled={loading} className={button}>REFRESH</button></div>
         {resource === "shipments" && <form onSubmit={event => {
           event.preventDefault();
