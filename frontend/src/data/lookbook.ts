@@ -1,5 +1,3 @@
-import { MEDIA } from "@/lib/media";
-
 /** Voice per docs/BRAND_BIBLE.md: cold, blunt, exclusionary. No exclamations. */
 
 export const LOOKBOOK_COPY = {
@@ -36,8 +34,8 @@ export const LOOKBOOK_FRAMES: readonly LookbookFrame[] = [
   {
     id: "watched",
     index: "01",
-    src: MEDIA.images.image1,
-    alt: "Overhead surveillance frame of a hooded figure standing still in a moving crowd",
+    src: "https://res.cloudinary.com/dec82taov/image/upload/v1791627266/WhatsApp_Image_2026-10-10_at_4.08.03_PM_acqwjo.jpg",
+    alt: "Caught on Camera photograph 01",
     title: "UNDER WATCH",
     spec: "CAM 01 · 03:41",
     line: "Everyone moved. He didn't.",
@@ -50,8 +48,8 @@ export const LOOKBOOK_FRAMES: readonly LookbookFrame[] = [
   {
     id: "boot",
     index: "02",
-    src: MEDIA.images.image2,
-    alt: "Two masked figures loading a car boot at dusk",
+    src: "https://res.cloudinary.com/dec82taov/image/upload/v1791627266/WhatsApp_Image_2026-10-10_at_4.08.02_PM_2_oygkqw.jpg",
+    alt: "Caught on Camera photograph 02",
     title: "THE HANDOFF",
     spec: "NO PLATE · NO NAMES",
     line: "Nothing in that boot was yours.",
@@ -64,8 +62,8 @@ export const LOOKBOOK_FRAMES: readonly LookbookFrame[] = [
   {
     id: "rollcall",
     index: "03",
-    src: MEDIA.images.image3,
-    alt: "Four figures walking a road in graphic tees, shot from above",
+    src: "https://res.cloudinary.com/dec82taov/image/upload/v1791627266/WhatsApp_Image_2026-10-10_at_4.08.03_PM_2_p279qj.jpg",
+    alt: "Caught on Camera photograph 03",
     title: "ROLL CALL",
     spec: "BLOCK 09 · DUSK",
     line: "Four backs. One direction.",
@@ -78,8 +76,8 @@ export const LOOKBOOK_FRAMES: readonly LookbookFrame[] = [
   {
     id: "deck",
     index: "04",
-    src: MEDIA.images.image5,
-    alt: "Masked crew standing on a lower parking deck",
+    src: "https://res.cloudinary.com/dec82taov/image/upload/v1791627266/WhatsApp_Image_2026-10-10_at_4.08.02_PM_1_as6ewm.jpg",
+    alt: "Caught on Camera photograph 04",
     title: "LOWER DECK",
     spec: "LEVEL -2 · 01:12",
     line: "The cameras down here point at the wall.",
@@ -92,8 +90,8 @@ export const LOOKBOOK_FRAMES: readonly LookbookFrame[] = [
   {
     id: "stairwell",
     index: "05",
-    src: MEDIA.images.image4,
-    alt: "Three figures standing on a stairwell at night",
+    src: "https://res.cloudinary.com/dec82taov/image/upload/v1791627266/WhatsApp_Image_2026-10-10_at_4.08.02_PM_hckhnv.jpg",
+    alt: "Caught on Camera photograph 05",
     title: "THE STAIRWELL",
     spec: "NO EXIT · 03:40",
     line: "Where the whole thing started.",
@@ -106,8 +104,8 @@ export const LOOKBOOK_FRAMES: readonly LookbookFrame[] = [
   {
     id: "kerb",
     index: "06",
-    src: MEDIA.images.manDropsholder1,
-    alt: "Model wearing an oversized drop-shoulder tee on the street",
+    src: "https://res.cloudinary.com/dec82taov/image/upload/v1791627267/WhatsApp_Image_2026-10-10_at_4.08.01_PM_1_jiasfu.jpg",
+    alt: "Caught on Camera photograph 06",
     title: "OFF THE KERB",
     spec: "DROP SHOULDER · WORN",
     line: "Cut wrong on purpose. Still fits better than yours.",
@@ -120,8 +118,8 @@ export const LOOKBOOK_FRAMES: readonly LookbookFrame[] = [
   {
     id: "wall",
     index: "07",
-    src: MEDIA.images.manShirt3,
-    alt: "Model in an open pinstripe shirt against a concrete pillar",
+    src: "https://res.cloudinary.com/dec82taov/image/upload/v1791627267/WhatsApp_Image_2026-10-10_at_4.08.01_PM_glj3dy.jpg",
+    alt: "Caught on Camera photograph 07",
     title: "AGAINST THE WALL",
     spec: "NO RETOUCH · DAYLIGHT",
     line: "Nothing here was fixed in post.",
@@ -134,8 +132,8 @@ export const LOOKBOOK_FRAMES: readonly LookbookFrame[] = [
   {
     id: "lastframe",
     index: "08",
-    src: MEDIA.images.manDropsholder4,
-    alt: "Model in a drop-shoulder tee turning away from the camera",
+    src: "https://res.cloudinary.com/dec82taov/image/upload/v1791627266/WhatsApp_Image_2026-10-10_at_4.08.03_PM_1_g8hwxl.jpg",
+    alt: "Caught on Camera photograph 08",
     title: "LAST FRAME",
     spec: "ROLL ENDS · 04:02",
     line: "He left before anyone asked a name.",
