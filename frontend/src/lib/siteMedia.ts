@@ -11,16 +11,30 @@ export type EditableLookbookImage = {
   reveal: string;
 };
 
+export type StreetsImage = {
+  src: string;
+  alt: string;
+  caption: string;
+};
+
+export type StreetsImages = {
+  primary: StreetsImage | null;
+  secondary: StreetsImage | null;
+};
+
 export type SiteMediaConfig = {
   heroVideoUrl: string;
   dropVideoUrl: string;
   lookbookImages: EditableLookbookImage[];
 };
 
+type PublicSiteMediaConfig = SiteMediaConfig & { streetsImages?: StreetsImages };
+
 export type HomepageMedia = {
   heroVideoUrl: string;
   dropVideoUrl: string;
   lookbookFrames: LookbookFrame[];
+  streetsImages: StreetsImages | null;
 };
 
 const FALLBACK_MEDIA: SiteMediaConfig = {
@@ -42,11 +56,24 @@ function isMediaConfiguration(data: unknown): data is SiteMediaConfig {
       typeof img.reveal === "string");
 }
 
+function isStreetsImages(value: unknown): value is StreetsImages {
+  if (!value || typeof value !== "object") return false;
+  const images = value as Partial<StreetsImages>;
+  return ([images.primary, images.secondary] as unknown[]).every(image => {
+    if (image === null) return true;
+    if (!image || typeof image !== "object") return false;
+    const item = image as Partial<StreetsImage>;
+    return typeof item.src === "string" &&
+      item.src.startsWith("https://res.cloudinary.com/dec82taov/image/upload/") &&
+      typeof item.alt === "string" && typeof item.caption === "string";
+  });
+}
+
 /** Backend caches media configuration for up to 20 seconds, invalidated on staff save. Next.js page requests fetch fresh state without generating a separate static copy. */
 export async function getHomepageMedia(): Promise<HomepageMedia> {
-  let config = FALLBACK_MEDIA;
+  let config: PublicSiteMediaConfig = FALLBACK_MEDIA;
   try {
-    const result = await apiRequest<DataEnvelope<SiteMediaConfig>>("/site-media", { cache: "no-store" });
+    const result = await apiRequest<DataEnvelope<PublicSiteMediaConfig>>("/site-media", { cache: "no-store" });
     if (!isMediaConfiguration(result.data)) throw new Error("Invalid site media response");
     config = result.data;
   } catch (error) {
@@ -73,5 +100,7 @@ export async function getHomepageMedia(): Promise<HomepageMedia> {
     heroVideoUrl: config.heroVideoUrl,
     dropVideoUrl: config.dropVideoUrl,
     lookbookFrames,
+    // Never substitute a hardcoded editorial image when a DB record is missing.
+    streetsImages: isStreetsImages(config.streetsImages) ? config.streetsImages : null,
   };
 }
