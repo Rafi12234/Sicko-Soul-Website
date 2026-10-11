@@ -25,8 +25,6 @@ export const STREETS_COPY = {
   quote: "WE WERE NEVER LET IN. WE TOOK THE DOOR OFF.",
   /** Held on screen until the scramble resolves it. */
   quoteCipher: "## #### ##### ### ##. ## #### ### #### ###.",
-  caption: "FIG. 04 — STAIRWELL / 03:40",
-  captionAlt: "FIG. 05 — LOWER DECK",
   rec: "REC",
   seal: "SICKO SOUL · EST. NOWHERE GOOD · ",
   cta: "PULL THE FILE",
