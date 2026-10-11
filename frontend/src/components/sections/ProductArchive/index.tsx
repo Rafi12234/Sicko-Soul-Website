@@ -11,14 +11,17 @@ import {
   type ArchiveCategory,
 } from "@/data/products";
 import ProductRecord from "./ProductRecord";
+import type { CatalogSegmentRecord } from "@/types/commerce";
 import styles from "./ProductArchive.module.css";
 
 type ProductArchiveProps = {
   categories: readonly ArchiveCategory[];
+  segments: readonly CatalogSegmentRecord[];
 };
 
 export default function ProductArchive({
   categories,
+  segments,
 }: ProductArchiveProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const heroRef = useRef<HTMLElement>(null);
@@ -36,6 +39,8 @@ export default function ProductArchive({
   const [activeId, setActiveId] = useState<string>(
     categories[0]?.id ?? "",
   );
+  const [activeSegmentId, setActiveSegmentId] = useState(segments[0]?.id ?? "");
+  const visibleCategories = categories.filter(category => category.segment?.id === activeSegmentId);
 
   const activeCategory = useMemo(
     () =>
@@ -368,6 +373,17 @@ export default function ProductArchive({
     };
   }, [activeId, activeCategory]);
 
+  const switchSegment = (id: string) => {
+    if (id === activeSegmentId) return;
+    // Switching a parent changes the active child immediately. Reusing the
+    // outgoing child's animation here would unmount its stage mid-timeline.
+    switchTimelineRef.current?.kill();
+    switchingRef.current = false;
+    setActiveSegmentId(id);
+    const first = categories.find(category => category.segment?.id === id);
+    setActiveId(first?.id ?? "");
+  };
+
   const switchCategory = (id: string) => {
     const next = categories.find(
       (category) => category.id === id,
@@ -561,7 +577,7 @@ export default function ProductArchive({
    * Correct database-empty state.
    * We do not invent static products/categories if the API returns none.
    */
-  if (!activeCategory) {
+  if (segments.length === 0) {
     return (
       <div
         ref={rootRef}
@@ -684,6 +700,17 @@ export default function ProductArchive({
           </p>
         </div>
 
+        <nav className="mb-7 flex flex-wrap gap-3" aria-label="Product segments">
+          {segments.map((segment, index) => (
+            <button key={segment.id} type="button" aria-pressed={activeSegmentId === segment.id}
+              onClick={() => switchSegment(segment.id)}
+              className={`flex items-center gap-3 border px-5 py-4 transition-colors ${activeSegmentId === segment.id ? "border-blood-accent bg-blood-accent text-bone-white" : "border-bone-white/25 text-concrete-gray hover:text-bone-white hover:border-bone-white"}`}>
+              <span className="font-stencil text-[0.55rem] opacity-70">{String(index + 1).padStart(2, "0")}</span>
+              <span className="font-display text-[clamp(1.35rem,3vw,2.7rem)] tracking-crushed">{segment.name}</span>
+            </button>
+          ))}
+        </nav>
+        <p className="mb-4 font-stencil text-[0.55rem] tracking-stencil text-concrete-gray">SUBCATEGORY INDEX / SELECT A FILE</p>
         <div className="relative border-t border-bone-white/15">
           <span
             ref={markerRef}
@@ -691,7 +718,7 @@ export default function ProductArchive({
             className={`${styles.categoryMarker} pointer-events-none absolute inset-x-0 top-0 hidden bg-blood-accent md:block`}
           />
 
-          {categories.map((category) => {
+          {visibleCategories.map((category) => {
             const active = category.id === activeId;
 
             return (
@@ -735,11 +762,12 @@ export default function ProductArchive({
               </button>
             );
           })}
+          {visibleCategories.length === 0 && <p className="border-b border-bone-white/15 py-7 font-stencil text-stamp text-concrete-gray">NO ACTIVE SUBCATEGORY FILES IN THIS SEGMENT.</p>}
         </div>
       </section>
 
       {/* ACTIVE CATEGORY + PRODUCTS */}
-      <section
+      {activeCategory && activeCategory.segment?.id === activeSegmentId ? <section
         ref={stageRef}
         className="products-category-stage relative bg-black px-gutter pb-[12vh] pt-[10vh]"
       >
@@ -865,7 +893,10 @@ export default function ProductArchive({
             </div>
           )}
         </div>
-      </section>
+      </section> : <section className="min-h-[35vh] bg-black px-gutter py-[10vh]">
+        <p className="font-display text-[clamp(3rem,7vw,7rem)] tracking-crushed text-bone-white">EMPTY FILE</p>
+        <p className="mt-4 font-stencil text-stamp text-concrete-gray">NO ACTIVE SUBCATEGORY / NOTHING RELEASED HERE.</p>
+      </section>}
 
       {/* OUTRO */}
       <section className="products-outro relative overflow-hidden border-t border-bone-white/15 bg-off-black pt-[10vh]">
