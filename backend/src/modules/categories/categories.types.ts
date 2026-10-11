@@ -12,4 +12,5 @@ export type PublicCategory = {
   coverAlt: string | null;
   sortOrder: number;
   productCount: number;
+  segment: { id: string; slug: string; name: string; sortOrder: number };
 };
