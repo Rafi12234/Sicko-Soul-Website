@@ -78,6 +78,26 @@ export type PublicProductRecord = {
   };
 };
 
+export type CatalogSegmentRecord = {
+  id: string;
+  code: string;
+  slug: string;
+  name: string;
+  coverUrl: string | null;
+  coverAlt: string | null;
+  tagline: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  categoryCount: number;
+};
+
+export type CategorySegmentReference = {
+  id: string;
+  slug: string;
+  name: string;
+  sortOrder: number;
+};
+
 export type PublicCategoryRecord = {
   id: string;
   code: string;
@@ -92,6 +112,7 @@ export type PublicCategoryRecord = {
   coverAlt: string | null;
   sortOrder: number;
   productCount: number;
+  segment: CategorySegmentReference;
 };
 
 export type CartStatus = "ACTIVE" | "CONVERTED" | "ABANDONED" | "EXPIRED";
