@@ -2,6 +2,7 @@ import type { ArchiveCategory, ArchiveProduct, ProductLookup } from "@/data/prod
 import { apiRequest, type DataEnvelope } from "@/lib/apiClient";
 import type {
   PublicCategoryRecord,
+  CatalogSegmentRecord,
   PublicProductRecord,
   ProductImageRecord,
   ProductVariantRecord,
@@ -89,6 +90,7 @@ export function archiveCategoryFromApi(
   const categoryProducts = products.filter((product) => product.category.slug === category.slug);
   return {
     id: category.slug,
+    segment: category.segment,
     index: category.indexCode ?? "00",
     name: category.name,
     ghost: category.ghostName ?? category.name,
@@ -123,6 +125,11 @@ export async function listCatalogProducts(category?: string): Promise<PublicProd
   return [first, ...rest].flatMap((page) => page.data);
 }
 
+export async function listCatalogSegments(): Promise<CatalogSegmentRecord[]> {
+  const result = await apiRequest<DataEnvelope<CatalogSegmentRecord[]>>("/segments", { cache: "no-store" });
+  return result.data.slice().sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
 export async function listCatalogCategories(): Promise<PublicCategoryRecord[]> {
   const result = await apiRequest<CategoryListEnvelope>("/categories", { cache: "no-store" });
   return result.data;
@@ -144,7 +151,7 @@ export async function getCatalogArchive(): Promise<ArchiveCategory[]> {
 
   return categories
     .slice()
-    .sort((a, b) => a.sortOrder - b.sortOrder)
+    .sort((a, b) => a.segment.sortOrder - b.segment.sortOrder || a.sortOrder - b.sortOrder)
     .map((category) => archiveCategoryFromApi(category, products));
 }
 
@@ -160,6 +167,7 @@ export async function getCatalogProduct(identifier: string): Promise<ProductLook
     ? archiveCategoryFromApi(categoryRecord, relatedProducts)
     : {
         id: product.category.slug,
+        segment: null,
         index: "00",
         name: product.category.name,
         ghost: product.category.name,
