@@ -1,116 +1,68 @@
-.bar {
-  will-change: transform;
-}
-
-/* The raster image remains neatly cropped while the lightning extends outside. */
-.logo {
-  position: relative;
-  overflow: visible;
-  outline-offset: 6px;
-}
-
-.logoCrop {
+/* An actual forked electrical discharge, not a permanently brighter logo.
+   The original Cloudinary raster is preserved and physically jolted in sync. */
+.bar { will-change: transform; }
+.logo { position: relative; overflow: visible; outline-offset: 6px; }
+.logoImpact {
   position: absolute;
   inset: 0;
-  overflow: hidden;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+  will-change: transform;
+}
+.logoCrop { position: absolute; inset: 0; overflow: hidden; }
+.lightning {
+  position: absolute;
+  z-index: 4;
+  top: -31px;
+  left: -26px;
+  width: calc(100% + 52px);
+  height: calc(100% + 62px);
+  overflow: visible;
   pointer-events: none;
 }
-
-/* Tight GPU-composited opacity effects + tiny SVG stroke segments.
-   No JS timers, video, canvas, extra requests or shake transforms. */
-.electricArcs {
+.bolt { opacity: 0; }
+.boltAura, .boltCore {
+  vector-effect: non-scaling-stroke;
+  fill: none;
+  stroke-linejoin: miter;
+  stroke-linecap: square;
+  stroke-dasharray: 100;
+  stroke-dashoffset: 100;
+}
+.boltAura {
+  stroke: #b50b16;
+  stroke-width: 5;
+  filter: drop-shadow(0 0 5px rgb(175 0 12 / .95));
+}
+.boltCore {
+  stroke: #fff9ee;
+  stroke-width: 1.85;
+  filter: drop-shadow(0 0 2px #fff) drop-shadow(0 0 4px #ee3434);
+}
+.voltageBloom {
   position: absolute;
   z-index: 2;
-  inset: -12px -12px;
-  width: calc(100% + 24px);
-  height: calc(100% + 24px);
-  pointer-events: none;
-  overflow: visible;
+  inset: -14px -18px;
+  opacity: 0;
+  background: radial-gradient(ellipse at center, rgb(191 12 22 / .58) 0, rgb(117 2 13 / .27) 46%, transparent 78%);
+  mix-blend-mode: screen;
 }
-
-.arcTop, .arcBottom, .arcCross {
-  opacity: .14;
-  transform: translateZ(0);
-}
-.arcTop { animation: sicko-charge-top 2.6s steps(1, end) infinite; }
-.arcBottom { animation: sicko-charge-bottom 2.6s steps(1, end) infinite; }
-.arcCross { animation: sicko-charge-cross 2.6s steps(1, end) infinite; }
-
-.arcGlow, .arcCore {
-  fill: none;
-  vector-effect: non-scaling-stroke;
-  stroke-linecap: round;
-  stroke-linejoin: bevel;
-  stroke-dasharray: 34 210;
-  animation: sicko-electron-flow 2.6s linear infinite;
-}
-.arcGlow {
-  stroke: #e71432;
-  stroke-width: 4;
-  filter: drop-shadow(0 0 2px #f32239) drop-shadow(0 0 4px rgba(218, 12, 37, .85));
-}
-.arcCore {
-  stroke: #fff7ee;
-  stroke-width: 1.3;
-  filter: drop-shadow(0 0 1.5px #fff);
-}
-
-.electricSpark {
+.voltageFlash {
   position: absolute;
   z-index: 3;
-  width: 3px;
-  height: 3px;
-  border-radius: 50%;
-  background: #fff7ee;
-  box-shadow: 0 0 5px 2px #ee243c, 0 0 11px 3px rgba(189, 4, 24, .8);
+  left: 2%;
+  top: 3%;
+  width: 96%;
+  height: 94%;
   opacity: 0;
-  pointer-events: none;
+  background: linear-gradient(179deg, transparent 35%, rgb(255 252 237 / .97) 37%, transparent 43%, transparent 59%, rgb(219 21 26 / .8) 60%, transparent 67%);
+  mix-blend-mode: screen;
+  clip-path: polygon(0 5%, 100% 0, 96% 87%, 2% 100%);
 }
-.sparkLeft {
-  left: 10%; top: 4px;
-  animation: sicko-spark-left 2.6s steps(1, end) infinite;
+@media (prefers-reduced-motion: reduce) {
+  .logoImpact { will-change: auto; }
+  .bolt, .voltageBloom, .voltageFlash { opacity: 0 !important; }
 }
-.sparkRight {
-  right: 5%; bottom: 1px;
-  animation: sicko-spark-right 2.6s steps(1, end) infinite;
-}
-
-/* A new bolt crawls around the logo every cycle. Arcs overlap briefly so
-   energy remains present, but bright bursts never create a full-screen strobe. */
-@keyframes sicko-electron-flow {
-  from { stroke-dashoffset: 245; }
-  to { stroke-dashoffset: -245; }
-}
-@keyframes sicko-charge-top {
-  0%, 7% { opacity: .3; }
-  8%, 19% { opacity: 1; }
-  20%, 27% { opacity: .22; }
-  28%, 35% { opacity: .75; }
-  36%, 100% { opacity: .12; }
-}
-@keyframes sicko-charge-bottom {
-  0%, 25% { opacity: .1; }
-  26%, 40% { opacity: .9; }
-  41%, 53% { opacity: .26; }
-  54%, 63% { opacity: 1; }
-  64%, 100% { opacity: .16; }
-}
-@keyframes sicko-charge-cross {
-  0%, 44% { opacity: .15; }
-  45%, 56% { opacity: .85; }
-  57%, 67% { opacity: .22; }
-  68%, 85% { opacity: 1; }
-  86%, 100% { opacity: .2; }
-}
-@keyframes sicko-spark-left {
-  0%, 7%, 14%, 28%, 100% { opacity: 0; }
-  8%, 12%, 29%, 31% { opacity: 1; }
-}
-@keyframes sicko-spark-right {
-  0%, 25%, 34%, 54%, 64%, 100% { opacity: 0; }
-  26%, 30%, 55%, 59% { opacity: 1; }
-}
-
 
 /* Compact, high-contrast actions stay visible over any hero-video frame. */
 .cartAction,
