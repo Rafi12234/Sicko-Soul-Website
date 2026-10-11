@@ -9,9 +9,7 @@ export const MANIFESTO_COPY = {
   /** Illuminated word by word as the section is read. */
   lines: [
     "WE DON'T MAKE CLOTHES FOR PEOPLE WHO WANT TO BE SEEN.",
-    "WE CUT THEM FOR THE ONES WHO'VE ALREADY BEEN SEEN,",
-    "AND DECIDED THEY'D RATHER NOT BE.",
-    "NOTHING HERE WAS DESIGNED TO FLATTER YOU.",
+    "WE CUT THEM FOR THE ONES WHO'VE ALREADY BEEN SEEN",
     "IT WAS BUILT TO OUTLAST YOU.",
   ],
   /** Lands in blackletter after the body has fully burned in. */
