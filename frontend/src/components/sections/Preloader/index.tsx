@@ -57,6 +57,56 @@ export default function Preloader() {
     document.body.style.overflow = "hidden";
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
 
+    // The entry counter doubles as a bounded warm-up window for the DB-driven
+    // hero video. A decoded first frame avoids a cold video start on scroll.
+    // Never wait for the *entire* video to download, and never block forever.
+    let cancelPrime = () => {};
+    let active = true;
+    const heroPrimed = new Promise<void>((done) => {
+      if (window.location.pathname !== "/" ||
+          window.matchMedia("(prefers-reduced-motion: reduce)").matches ||
+          (navigator as Navigator & { connection?: { saveData?: boolean } }).connection?.saveData) {
+        done();
+        return;
+      }
+
+      let settled = false;
+      let observer: MutationObserver | null = null;
+      let video: HTMLVideoElement | null = null;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(deadline);
+        observer?.disconnect();
+        video?.removeEventListener("loadeddata", finish);
+        video?.removeEventListener("error", finish);
+        done();
+      };
+      const deadline = window.setTimeout(finish, 6_000);
+      cancelPrime = finish;
+      const attach = () => {
+        const found = document.getElementById("sicko-hero-video");
+        if (!(found instanceof HTMLVideoElement)) return false;
+        video = found;
+        if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+          finish();
+          return true;
+        }
+        video.addEventListener("loadeddata", finish, { once: true });
+        video.addEventListener("error", finish, { once: true });
+        // HTML preload is only a hint: explicitly start the network request.
+        video.preload = "auto";
+        if (video.networkState === HTMLMediaElement.NETWORK_EMPTY) video.load();
+        return true;
+      };
+      if (!attach()) {
+        observer = new MutationObserver(() => {
+          if (attach()) observer?.disconnect();
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+      }
+    });
+
     const reducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const scale = reducedMotion ? 0.35 : 1;
 
@@ -101,7 +151,7 @@ export default function Preloader() {
         .to(
           counter,
           {
-            value: 100,
+            value: 99,
             duration: 2.0 * scale,
             ease: "power2.inOut",
             snap: { value: 1 },
@@ -110,7 +160,7 @@ export default function Preloader() {
               counterRef.current.textContent = String(Math.round(counter.value)).padStart(3, "0");
             },
             onComplete: () => {
-              if (counterRef.current) counterRef.current.textContent = "100";
+              if (counterRef.current) counterRef.current.textContent = "099";
             },
           },
           0,
@@ -202,6 +252,15 @@ export default function Preloader() {
           },
           1.56 * scale,
         )
+        // Hold at 099 until the first video frame is ready (or the six-second
+        // network safety deadline expires). The ritual then reaches 100.
+        .addPause(2.0 * scale, () => {
+          void heroPrimed.then(() => {
+            if (!active) return;
+            if (counterRef.current) counterRef.current.textContent = "100";
+            tl.resume();
+          });
+        })
         .addLabel("clearance", 2.03 * scale)
         .to(
           contentRef.current,
@@ -255,6 +314,8 @@ export default function Preloader() {
     return () => {
       idleTimelineRef.current?.kill();
       exitTimelineRef.current?.kill();
+      active = false;
+      cancelPrime();
       restoreScroll();
       ctx.revert();
     };
@@ -293,6 +354,9 @@ export default function Preloader() {
 
     setEntering(true);
     idleTimelineRef.current?.kill();
+    // The closing panels hide the first playback frames, so they are already
+    // decoded and moving when the user first scrolls into the hero.
+    window.dispatchEvent(new Event("sicko-hero-entering"));
 
     /**
      * CRITICAL: play() is called synchronously inside this real button click.
