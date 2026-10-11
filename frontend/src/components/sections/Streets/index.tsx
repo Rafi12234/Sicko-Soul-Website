@@ -2,14 +2,14 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { MEDIA } from "@/lib/media";
+import type { StreetsImages } from "@/lib/siteMedia";
 import { useLayoutEffect, useRef } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER } from "@/styles/theme";
 import { STREETS_COPY } from "@/data/streets";
 import styles from "./Streets.module.css";
 
-export default function Streets() {
+export default function Streets({ images }: { images: StreetsImages | null }) {
   const rootRef = useRef<HTMLElement>(null);
   const mediaRef = useRef<HTMLDivElement>(null);
   const primaryFrameRef = useRef<HTMLDivElement>(null);
@@ -38,7 +38,8 @@ export default function Streets() {
             toggleActions: "play none none reverse",
           },
         });
-        gsap.from(frame.querySelector("img"), {
+        const image = frame.querySelector("img");
+        if (image) gsap.from(image, {
           scale: 1.25,
           duration: 1.5,
           ease: EASE.expo,
@@ -336,13 +337,15 @@ export default function Streets() {
             className={`${styles.frame} streets-frame relative aspect-[3/4] overflow-hidden border border-bone-white/15`}
           >
             <div ref={primaryRef} className={`${styles.media} absolute -inset-[9%]`}>
-              <Image
-                src={MEDIA.images.image4}
-                alt="Three figures on a stairwell at night"
-                fill
-                sizes="(max-width: 1024px) 100vw, 46vw"
-                className="media-treat object-cover"
-              />
+              {images?.primary && (
+                <Image
+                  src={images.primary.src}
+                  alt={images.primary.alt}
+                  fill
+                  sizes="(max-width: 1024px) 100vw, 46vw"
+                  className="media-treat object-cover"
+                />
+              )}
             </div>
 
             <span
@@ -356,7 +359,7 @@ export default function Streets() {
                 {STREETS_COPY.rec}
               </span>
               <span className="font-stencil text-[0.55rem] tracking-stencil text-concrete-gray">
-                {STREETS_COPY.caption}
+                {images?.primary?.caption}
               </span>
             </span>
           </div>
@@ -367,16 +370,18 @@ export default function Streets() {
             className={`${styles.frame} streets-frame absolute -bottom-[9%] right-[-9%] z-10 aspect-[4/5] w-[46%] overflow-hidden border border-bone-white/20 bg-black`}
           >
             <div ref={secondaryRef} className={`${styles.media} absolute -inset-[12%]`}>
-              <Image
-                src={MEDIA.images.image5}
-                alt="Masked crew on a lower parking deck"
-                fill
-                sizes="(max-width: 1024px) 50vw, 22vw"
-                className="media-treat object-cover"
-              />
+              {images?.secondary && (
+                <Image
+                  src={images.secondary.src}
+                  alt={images.secondary.alt}
+                  fill
+                  sizes="(max-width: 1024px) 50vw, 22vw"
+                  className="media-treat object-cover"
+                />
+              )}
             </div>
             <span className="absolute bottom-3 left-3 z-10 font-stencil text-[0.55rem] tracking-stencil text-bone-white/70">
-              {STREETS_COPY.captionAlt}
+              {images?.secondary?.caption}
             </span>
           </div>
 
