@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import ProductArchive from "@/components/sections/ProductArchive";
 import Navbar from "@/components/ui/Navbar";
-import { getCatalogArchive, listCatalogSegments } from "@/lib/catalogApi";
+import { getCachedCatalogArchive, getCachedCatalogSegments } from "@/lib/cachedCatalogApi";
 
 export const metadata: Metadata = {
   title: "Product Archive — SICKO SOUL",
@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function ProductsPage() {
-  const [categories, segments] = await Promise.all([getCatalogArchive(), listCatalogSegments()]);
+  const [categories, segments] = await Promise.all([getCachedCatalogArchive(), getCachedCatalogSegments()]);
 
   if (segments.length === 0) {
     return (
