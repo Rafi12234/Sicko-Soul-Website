@@ -16,5 +16,11 @@ export function mapPublicCategory(row: PublicCategoryRow): PublicCategory {
     coverAlt: row.cover_alt,
     sortOrder: row.sort_order,
     productCount: row.products.length,
+    segment: {
+      id: row.catalog_segments!.segment_id.toString(),
+      slug: row.catalog_segments!.slug,
+      name: row.catalog_segments!.name,
+      sortOrder: row.catalog_segments!.sort_order,
+    },
   };
 }
