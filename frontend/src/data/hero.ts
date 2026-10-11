@@ -1,19 +1,20 @@
 /** Voice per docs/BRAND_BIBLE.md: cold, blunt, exclusionary. No exclamations. */
 
+
 export const NAV_COPY = {
   menuOpen: "MENU",
   menuClose: "CLOSE",
   links: [
-    { label: "Products", href: "/products", index: "01" },
-    { label: "Lookbook", href: "#lookbook", index: "02" },
-    { label: "The Streets", href: "#the-streets", index: "03" },
-    { label: "Drops", href: "/drops", index: "04" },
-    { label: "Track Order", href: "/track-order", index: "05" },
-    { label: "Complaints", href: "#complaints", index: "06" },
-    { label: "Cart", href: "/cart", index: "07" },
+    { label: "Homepage", href: "/", index: "01" },
+    { label: "Products", href: "/products", index: "02" },
+    { label: "Drops", href: "/drops", index: "03" },
+    { label: "Track Order", href: "/track-order", index: "04" },
+    { label: "Complaints", href: "#complaints", index: "05" },
+    { label: "Cart", href: "/cart", index: "06" },
   ],
   aside: "NO STOCKISTS. NO SALES. NO SECOND CHANCES.",
 } as const;
+
 
 export const HERO_COPY = {
   eyebrow: "EST. NOWHERE GOOD",
