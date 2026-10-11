@@ -5,6 +5,7 @@ import {
   adminAddProductVariantController,
   adminArchiveProductController,
   adminCreateCategoryController,
+  adminDeleteCategoryController,
   adminCreateProductController,
   adminDeleteProductFeatureController,
   adminDeleteProductImageController,
@@ -21,6 +22,7 @@ export const adminCatalogRouter = Router();
 adminCatalogRouter.get("/categories", adminListCategoriesController);
 adminCatalogRouter.post("/categories", adminCreateCategoryController);
 adminCatalogRouter.patch("/categories/:categoryId", adminUpdateCategoryController);
+adminCatalogRouter.delete("/categories/:categoryId", adminDeleteCategoryController);
 
 adminCatalogRouter.get("/products", adminListProductsController);
 adminCatalogRouter.post("/products", adminCreateProductController);
