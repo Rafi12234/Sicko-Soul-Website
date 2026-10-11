@@ -40,6 +40,9 @@ function buildPublicProductWhere(query: Pick<ProductListQuery, "category" | "q">
     product_categories: {
       is: {
         is_active: true,
+        // Ignore legacy categories outside the live Clothing/Lifestyle tree.
+        // Individual product lookup is intentionally unchanged.
+        catalog_segments: { is: { is_active: true } },
       },
     },
   };
@@ -48,6 +51,7 @@ function buildPublicProductWhere(query: Pick<ProductListQuery, "category" | "q">
     where.product_categories = {
       is: {
         is_active: true,
+        catalog_segments: { is: { is_active: true } },
         OR: [{ slug: query.category }, { code: query.category }],
       },
     };
