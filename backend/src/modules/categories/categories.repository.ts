@@ -14,6 +14,7 @@ const publicCategorySelect = {
   cover_url: true,
   cover_alt: true,
   sort_order: true,
+  catalog_segments: { select: { segment_id: true, slug: true, name: true, sort_order: true } },
   products: {
     where: {
       status: "ACTIVE",
@@ -32,6 +33,7 @@ export function listPublicCategories(): Promise<PublicCategoryRow[]> {
   return prisma.product_categories.findMany({
     where: {
       is_active: true,
+      catalog_segments: { is: { is_active: true } },
     },
     select: publicCategorySelect,
     orderBy: [{ sort_order: "asc" }, { category_id: "asc" }],
