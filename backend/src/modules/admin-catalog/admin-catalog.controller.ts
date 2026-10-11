@@ -21,6 +21,7 @@ import {
   addProductVariant,
   archiveProductForAdmin,
   createCategoryForAdmin,
+  deleteEmptyCategoryForAdmin,
   createProductForAdmin,
   deleteProductFeature,
   deleteProductImage,
@@ -42,6 +43,11 @@ export const adminCreateCategoryController: RequestHandler = async (req, res) =>
 export const adminUpdateCategoryController: RequestHandler = async (req, res) => {
   const { categoryId } = categoryIdParamsSchema.parse(req.params);
   res.json({ data: await updateCategoryForAdmin(BigInt(categoryId), updateCategorySchema.parse(req.body), auditContextFromRequest(req, res)) });
+};
+
+export const adminDeleteCategoryController: RequestHandler = async (req, res) => {
+  const { categoryId } = categoryIdParamsSchema.parse(req.params);
+  res.json({ data: await deleteEmptyCategoryForAdmin(BigInt(categoryId), auditContextFromRequest(req, res)) });
 };
 
 export const adminListProductsController: RequestHandler = async (_req, res) => {
