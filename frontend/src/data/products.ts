@@ -36,6 +36,7 @@ export type ArchiveCategory = {
   spec: string;
   line: string;
   registry: string;
+  segment: { id: string; slug: string; name: string; sortOrder: number } | null;
   products: readonly ArchiveProduct[];
 };
 
