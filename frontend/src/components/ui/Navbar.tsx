@@ -24,8 +24,6 @@ export default function Navbar() {
   const rootRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLElement>(null);
   const plateRef = useRef<HTMLDivElement>(null);
-  const logoRef = useRef<HTMLAnchorElement>(null);
-  const ghostRef = useRef<HTMLDivElement>(null);
   const menuDockRef = useRef<HTMLDivElement>(null);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const skipFocusOpenRef = useRef(false);
@@ -71,8 +69,6 @@ export default function Navbar() {
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
-    const cleanups: Array<() => void> = [];
-
     const ctx = gsap.context(() => {
       const bar = barRef.current;
       const plate = plateRef.current;
@@ -113,41 +109,12 @@ export default function Navbar() {
         },
       });
 
-      const logo = logoRef.current;
-      const ghost = ghostRef.current;
-      if (logo && ghost) {
-        const glitch = gsap.timeline({ paused: true, repeat: -1 })
-          .to(ghost, { autoAlpha: 0.85, duration: 0.05, ease: EASE.hard })
-          .to(ghost, { x: -4, y: 1, duration: 0.06, ease: EASE.hard })
-          .to(ghost, { x: 5, y: -2, duration: 0.06, ease: EASE.hard })
-          .to(ghost, { x: -2, y: 2, duration: 0.06, ease: EASE.hard })
-          .to(ghost, { x: 3, y: 0, duration: 0.06, ease: EASE.hard });
-        const onEnter = () => glitch.play(0);
-        const onLeave = () => {
-          glitch.pause(0);
-          gsap.to(ghost, {
-            autoAlpha: 0,
-            x: 0,
-            y: 0,
-            overwrite: true,
-            duration: 0.25,
-            ease: EASE.expo,
-          });
-        };
-        logo.addEventListener("pointerenter", onEnter);
-        logo.addEventListener("pointerleave", onLeave);
-        cleanups.push(() => {
-          logo.removeEventListener("pointerenter", onEnter);
-          logo.removeEventListener("pointerleave", onLeave);
-          glitch.kill();
-        });
-      }
+      // Logo lightning is an always-on, very small CSS/SVG overlay below.
+      // Unlike the previous pointer-triggered GSAP ghost jitter, it requires
+      // no JavaScript animation loop or layout updates while scrolling.
     }, root);
 
-    return () => {
-      cleanups.forEach((cleanup) => cleanup());
-      ctx.revert();
-    };
+    return () => ctx.revert();
   }, []);
 
   const supportsHover = () =>
@@ -206,29 +173,47 @@ export default function Navbar() {
 
         <div className="relative flex items-center justify-between px-gutter py-4 sm:py-5">
           <Link
-            ref={logoRef}
             href={pathname === "/" ? "#top" : "/"}
             aria-label="Sicko Soul — home"
-            className={`${styles.logo} relative block h-9 w-[136px] overflow-hidden sm:w-[150px]`}
+            className={`${styles.logo} relative block h-9 w-[136px] sm:w-[150px]`}
           >
-            <Image
-              src={MEDIA.images.logo}
-              alt="Sicko Soul"
-              width={150}
-              height={150}
-              priority
-              className="logo-knockout absolute left-1/2 top-1/2 h-auto w-[136px] max-w-none -translate-x-1/2 -translate-y-1/2 sm:w-[150px]"
-            />
-            <div ref={ghostRef} aria-hidden className="absolute inset-0 opacity-0">
+            {/* Clip only the raster logo; allow lightning to spill outside it. */}
+            <span className={styles.logoCrop} aria-hidden="true">
               <Image
                 src={MEDIA.images.logo}
                 alt=""
                 width={150}
                 height={150}
-                aria-hidden
-                className="logo-knockout absolute left-1/2 top-1/2 h-auto w-[136px] max-w-none -translate-x-1/2 -translate-y-1/2 sm:w-[150px] [filter:sepia(1)_saturate(9)_hue-rotate(-38deg)_brightness(0.75)]"
+                priority
+                className="logo-knockout absolute left-1/2 top-1/2 h-auto w-[136px] max-w-none -translate-x-1/2 -translate-y-1/2 sm:w-[150px]"
               />
-            </div>
+            </span>
+
+            {/* Always-running electrical arcs: bright traveling cores, red
+                corona and micro-sparks. No extra network/media requests. */}
+            <svg
+              className={styles.electricArcs}
+              viewBox="0 0 180 60"
+              preserveAspectRatio="none"
+              fill="none"
+              aria-hidden="true"
+              focusable="false"
+            >
+              <g className={styles.arcTop}>
+                <path className={styles.arcGlow} d="M1 32 L16 23 L28 28 L41 8 L52 22 L69 13 L84 23 L99 11 L111 20 L132 10 L145 17 L163 8 L179 17" />
+                <path className={styles.arcCore} d="M1 32 L16 23 L28 28 L41 8 L52 22 L69 13 L84 23 L99 11 L111 20 L132 10 L145 17 L163 8 L179 17" />
+              </g>
+              <g className={styles.arcBottom}>
+                <path className={styles.arcGlow} d="M0 39 L14 48 L29 39 L42 53 L58 41 L70 48 L86 39 L99 50 L114 41 L126 52 L142 39 L155 44 L179 34" />
+                <path className={styles.arcCore} d="M0 39 L14 48 L29 39 L42 53 L58 41 L70 48 L86 39 L99 50 L114 41 L126 52 L142 39 L155 44 L179 34" />
+              </g>
+              <g className={styles.arcCross}>
+                <path className={styles.arcGlow} d="M7 12 L19 22 L29 15 L44 32 L53 26 L68 35 L83 21 L94 37 L111 23 L124 34 L139 19 L152 32 L171 20" />
+                <path className={styles.arcCore} d="M7 12 L19 22 L29 15 L44 32 L53 26 L68 35 L83 21 L94 37 L111 23 L124 34 L139 19 L152 32 L171 20" />
+              </g>
+            </svg>
+            <span className={`${styles.electricSpark} ${styles.sparkLeft}`} aria-hidden="true" />
+            <span className={`${styles.electricSpark} ${styles.sparkRight}`} aria-hidden="true" />
           </Link>
 
           <div className="relative flex items-center gap-2 sm:gap-3">

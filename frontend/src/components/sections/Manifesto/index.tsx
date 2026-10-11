@@ -181,16 +181,21 @@ export default function Manifesto() {
               <span className="h-px flex-1 bg-bone-white/15" />
             </div>
 
-            {MANIFESTO_COPY.lines.map((line) => (
+            {MANIFESTO_COPY.lines.map((line, index) => (
               <p
                 key={line}
-                className="manifesto-line font-display text-[clamp(1.15rem,2.5vw,2.1rem)] uppercase leading-[1.12] text-bone-white"
+                data-serial={String(index + 1).padStart(2, "0")}
+                className={`manifesto-line ${styles.creedLine} ${
+                  index === 1 ? styles.creedFeature :
+                  index === 2 ? styles.creedAside :
+                  index === 4 ? styles.creedFinal : ""
+                }`}
               >
                 {line}
               </p>
             ))}
 
-            <p className="manifesto-verdict mt-7 font-body text-[clamp(1rem,1.8vw,1.45rem)] font-semibold uppercase leading-[1.25] tracking-[0.04em] text-blood-accent">
+            <p className={`manifesto-verdict ${styles.verdict} mt-7 text-blood-accent`}>
               {MANIFESTO_COPY.verdict}
               <span
                 aria-hidden

@@ -290,38 +290,38 @@ export default function Hero({ videoUrl }: { videoUrl: string }) {
           </div>
         </div>
 
-        <div className="hero-headline relative pb-[7vh]">
-          <h1>
+        <div className={`${styles.headline} hero-headline relative pb-[7vh]`}>
+          <h1 className={styles.headlineLockup}>
             {/* 1 — solid distressed slab, optically flush to the viewport edge */}
             <span className="split-mask relative block pb-[0.06em]">
-              <span className="hero-line text-distress -ml-[0.03em] block font-display text-hero-slab text-bone-white">
+              <span className={`${styles.headlineFirst} hero-line text-distress -ml-[0.03em] block font-display text-bone-white`}>
                 {HERO_COPY.lineOne}
               </span>
               <span
                 aria-hidden
                 className={`${styles.ghost} hero-ghost pointer-events-none absolute inset-0 opacity-0`}
               >
-                <span className="-ml-[0.03em] block font-display text-hero-slab text-blood-accent">
+                <span className={`${styles.headlineFirst} -ml-[0.03em] block font-display text-blood-accent`}>
                   {HERO_COPY.lineOne}
                 </span>
               </span>
             </span>
 
             {/* 2 — hollow blackletter that rewrites itself, cutting across the slab above */}
-            <span className="relative z-10 -mt-[0.3em] block pl-[30%]">
+            <span className={`${styles.cycleRow} relative z-10 block`}>
               <span
                 ref={cycleRef}
-                className="text-outline block font-gothic text-hero leading-[0.82]"
+                className={`${styles.cycleWord} text-outline block font-gothic leading-[0.82]`}
               >
                 {HERO_COPY.cycleSeed}
               </span>
             </span>
 
             {/* 3 — solid display lettering directly over the uncovered footage */}
-            <span className="relative -mt-[0.24em] block">
+            <span className={`${styles.lastRow} relative block`}>
               <span className={`${styles.knockout} block px-gutter`}>
                 <span
-                  className={`${styles.knockoutText} hero-line block font-display text-hero-slab`}
+                  className={`${styles.knockoutText} ${styles.headlineLast} hero-line block font-display`}
                 >
                   {HERO_COPY.lineThree}
                 </span>
@@ -330,7 +330,7 @@ export default function Hero({ videoUrl }: { videoUrl: string }) {
                 aria-hidden
                 className="hero-knockout-edge pointer-events-none absolute inset-0 px-gutter"
               >
-                <span className="text-outline block font-display text-hero-slab">
+                <span className={`${styles.headlineLast} text-outline block font-display`}>
                   {HERO_COPY.lineThree}
                 </span>
               </span>

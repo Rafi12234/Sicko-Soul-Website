@@ -37,3 +37,88 @@
   );
   will-change: opacity, transform;
 }
+
+/* Editorial manifesto typography — all faces already shipped with the site.
+   Keep SplitText's .manifesto-line hooks and the original copy untouched. */
+.creedLine {
+  position: relative;
+  margin: 0 0 clamp(.9rem, 2vw, 1.5rem);
+  padding-left: clamp(1.35rem, 2.4vw, 2rem);
+  font-family: "Archivo Narrow", "Arial Narrow", sans-serif;
+  font-weight: 700;
+  font-size: clamp(1.45rem, 2.7vw, 2.4rem);
+  line-height: 1.13;
+  letter-spacing: -.018em;
+  text-transform: uppercase;
+  text-wrap: pretty;
+  color: rgb(var(--c-fg));
+}
+
+/* Marginalia supplies an archival detail without crowding the readable text. */
+.creedLine::before {
+  content: attr(data-serial);
+  position: absolute;
+  top: .28em;
+  left: 0;
+  font-family: "Special Elite", "Courier New", monospace;
+  font-weight: 400;
+  font-size: clamp(.56rem, .75vw, .67rem);
+  line-height: 1;
+  letter-spacing: .08em;
+  color: #8a0303;
+}
+
+/* Big, condensed protest-poster headline at the heart of the creed. */
+.creedFeature {
+  margin-top: clamp(1.2rem, 2.4vw, 2rem);
+  font-family: "Anton", Impact, "Arial Narrow", sans-serif;
+  font-weight: 400;
+  font-size: clamp(1.85rem, 3.5vw, 3.1rem);
+  line-height: 1.08;
+  letter-spacing: .004em;
+}
+
+/* One softer, slanted beat prevents five identical typographic blocks. */
+.creedAside {
+  font-style: italic;
+  font-size: clamp(1.5rem, 2.85vw, 2.55rem);
+  letter-spacing: -.022em;
+}
+
+/* Landing line acts as the final stamp: bold, sharp, memorable. */
+.creedFinal {
+  margin-top: clamp(1.5rem, 2.5vw, 2.4rem);
+  padding-top: clamp(.65rem, 1.2vw, 1rem);
+  border-top: 2px solid #8a0303;
+  font-family: "Anton", Impact, "Arial Narrow", sans-serif;
+  font-weight: 400;
+  font-size: clamp(2rem, 4.15vw, 3.65rem);
+  line-height: 1.07;
+  letter-spacing: .008em;
+}
+
+.creedFinal::before {
+  top: calc(clamp(.65rem, 1.2vw, 1rem) + .3em);
+}
+
+/* Blackletter appears only in the short final aside, never in body text. */
+.verdict {
+  font-family: "Pirata One", Georgia, serif;
+  font-size: clamp(1.45rem, 2.5vw, 2.4rem);
+  font-weight: 400;
+  line-height: 1.2;
+  letter-spacing: .01em;
+  text-transform: none;
+}
+
+@media (max-width: 600px) {
+  .creedLine {
+    padding-left: 1.3rem;
+    font-size: clamp(1.25rem, 5.8vw, 1.8rem);
+    line-height: 1.17;
+  }
+  .creedFeature { font-size: clamp(1.65rem, 6.8vw, 2.2rem); line-height: 1.1; }
+  .creedAside { font-size: clamp(1.4rem, 6vw, 1.95rem); }
+  .creedFinal { font-size: clamp(1.85rem, 7.3vw, 2.45rem); }
+  .verdict { font-size: clamp(1.5rem, 6vw, 1.95rem); }
+}

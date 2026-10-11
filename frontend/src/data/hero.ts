@@ -17,11 +17,11 @@ export const NAV_COPY = {
 
 export const HERO_COPY = {
   eyebrow: "EST. NOWHERE GOOD",
-  /** Reads NEVER · [cycling] · STILL HERE — three type treatments, one lockup. */
+  /** Three tiers of the slogan; the middle tier is an animated counter-voice. */
   lineOne: "SPREAD",
   cycle: ["INVITED", "FORGIVEN", "IMITATED", "PARDONED"],
   cycleSeed: "INVITED",
-  lineThree: "THE SCIKNESS",
+  lineThree: "THE SICKNESS",
   tagline: "YOU DON'T WEAR IT. YOU SURVIVE IT.",
   taglineCipher: "### ##### #### ### ### ####### ###",
   scroll: "SCROLL",

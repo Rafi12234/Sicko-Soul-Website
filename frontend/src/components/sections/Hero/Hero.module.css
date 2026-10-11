@@ -53,3 +53,74 @@
 .ghost {
   will-change: transform, clip-path;
 }
+
+/* Each headline tier has its own fluid scale: the long final phrase NEVER
+   inherits the giant one-word scale. No breaking letters at any viewport. */
+.headline {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.headlineLockup {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  overflow: visible;
+}
+
+.headlineFirst,
+.headlineLast,
+.cycleWord {
+  display: block;
+  width: max-content;
+  max-width: none;
+  white-space: nowrap;
+  word-break: keep-all;
+  overflow-wrap: normal;
+  hyphens: none;
+}
+
+.headlineFirst {
+  font-size: clamp(3rem, 21vw, 25rem);
+  line-height: 0.75;
+  letter-spacing: -0.05em;
+}
+
+.cycleRow {
+  margin-top: -0.24em;
+  padding-left: clamp(1.25rem, 27vw, 25rem);
+}
+
+.cycleWord {
+  font-size: clamp(2.6rem, 10.2vw, 10rem);
+  letter-spacing: -0.045em;
+}
+
+.lastRow {
+  margin-top: -0.20em;
+}
+
+.headlineLast {
+  /* At 320px this stays well inside the 20px gutters; at 1920px it
+     remains monumental without extending past the right edge. */
+  font-size: clamp(2.5rem, 19vw, 24rem);
+  line-height: 0.83;
+  letter-spacing: -0.048em;
+}
+
+/* On low-height landscape viewports keep the tiers off the ticker. */
+@media (max-height: 600px) and (min-width: 641px) {
+  .headlineFirst { font-size: min(21vw, 44vh); }
+  .headlineLast { font-size: min(19vw, 39vh); }
+  .cycleWord { font-size: min(10.2vw, 20vh); }
+}
+
+/* Mobile displays must keep room for the full word, the timecode and bottom
+   marquee rather than hiding either end of the text off-screen. */
+@media (max-width: 640px) {
+  .headlineFirst { font-size: min(21vw, 21vh); }
+  .headlineLast { font-size: min(18.5vw, 18vh); }
+  .cycleWord { font-size: min(10vw, 12vh); }
+  .cycleRow { padding-left: 25vw; margin-top: -0.12em; }
+  .lastRow { margin-top: -0.06em; }
+}
