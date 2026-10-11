@@ -10,13 +10,13 @@ import Streets from "@/components/sections/Streets";
 import Navbar from "@/components/ui/Navbar";
 import StatementBand from "@/components/ui/StatementBand";
 import { STATEMENTS } from "@/data/statements";
-import { getCatalogArchive, listCatalogSegments } from "@/lib/catalogApi";
+import { getCachedCatalogArchive, getCachedCatalogSegments } from "@/lib/cachedCatalogApi";
 import { getHomepageMedia } from "@/lib/siteMedia"; // SICKO_DYNAMIC_SITE_MEDIA
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const [catalogCategories, segments, siteMedia] = await Promise.all([getCatalogArchive(), listCatalogSegments(), getHomepageMedia()]);
+  const [catalogCategories, segments, siteMedia] = await Promise.all([getCachedCatalogArchive(), getCachedCatalogSegments(), getHomepageMedia()]);
 
   return (
     <>
