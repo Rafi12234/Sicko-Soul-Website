@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { categoriesRouter } from "../modules/categories/categories.routes.js";
+import { publicSegmentsRouter } from "../modules/catalog-segments/catalog-segments.routes.js";
 import { collectionsRouter } from "../modules/collections/collections.routes.js";
 import { cartsRouter } from "../modules/carts/carts.routes.js";
 import { complaintsRouter } from "../modules/complaints/complaints.routes.js";
@@ -16,6 +17,7 @@ export const apiRouter = Router();
 apiRouter.use("/health", healthRouter);
 apiRouter.use("/site-media", siteMediaRouter);
 apiRouter.use("/categories", categoriesRouter);
+apiRouter.use("/segments", publicSegmentsRouter);
 apiRouter.use("/collections", collectionsRouter);
 apiRouter.use("/carts", cartsRouter);
 apiRouter.use("/complaints", complaintsRouter);
