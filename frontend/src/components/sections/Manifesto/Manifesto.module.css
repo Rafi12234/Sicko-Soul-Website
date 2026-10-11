@@ -1,124 +1,222 @@
-/* Sheet edge: a hard screen-print offset, never a soft drop shadow. */
-.sheet {
-  will-change: transform, opacity;
+
+/* Main Sicko Soul Gothic typography */
+
+.root,
+.root * {
+  font-family: "Pirata One", serif;
+  font-weight: 400;
+  font-style: normal;
 }
 
-/* No imagery in this section by design — the only texture is the type itself. */
+.root {
+  isolation: isolate;
+}
+
+.glow {
+  background: radial-gradient(
+    ellipse at 53% 48%,
+    rgba(138, 3, 3, 0.13),
+    transparent 63%
+  );
+}
+
 .ghost {
-  will-change: transform, opacity;
+  font-size: clamp(10rem, 24vw, 29rem);
+  line-height: 0.75;
+  color: transparent;
+  -webkit-text-stroke: 1px rgb(242 240 235 / 0.16);
+  opacity: 0.23;
+  letter-spacing: -0.065em;
+  white-space: nowrap;
+  will-change: transform;
+}
+
+.outerEyebrow {
+  color: #b7b2a8;
+  font-size: clamp(0.9rem, 1.25vw, 1.1rem);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.sideNote,
+.progress {
+  color: #a39f97;
+  font-size: 0.85rem;
+  writing-mode: vertical-rl;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
 }
 
 .spineFill {
   transform: scaleY(0);
   transform-origin: top center;
-  will-change: transform;
 }
 
-/* Terminal caret parked at the end of the creed. */
+/* Editorial paper background */
+
+.sheet {
+  --ink: #171515;
+  --blood: #8a0303;
+
+  color: var(--ink);
+  isolation: isolate;
+  overflow: hidden;
+
+  background-color: #ded9ce;
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent 0 4px,
+    rgb(20 20 19 / 0.017) 5px 6px
+  );
+
+  border: 1px solid rgba(15, 15, 15, 0.16);
+  box-shadow: 7px 7px 0 #070707;
+}
+
+.paperRule {
+  position: absolute;
+  inset-block: 0;
+  left: clamp(12px, 2.1vw, 30px);
+  width: 1px;
+  background: rgb(138 3 3 / 0.34);
+  pointer-events: none;
+}
+
+.folio,
+.folioNumber,
+.sign {
+  font-size: clamp(0.8rem, 1.05vw, 1rem);
+  line-height: 1;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.folio {
+  color: #53504b;
+}
+
+.folioRule {
+  height: 1px;
+  flex: 1;
+  background: rgb(20 20 19 / 0.22);
+}
+
+.folioNumber {
+  color: var(--blood);
+}
+
+/* ONE PARAGRAPH — ONE FONT */
+
+.creedParagraph {
+  margin: 0;
+  padding: 0;
+
+  font-family: "Pirata One", serif;
+  font-weight: 400;
+  font-style: normal;
+
+  color: var(--ink);
+  font-size: clamp(1.75rem, 3.3vw, 3.35rem);
+  line-height: 1.22;
+  letter-spacing: 0.005em;
+
+  text-transform: uppercase;
+  text-align: left;
+  text-wrap: pretty;
+  overflow-wrap: break-word;
+}
+
+/* DIFFERENT FONT FOR THE FINAL STATEMENT */
+
+.root .verdict,
+.root .verdict * {
+  font-family: "Anton", Impact, sans-serif;
+  font-weight: 400;
+  font-style: normal;
+}
+
+.verdict {
+  position: relative;
+
+  margin: clamp(2.5rem, 5vw, 4.5rem) 0 0;
+  padding: clamp(1rem, 2.5vw, 1.8rem) 0;
+
+  color: var(--blood);
+
+  font-size: clamp(2.2rem, 5vw, 5rem);
+  line-height: 1.05;
+  letter-spacing: -0.025em;
+
+  text-transform: uppercase;
+  overflow-wrap: break-word;
+
+  border-top: 2px solid var(--blood);
+  border-bottom: 1px solid rgb(138 3 3 / 0.35);
+}
+
 .caret {
-  will-change: opacity;
+  display: inline-block;
+  width: 0.12em;
+  height: 0.72em;
+  margin-left: 0.18em;
+  vertical-align: 0.01em;
+  background: var(--blood);
+}
+
+.signRule {
+  width: clamp(2rem, 5vw, 4rem);
+  height: 1px;
+  background: rgb(22 20 20 / 0.4);
+}
+
+.sign {
+  color: #686158;
 }
 
 .stamp {
-  will-change: transform, opacity;
-}
+  color: #aa1515;
+  border: 1.5px solid #aa1515;
+  padding: 0.48rem 0.9rem;
 
-.edge {
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-}
-
-/* Breathes under the text so the stock is never flat. */
-.glow {
-  background: radial-gradient(
-    ellipse at 50% 52%,
-    rgb(138 3 3 / 0.1) 0%,
-    rgb(var(--c-bg) / 0) 62%
-  );
-  will-change: opacity, transform;
-}
-
-/* Editorial manifesto typography — all faces already shipped with the site.
-   Keep SplitText's .manifesto-line hooks and the original copy untouched. */
-.creedLine {
-  position: relative;
-  margin: 0 0 clamp(.9rem, 2vw, 1.5rem);
-  padding-left: clamp(1.35rem, 2.4vw, 2rem);
-  font-family: "Archivo Narrow", "Arial Narrow", sans-serif;
-  font-weight: 700;
-  font-size: clamp(1.45rem, 2.7vw, 2.4rem);
-  line-height: 1.13;
-  letter-spacing: -.018em;
-  text-transform: uppercase;
-  text-wrap: pretty;
-  color: rgb(var(--c-fg));
-}
-
-/* Marginalia supplies an archival detail without crowding the readable text. */
-.creedLine::before {
-  content: attr(data-serial);
-  position: absolute;
-  top: .28em;
-  left: 0;
-  font-family: "Special Elite", "Courier New", monospace;
-  font-weight: 400;
-  font-size: clamp(.56rem, .75vw, .67rem);
+  font-size: clamp(1rem, 1.4vw, 1.4rem);
   line-height: 1;
-  letter-spacing: .08em;
-  color: #8a0303;
+
+  transform: rotate(-7deg);
+  background: #ded9ce;
+  box-shadow: 3px 3px 0 #080808;
 }
 
-/* Big, condensed protest-poster headline at the heart of the creed. */
-.creedFeature {
-  margin-top: clamp(1.2rem, 2.4vw, 2rem);
-  font-family: "Anton", Impact, "Arial Narrow", sans-serif;
-  font-weight: 400;
-  font-size: clamp(1.85rem, 3.5vw, 3.1rem);
-  line-height: 1.08;
-  letter-spacing: .004em;
-}
-
-/* One softer, slanted beat prevents five identical typographic blocks. */
-.creedAside {
-  font-style: italic;
-  font-size: clamp(1.5rem, 2.85vw, 2.55rem);
-  letter-spacing: -.022em;
-}
-
-/* Landing line acts as the final stamp: bold, sharp, memorable. */
-.creedFinal {
-  margin-top: clamp(1.5rem, 2.5vw, 2.4rem);
-  padding-top: clamp(.65rem, 1.2vw, 1rem);
-  border-top: 2px solid #8a0303;
-  font-family: "Anton", Impact, "Arial Narrow", sans-serif;
-  font-weight: 400;
-  font-size: clamp(2rem, 4.15vw, 3.65rem);
-  line-height: 1.07;
-  letter-spacing: .008em;
-}
-
-.creedFinal::before {
-  top: calc(clamp(.65rem, 1.2vw, 1rem) + .3em);
-}
-
-/* Blackletter appears only in the short final aside, never in body text. */
-.verdict {
-  font-family: "Pirata One", Georgia, serif;
-  font-size: clamp(1.45rem, 2.5vw, 2.4rem);
-  font-weight: 400;
-  line-height: 1.2;
-  letter-spacing: .01em;
-  text-transform: none;
-}
+/* MOBILE */
 
 @media (max-width: 600px) {
-  .creedLine {
-    padding-left: 1.3rem;
-    font-size: clamp(1.25rem, 5.8vw, 1.8rem);
-    line-height: 1.17;
+  .sheet {
+    box-shadow: 4px 4px 0 #070707;
   }
-  .creedFeature { font-size: clamp(1.65rem, 6.8vw, 2.2rem); line-height: 1.1; }
-  .creedAside { font-size: clamp(1.4rem, 6vw, 1.95rem); }
-  .creedFinal { font-size: clamp(1.85rem, 7.3vw, 2.45rem); }
-  .verdict { font-size: clamp(1.5rem, 6vw, 1.95rem); }
+
+  .paperRule {
+    left: 10px;
+  }
+
+  .creedParagraph {
+    font-size: clamp(1.5rem, 5.7vw, 2.25rem);
+    line-height: 1.24;
+    letter-spacing: 0;
+  }
+
+  .verdict {
+    font-size: clamp(2rem, 8vw, 3rem);
+    line-height: 1.08;
+    margin-top: 2.5rem;
+  }
+
+  .folio,
+  .folioNumber {
+    font-size: 0.75rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spineFill {
+    transform: scaleY(1);
+  }
 }
