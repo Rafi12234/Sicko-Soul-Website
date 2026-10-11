@@ -5,13 +5,14 @@ import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { EASE, STAGGER } from "@/styles/theme";
 import { RACK_COPY, type RackProduct } from "@/data/rack";
 import { getProductVariants, type ArchiveCategory } from "@/data/products";
+import type { CatalogSegmentRecord } from "@/types/commerce";
 import RackCard from "./RackCard";
 import styles from "./Rack.module.css";
 
 /** Column baselines. Nothing in this grid lines up on purpose. */
 const OFFSET = ["lg:mt-0", "lg:mt-[6vh]", "lg:mt-[2vh]", "lg:mt-[8vh]"];
 
-export default function Rack({ catalogCategories }: { catalogCategories: readonly ArchiveCategory[] }) {
+export default function Rack({ catalogCategories, segments }: { catalogCategories: readonly ArchiveCategory[]; segments: readonly CatalogSegmentRecord[] }) {
   const rootRef = useRef<HTMLElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<HTMLSpanElement>(null);
@@ -23,6 +24,8 @@ export default function Rack({ catalogCategories }: { catalogCategories: readonl
   const firstRunRef = useRef(true);
 
   const [activeId, setActiveId] = useState<string>(catalogCategories[0]?.id ?? "");
+  const [activeSegmentId, setActiveSegmentId] = useState(segments[0]?.id ?? "");
+  const visibleCategories = catalogCategories.filter(category => category.segment?.id === activeSegmentId);
   const activeCatalogCategory = catalogCategories.find((category) => category.id === activeId);
   const products: RackProduct[] = (activeCatalogCategory?.products ?? []).map((product) => {
     const variants = getProductVariants(product);
@@ -201,6 +204,7 @@ export default function Rack({ catalogCategories }: { catalogCategories: readonl
 
     ctxRef.current?.add(() => {
       const cards = gsap.utils.toArray<HTMLElement>(".rack-card", gridRef.current);
+      if (cards.length === 0) { setActiveId(category.id); return; }
       gsap.to(cards, {
         yPercent: -20,
         autoAlpha: 0,
@@ -212,6 +216,18 @@ export default function Rack({ catalogCategories }: { catalogCategories: readonl
         onComplete: () => setActiveId(category.id),
       });
     });
+  };
+
+  const handleSegmentSelect = (segmentId: string) => {
+    if (segmentId === activeSegmentId) return;
+    // Cancel an outgoing child tween so it cannot re-select an old category
+    // after the user clicks another main segment.
+    const cards = gsap.utils.toArray<HTMLElement>(".rack-card", gridRef.current);
+    gsap.killTweensOf(cards);
+    swappingRef.current = false;
+    setActiveSegmentId(segmentId);
+    const first = catalogCategories.find(category => category.segment?.id === segmentId);
+    setActiveId(first?.id ?? "");
   };
 
   return (
@@ -254,6 +270,18 @@ export default function Rack({ catalogCategories }: { catalogCategories: readonl
       </h2>
 
       <div className="relative mt-[5vh] px-gutter">
+        {/* Two-level navigation: main segments and their dynamic subcategories. */}
+        <nav aria-label="Main segments" className="flex flex-wrap gap-2 border-b border-bone-white/15 pb-5">
+          {segments.map((segment, index) => (
+            <button key={segment.id} type="button" onClick={() => handleSegmentSelect(segment.id)}
+              aria-pressed={segment.id === activeSegmentId}
+              className={`group border px-5 py-4 text-left transition-colors duration-300 ${segment.id === activeSegmentId ? "border-blood-accent bg-blood-accent text-bone-white" : "border-bone-white/25 text-concrete-gray hover:border-bone-white hover:text-bone-white"}`}>
+              <span className="mr-3 font-stencil text-[0.55rem] opacity-60">{String(index + 1).padStart(2, "0")}</span>
+              <span className="font-display text-[clamp(1.3rem,3vw,2.5rem)] leading-none tracking-crushed">{segment.name}</span>
+            </button>
+          ))}
+        </nav>
+        <p className="my-4 font-stencil text-[0.55rem] tracking-stencil text-concrete-gray">SELECT A FILE / SUBCATEGORY</p>
         <div className="hairline" />
         <div ref={railRef} className="relative flex flex-wrap">
           <span
@@ -261,7 +289,7 @@ export default function Rack({ catalogCategories }: { catalogCategories: readonl
             aria-hidden
             className={`${styles.marker} pointer-events-none absolute left-0 top-0 z-0 bg-bone-white`}
           />
-          {catalogCategories.map((category) => {
+          {visibleCategories.map((category) => {
             const isActive = category.id === activeId;
             const tone = isActive ? "text-black delay-150" : "text-bone-white";
 
@@ -283,6 +311,7 @@ export default function Rack({ catalogCategories }: { catalogCategories: readonl
               </button>
             );
           })}
+          {visibleCategories.length === 0 && <p className="px-5 py-4 font-stencil text-stamp text-concrete-gray">NO ACTIVE SUBCATEGORIES / FILE SEALED</p>}
         </div>
         <div className="hairline" />
 
