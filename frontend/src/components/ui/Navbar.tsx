@@ -27,6 +27,9 @@ export default function Navbar() {
   const menuDockRef = useRef<HTMLDivElement>(null);
   const menuTriggerRef = useRef<HTMLButtonElement>(null);
   const skipFocusOpenRef = useRef(false);
+  const logoImpactRef = useRef<HTMLSpanElement>(null);
+  const lightningRef = useRef<SVGSVGElement>(null);
+  const strikeRef = useRef<(() => void) | null>(null);
 
   const cartCount = useCartStore((state) =>
     state.items.reduce((sum, item) => sum + item.quantity, 0),
@@ -117,6 +120,94 @@ export default function Navbar() {
     return () => ctx.revert();
   }, []);
 
+  // A real voltage strike: animated bolt propagation, a secondary fork flash,
+  // and a sharp, synchronized physical shake of the raster brand mark.
+  // Only transforms/opacity/strokes animate; no canvas, looped render or sound.
+  useEffect(() => {
+    const mark = logoImpactRef.current;
+    const svg = lightningRef.current;
+    if (!mark || !svg) return;
+
+    const bolts = Array.from(svg.querySelectorAll<SVGGElement>("[data-bolt]"));
+    const traces = Array.from(svg.querySelectorAll<SVGPathElement>("path"));
+    const flash = mark.querySelector<HTMLElement>("[data-voltage-flash]");
+    const bloom = mark.querySelector<HTMLElement>("[data-voltage-bloom]");
+    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let active: gsap.core.Timeline | null = null;
+    let nextStrike: gsap.core.Tween | null = null;
+    let openingStrike: gsap.core.Tween | null = null;
+
+    gsap.set(bolts, { autoAlpha: 0 });
+    gsap.set(traces, { strokeDashoffset: 100 });
+    gsap.set([flash, bloom], { autoAlpha: 0 });
+
+    const strike = () => {
+      if (document.hidden || reduced) return;
+      active?.kill();
+      // Fully reset a partial strike when hover and the idle charge overlap.
+      gsap.set(mark, { x: 0, y: 0, rotation: 0, scale: 1 });
+      gsap.set(bolts, { autoAlpha: 0 });
+      gsap.set(traces, { strokeDashoffset: 100 });
+      gsap.set([flash, bloom], { autoAlpha: 0 });
+
+      active = gsap.timeline({
+        onComplete: () => {
+          gsap.set(mark, { x: 0, y: 0, rotation: 0, scale: 1 });
+          gsap.set(bolts, { autoAlpha: 0 });
+          gsap.set([flash, bloom], { autoAlpha: 0 });
+        },
+      });
+      active
+        .set(bolts, { autoAlpha: 1 }, 0.018)
+        .to(traces, {
+          strokeDashoffset: 0,
+          duration: 0.15,
+          stagger: 0.009,
+          ease: "power3.out",
+        }, 0.018)
+        .to(bloom, { autoAlpha: 0.8, duration: 0.025 }, 0.04)
+        .to(flash, { autoAlpha: 0.95, duration: 0.017 }, 0.058)
+        .to(mark, { x: -5, y: 2, rotation: -1.8, duration: 0.035, ease: "none" }, 0.045)
+        .to(mark, { x: 5, y: -3, rotation: 1.6, duration: 0.035, ease: "none" }, 0.08)
+        .to(mark, { x: -3, y: -1, rotation: -0.8, duration: 0.03, ease: "none" }, 0.115)
+        .to(mark, { x: 4, y: 2, rotation: 1.1, duration: 0.033, ease: "none" }, 0.145)
+        .to(mark, { x: -2, y: 0, rotation: -0.7, duration: 0.035, ease: "none" }, 0.18)
+        .to(mark, { x: 0, y: 0, rotation: 0, duration: 0.12, ease: "power3.out" }, 0.215)
+        .to(flash, { autoAlpha: 0, duration: 0.04 }, 0.108)
+        .to(bolts, { autoAlpha: 0, duration: 0.025 }, 0.225)
+        // The return strike flashes back through the already-drawn branches.
+        .set(bolts, { autoAlpha: 1 }, 0.29)
+        .to(bloom, { autoAlpha: 0.98, duration: 0.025 }, 0.29)
+        .to(flash, { autoAlpha: 0.75, duration: 0.016 }, 0.29)
+        .to(mark, { x: 2, y: -1, rotation: 0.65, duration: 0.03 }, 0.29)
+        .to(mark, { x: -2, y: 1, rotation: -0.55, duration: 0.03 }, 0.32)
+        .to(mark, { x: 0, y: 0, rotation: 0, duration: 0.075, ease: "power2.out" }, 0.35)
+        .to(bolts, { autoAlpha: 0, duration: 0.08 }, 0.345)
+        .to([flash, bloom], { autoAlpha: 0, duration: 0.12 }, 0.345);
+    };
+
+    strikeRef.current = strike;
+    if (!reduced) {
+      // Visible on arrival, then occasional unpredictable discharges.
+      openingStrike = gsap.delayedCall(0.85, strike);
+      const schedule = () => {
+        nextStrike = gsap.delayedCall(gsap.utils.random(4.5, 7), () => {
+          strike();
+          schedule();
+        });
+      };
+      schedule();
+    }
+
+    return () => {
+      strikeRef.current = null;
+      openingStrike?.kill();
+      nextStrike?.kill();
+      active?.kill();
+      gsap.set(mark, { clearProps: "transform" });
+    };
+  }, []);
+
   const supportsHover = () =>
     window.matchMedia("(hover: hover) and (pointer: fine)").matches;
 
@@ -176,44 +267,55 @@ export default function Navbar() {
             href={pathname === "/" ? "#top" : "/"}
             aria-label="Sicko Soul — home"
             className={`${styles.logo} relative block h-9 w-[136px] sm:w-[150px]`}
+            onPointerEnter={() => strikeRef.current?.()}
+            onFocus={() => strikeRef.current?.()}
           >
-            {/* Clip only the raster logo; allow lightning to spill outside it. */}
-            <span className={styles.logoCrop} aria-hidden="true">
-              <Image
-                src={MEDIA.images.logo}
-                alt=""
-                width={150}
-                height={150}
-                priority
-                className="logo-knockout absolute left-1/2 top-1/2 h-auto w-[136px] max-w-none -translate-x-1/2 -translate-y-1/2 sm:w-[150px]"
-              />
+            {/* The real brand image stays intact. The shock moves the whole
+                lockup while its lightning exits beyond the image crop. */}
+            <span ref={logoImpactRef} className={styles.logoImpact}>
+              <span className={styles.logoCrop} aria-hidden="true">
+                <Image
+                  src={MEDIA.images.logo}
+                  alt=""
+                  width={150}
+                  height={150}
+                  priority
+                  className="logo-knockout absolute left-1/2 top-1/2 h-auto w-[136px] max-w-none -translate-x-1/2 -translate-y-1/2 sm:w-[150px]"
+                />
+              </span>
+              <span className={styles.voltageBloom} data-voltage-bloom aria-hidden="true" />
+              <span className={styles.voltageFlash} data-voltage-flash aria-hidden="true" />
+              <svg
+                ref={lightningRef}
+                className={styles.lightning}
+                viewBox="0 0 220 96"
+                preserveAspectRatio="none"
+                aria-hidden="true"
+                focusable="false"
+                fill="none"
+              >
+                <g data-bolt className={styles.bolt}>
+                  <path className={styles.boltAura} pathLength={100} d="M4 20 L28 30 L22 39 L49 31 L68 52 L81 33 L99 44 L122 19 L138 37 L158 28 L179 35 L216 13" />
+                  <path className={styles.boltCore} pathLength={100} d="M4 20 L28 30 L22 39 L49 31 L68 52 L81 33 L99 44 L122 19 L138 37 L158 28 L179 35 L216 13" />
+                </g>
+                <g data-bolt className={styles.bolt}>
+                  <path className={styles.boltAura} pathLength={100} d="M34 0 L47 17 L41 29 L65 39 L62 57 L84 54 L101 90" />
+                  <path className={styles.boltCore} pathLength={100} d="M34 0 L47 17 L41 29 L65 39 L62 57 L84 54 L101 90" />
+                </g>
+                <g data-bolt className={styles.bolt}>
+                  <path className={styles.boltAura} pathLength={100} d="M186 3 L175 26 L195 31 L168 51 L178 62 L149 91" />
+                  <path className={styles.boltCore} pathLength={100} d="M186 3 L175 26 L195 31 L168 51 L178 62 L149 91" />
+                </g>
+                <g data-bolt className={styles.bolt}>
+                  <path className={styles.boltAura} pathLength={100} d="M5 75 L38 55 L52 66 L80 51 L105 69 L126 46 L148 65 L178 56 L218 78" />
+                  <path className={styles.boltCore} pathLength={100} d="M5 75 L38 55 L52 66 L80 51 L105 69 L126 46 L148 65 L178 56 L218 78" />
+                </g>
+                <g data-bolt className={styles.bolt}>
+                  <path className={styles.boltAura} pathLength={100} d="M81 33 L69 17 L86 3 M138 37 L154 48 L164 44 M80 51 L61 83 M178 56 L204 48 L216 57" />
+                  <path className={styles.boltCore} pathLength={100} d="M81 33 L69 17 L86 3 M138 37 L154 48 L164 44 M80 51 L61 83 M178 56 L204 48 L216 57" />
+                </g>
+              </svg>
             </span>
-
-            {/* Always-running electrical arcs: bright traveling cores, red
-                corona and micro-sparks. No extra network/media requests. */}
-            <svg
-              className={styles.electricArcs}
-              viewBox="0 0 180 60"
-              preserveAspectRatio="none"
-              fill="none"
-              aria-hidden="true"
-              focusable="false"
-            >
-              <g className={styles.arcTop}>
-                <path className={styles.arcGlow} d="M1 32 L16 23 L28 28 L41 8 L52 22 L69 13 L84 23 L99 11 L111 20 L132 10 L145 17 L163 8 L179 17" />
-                <path className={styles.arcCore} d="M1 32 L16 23 L28 28 L41 8 L52 22 L69 13 L84 23 L99 11 L111 20 L132 10 L145 17 L163 8 L179 17" />
-              </g>
-              <g className={styles.arcBottom}>
-                <path className={styles.arcGlow} d="M0 39 L14 48 L29 39 L42 53 L58 41 L70 48 L86 39 L99 50 L114 41 L126 52 L142 39 L155 44 L179 34" />
-                <path className={styles.arcCore} d="M0 39 L14 48 L29 39 L42 53 L58 41 L70 48 L86 39 L99 50 L114 41 L126 52 L142 39 L155 44 L179 34" />
-              </g>
-              <g className={styles.arcCross}>
-                <path className={styles.arcGlow} d="M7 12 L19 22 L29 15 L44 32 L53 26 L68 35 L83 21 L94 37 L111 23 L124 34 L139 19 L152 32 L171 20" />
-                <path className={styles.arcCore} d="M7 12 L19 22 L29 15 L44 32 L53 26 L68 35 L83 21 L94 37 L111 23 L124 34 L139 19 L152 32 L171 20" />
-              </g>
-            </svg>
-            <span className={`${styles.electricSpark} ${styles.sparkLeft}`} aria-hidden="true" />
-            <span className={`${styles.electricSpark} ${styles.sparkRight}`} aria-hidden="true" />
           </Link>
 
           <div className="relative flex items-center gap-2 sm:gap-3">
@@ -262,10 +364,14 @@ export default function Navbar() {
                   inert={!menuOpen}
                   className={styles.dropdown}
                 >
-                  <div className={styles.dropdownHeading}>
-                    <span>THE DIRECTORY</span>
-                    <span>01—07</span>
-                  </div>
+
+<div className={styles.dropdownHeading}>
+  <span>THE DIRECTORY</span>
+  <span>
+    01—{String(NAV_COPY.links.length).padStart(2, "0")}
+  </span>
+</div>
+
 
                   {NAV_COPY.links.map((link) => (
                     <Link
