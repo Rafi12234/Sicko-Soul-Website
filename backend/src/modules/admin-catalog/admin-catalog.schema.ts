@@ -13,6 +13,7 @@ const categoryBase = z.object({
   coverAlt: z.string().trim().max(255).nullable().optional(),
   sortOrder: z.number().int().min(0).max(100000).default(0),
   isActive: z.boolean().default(true),
+  segmentId: z.string().regex(/^\d+$/).nullable().optional(),
 });
 
 export const createCategorySchema = categoryBase;
