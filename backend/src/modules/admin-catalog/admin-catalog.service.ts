@@ -40,6 +40,25 @@ async function resolveSize(
   });
 }
 
+async function assertSegmentExists(id: string): Promise<void> {
+  const segment = await prisma.catalog_segments.findUnique({ where: { segment_id: BigInt(id) } });
+  if (!segment) throw new AppError({ statusCode: 404, code: "SEGMENT_NOT_FOUND", message: "Main segment was not found." });
+}
+
+export async function deleteEmptyCategoryForAdmin(categoryId: bigint, audit: AuditContext) {
+  const old = await prisma.product_categories.findUnique({
+    where: { category_id: categoryId },
+    include: { _count: { select: { products: true } } },
+  });
+  if (!old) throw new AppError({ statusCode: 404, code: "CATEGORY_NOT_FOUND", message: "Category was not found." });
+  if (old._count.products > 0) throw new AppError({ statusCode: 409, code: "CATEGORY_HAS_PRODUCTS", message: "Move or archive its products first, or deactivate this category instead." });
+  await prisma.$transaction(async tx => {
+    await tx.product_categories.delete({ where: { category_id: categoryId } });
+    await recordAudit(audit, { action: "CATEGORY_DELETE", entityType: "product_category", entityId: categoryId, oldData: old }, tx);
+  });
+  return { deleted: true };
+}
+
 export async function listCategoriesForAdmin() {
   const rows = await prisma.product_categories.findMany({
     include: { _count: { select: { products: true } } },
@@ -59,6 +78,7 @@ export async function listCategoriesForAdmin() {
     coverAlt: row.cover_alt,
     sortOrder: row.sort_order,
     isActive: row.is_active,
+    segmentId: row.segment_id?.toString() ?? null,
     productCount: row._count.products,
   }));
 }
@@ -77,11 +97,14 @@ export async function createCategoryForAdmin(
     coverAlt?: string | null | undefined;
     sortOrder: number;
     isActive: boolean;
+    segmentId?: string | null | undefined;
   },
   audit: AuditContext,
 ) {
+  if (input.segmentId) await assertSegmentExists(input.segmentId);
   const row = await prisma.product_categories.create({
     data: {
+      segment_id: input.segmentId ? BigInt(input.segmentId) : null,
       code: input.code,
       slug: input.slug,
       index_code: input.indexCode ?? null,
@@ -126,8 +149,15 @@ export async function updateCategoryForAdmin(
     coverAlt?: string | null;
     sortOrder?: number;
     isActive?: boolean;
+    segmentId?: string | null;
   };
   const data: Prisma.product_categoriesUpdateInput = {};
+  if (body.segmentId !== undefined) {
+    if (body.segmentId) await assertSegmentExists(body.segmentId);
+    data.catalog_segments = body.segmentId
+      ? { connect: { segment_id: BigInt(body.segmentId) } }
+      : { disconnect: true };
+  }
   if (body.code !== undefined) data.code = body.code;
   if (body.slug !== undefined) data.slug = body.slug;
   if (body.indexCode !== undefined) data.index_code = body.indexCode;
