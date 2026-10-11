@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useLayoutEffect, useRef } from "react";
@@ -10,102 +11,150 @@ export default function Manifesto() {
   const rootRef = useRef<HTMLElement>(null);
   const ghostRef = useRef<HTMLSpanElement>(null);
   const spineRef = useRef<HTMLSpanElement>(null);
-  const glowRef = useRef<HTMLSpanElement>(null);
 
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
-      const q = gsap.utils.selector(rootRef);
-      const mm = gsap.matchMedia();
+      const reducedMotion = window.matchMedia(
+        "(prefers-reduced-motion: reduce)"
+      ).matches;
 
-      const split = new SplitText(".manifesto-line", { type: "words" });
-      // Cold start. Ink sits faint on the stock until it is read — lighter than
-      // this and unread words vanish entirely against paper.
-      gsap.set(split.words, { autoAlpha: 0.2 });
-      gsap.set(".manifesto-verdict", { autoAlpha: 0, yPercent: 40 });
+      const split = new SplitText(".manifesto-paragraph", {
+        type: "words",
+      });
 
-      // The creed reveals as the visitor arrives, but NEVER pins the page or
-      // scrubs against the scroll wheel. Reading is optional; scrolling stays free.
-      const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-      if (prefersReducedMotion) {
-        gsap.set(split.words, { autoAlpha: 1 });
-        gsap.set(".manifesto-verdict", { autoAlpha: 1, yPercent: 0 });
-        gsap.set(".manifesto-stamp", { autoAlpha: 1, scale: 1, rotate: -9 });
+      if (reducedMotion) {
         gsap.set(spineRef.current, { scaleY: 1 });
-      } else {
-        const read = gsap.timeline({
-          scrollTrigger: {
-            id: "manifesto-read",
-            trigger: rootRef.current,
-            start: "top 76%",
-            toggleActions: "play none none none",
-            once: true,
-          },
+        gsap.set(".manifesto-verdict", {
+          autoAlpha: 1,
+          y: 0,
         });
-        read
-          .to(split.words, {
-            autoAlpha: 1,
-            duration: 0.4,
-            stagger: 0.048,
-            ease: "power1.out",
+        gsap.set(".manifesto-stamp", {
+          autoAlpha: 1,
+          rotate: -7,
+          scale: 1,
+        });
+      } else {
+        gsap.set(split.words, {
+          autoAlpha: 0.42,
+          y: 16,
+          filter: "blur(2px)",
+        });
+
+        gsap.set(".manifesto-verdict", {
+          autoAlpha: 0.25,
+          y: 12,
+        });
+
+        gsap.set(".manifesto-stamp", {
+          autoAlpha: 0,
+          scale: 1.28,
+          rotate: -13,
+        });
+
+        gsap
+          .timeline({
+            scrollTrigger: {
+              id: "manifesto-read",
+              trigger: rootRef.current,
+              start: "top 76%",
+              once: true,
+            },
           })
-          .to(spineRef.current, { scaleY: 1, duration: 0.8, ease: EASE.expo }, 0)
-          .to(ghostRef.current, { yPercent: -12, autoAlpha: 0.1, duration: 2.4 }, 0)
-          .to(".manifesto-verdict", { autoAlpha: 1, yPercent: 0, duration: 0.7, ease: "power2.out" }, "-=0.12")
-          .fromTo(
+          .to(
+            spineRef.current,
+            {
+              scaleY: 1,
+              duration: 1.1,
+              ease: EASE.expo,
+            },
+            0
+          )
+          .to(
+            ghostRef.current,
+            {
+              yPercent: -9,
+              duration: 2.4,
+              ease: "power1.out",
+            },
+            0
+          )
+          .to(
+            split.words,
+            {
+              autoAlpha: 1,
+              y: 0,
+              filter: "blur(0px)",
+              duration: 0.4,
+              stagger: 0.025,
+              ease: "power3.out",
+            },
+            0.07
+          )
+          .to(
+            ".manifesto-verdict",
+            {
+              autoAlpha: 1,
+              y: 0,
+              duration: 0.75,
+              ease: EASE.expo,
+            },
+            "+=0.1"
+          )
+          .to(
             ".manifesto-stamp",
-            { autoAlpha: 0, scale: 1.35, rotate: -18 },
-            { autoAlpha: 1, scale: 1, rotate: -9, duration: 0.6, ease: EASE.overshoot },
-            "-=0.35",
+            {
+              autoAlpha: 1,
+              scale: 1,
+              rotate: -7,
+              duration: 0.48,
+              ease: EASE.overshoot,
+            },
+            "-=0.24"
           );
       }
 
-      /* ---- Masthead sits outside the pin so it reads before the creed. ---- */
-      gsap.from(q(".manifesto-meta"), {
-        autoAlpha: 0,
-        y: 18,
-        duration: 0.8,
-        stagger: 0.08,
-        ease: EASE.hard,
-        scrollTrigger: {
-          id: "manifesto-meta",
-          trigger: rootRef.current,
-          start: "top 80%",
-          toggleActions: "play none none reverse",
-        },
-      });
-
-      /* ---- Continuous layer, parked until the section is on screen. ---- */
-      const loops: gsap.core.Animation[] = [];
-
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        const caret = gsap.to(".manifesto-caret", {
+      if (!reducedMotion) {
+        gsap.from(".manifesto-meta", {
           autoAlpha: 0,
-          duration: 0.52,
-          ease: "steps(1)",
-          repeat: -1,
-          yoyo: true,
+          y: 14,
+          duration: 0.7,
+          stagger: 0.08,
+          ease: EASE.hard,
+          scrollTrigger: {
+            id: "manifesto-meta",
+            trigger: rootRef.current,
+            start: "top 80%",
+            toggleActions: "play none none none",
+          },
         });
 
-        const breathe = gsap.to(glowRef.current, {
-          opacity: 0.55,
-          scale: 1.12,
-          duration: 6.5,
-          ease: "sine.inOut",
-          repeat: -1,
-          yoyo: true,
+        const loops: gsap.core.Animation[] = [];
+
+        loops.push(
+          gsap.to(".manifesto-caret", {
+            autoAlpha: 0,
+            duration: 0.55,
+            ease: "steps(1)",
+            repeat: -1,
+            yoyo: true,
+          })
+        );
+
+        loops.forEach((loop) => loop.pause());
+
+        ScrollTrigger.create({
+          id: "manifesto-loops",
+          trigger: rootRef.current,
+          start: "top bottom",
+          end: "bottom top",
+          onToggle: (self) =>
+            loops.forEach((loop) =>
+              self.isActive && !document.hidden
+                ? loop.play()
+                : loop.pause()
+            ),
         });
-
-        loops.push(caret, breathe);
-      });
-
-      loops.forEach((loop) => loop.pause());
-      ScrollTrigger.create({
-        id: "manifesto-loops",
-        trigger: rootRef.current,
-        start: "top bottom",
-        end: "bottom top",
-        onToggle: (self) => loops.forEach((loop) => (self.isActive ? loop.play() : loop.pause())),
-      });
+      }
 
       return () => split.revert();
     }, rootRef);
@@ -114,108 +163,103 @@ export default function Manifesto() {
   }, []);
 
   return (
-    <section ref={rootRef} id="manifesto" className="theme-graphite relative bg-black">
+    <section
+      ref={rootRef}
+      id="manifesto"
+      className={`${styles.root} theme-graphite relative bg-black`}
+    >
       <div className="relative flex min-h-screen flex-col justify-center overflow-hidden py-[12vh]">
         <span
-          ref={glowRef}
           aria-hidden
-          className={`${styles.glow} pointer-events-none absolute inset-0 z-0 opacity-30`}
+          className={`${styles.glow} pointer-events-none absolute inset-0 z-0`}
         />
 
         <span
-          aria-hidden
-          className={`${styles.edge} pointer-events-none absolute right-2 top-[22vh] z-10 hidden font-stencil text-[0.6rem] tracking-stencil text-concrete-gray/60 xl:block`}
-        >
-          {MANIFESTO_COPY.aside}
-        </span>
-
-        {/* Hollow word drifts behind the creed for the whole read. */}
-        <span
           ref={ghostRef}
           aria-hidden
-          className={`${styles.ghost} pointer-events-none absolute -right-[4vw] top-[6vh] z-0 hidden font-display text-[22vw] leading-none tracking-crushed text-outline-2 opacity-[0.09] lg:block`}
+          className={`${styles.ghost} pointer-events-none absolute -right-[6vw] top-[7vh] z-0 hidden lg:block`}
         >
           {MANIFESTO_COPY.ghost}
+        </span>
+
+        <span
+          aria-hidden
+          className={`${styles.sideNote} pointer-events-none absolute right-2 top-[22vh] z-10 hidden xl:block`}
+        >
+          {MANIFESTO_COPY.aside}
         </span>
 
         <div className="relative z-10 px-gutter">
           <div className="manifesto-meta flex items-center gap-4">
             <span className="h-px w-12 bg-blood-accent" />
-            <span className="font-stencil text-stamp text-concrete-gray">
+            <span className={styles.outerEyebrow}>
               {MANIFESTO_COPY.eyebrow}
             </span>
           </div>
         </div>
 
-        {/* Spine on the left fills as the creed is read. */}
-        <div className="relative z-10 mt-[6vh] flex gap-6 px-gutter sm:gap-10">
+        <div className="relative z-10 mt-[5vh] flex gap-6 px-gutter sm:gap-10">
           <div className="hidden shrink-0 flex-col items-center gap-4 sm:flex">
-            <span className="block h-[38vh] w-px bg-bone-white/12">
+            <span className="block h-[40vh] w-px bg-bone-white/15">
               <span
                 ref={spineRef}
                 className={`${styles.spineFill} block h-full w-full bg-blood-accent`}
               />
             </span>
-            <span
-              aria-hidden
-              className={`${styles.edge} font-stencil text-[0.5rem] tracking-stencil text-concrete-gray`}
-            >
+
+            <span className={styles.progress}>
               {MANIFESTO_COPY.progress}
             </span>
           </div>
 
-          {/* Document plate sits in the normal page flow; nothing holds the scroll. */}
           <div
-            className={`${styles.sheet} theme-light relative max-w-[50rem] bg-black px-[5vw] py-[4.5vh] shadow-print lg:ml-[4%] lg:px-[3vw]`}
+            className={`${styles.sheet} theme-light relative w-full max-w-[66rem] px-[6vw] py-[5vh] lg:ml-[3%] lg:px-[4.3vw]`}
           >
-            {/* Ruled margin down the sheet, like a filing document. */}
-            <span
-              aria-hidden
-              className="absolute inset-y-0 left-[3.2vw] hidden w-px bg-blood-accent/25 lg:block"
-            />
+            <span aria-hidden className={styles.paperRule} />
 
-            <div className="manifesto-meta mb-5 flex items-center gap-3">
-              <span className="font-stencil text-[0.5rem] tracking-stencil text-concrete-gray">
+            <div className="manifesto-meta mb-7 flex items-center gap-3">
+              <span className={styles.folio}>
                 {MANIFESTO_COPY.sheetRef}
               </span>
-              <span className="h-px flex-1 bg-bone-white/15" />
+
+              <span className={styles.folioRule} />
+
+              <span className={styles.folioNumber}>
+                SS—03
+              </span>
             </div>
 
-            {MANIFESTO_COPY.lines.map((line, index) => (
-              <p
-                key={line}
-                data-serial={String(index + 1).padStart(2, "0")}
-                className={`manifesto-line ${styles.creedLine} ${
-                  index === 1 ? styles.creedFeature :
-                  index === 2 ? styles.creedAside :
-                  index === 4 ? styles.creedFinal : ""
-                }`}
-              >
-                {line}
-              </p>
-            ))}
+            {/* ONE CONTINUOUS PARAGRAPH */}
+            <p
+              className={`manifesto-paragraph ${styles.creedParagraph}`}
+            >
+              {MANIFESTO_COPY.lines.join(" ")}
+            </p>
 
-            <p className={`manifesto-verdict ${styles.verdict} mt-7 text-blood-accent`}>
+            {/* SEPARATE TYPOGRAPHY */}
+            <p
+              className={`manifesto-verdict ${styles.verdict}`}
+            >
               {MANIFESTO_COPY.verdict}
               <span
                 aria-hidden
-                className={`${styles.caret} manifesto-caret ml-3 inline-block h-[0.75em] w-[0.42em] translate-y-[0.06em] bg-blood-accent align-middle`}
+                className={`${styles.caret} manifesto-caret`}
               />
             </p>
 
             <div className="manifesto-meta mt-7 flex items-center gap-5">
-              <span className="h-px w-16 bg-bone-white/20" />
-              <span className="font-stencil text-[0.55rem] tracking-stencil text-concrete-gray">
+              <span className={styles.signRule} />
+
+              <span className={styles.sign}>
                 {MANIFESTO_COPY.sign}
               </span>
             </div>
           </div>
         </div>
 
-        {/* Slams on once the creed has revealed, without locking the scroll. */}
         <span
           aria-hidden
-          className={`${styles.stamp} manifesto-stamp pointer-events-none absolute bottom-[9vh] right-[6vw] z-10 hidden border-2 border-blood-accent px-6 py-3 font-stencil text-[clamp(0.7rem,1.6vw,1.1rem)] tracking-stencil text-blood-accent opacity-0 md:block`}
+          className={`${styles.stamp} manifesto-stamp pointer-events-none absolute bottom-[7vh] right-[5vw] z-10 hidden md:block`}
         >
           {MANIFESTO_COPY.stamp}
         </span>
