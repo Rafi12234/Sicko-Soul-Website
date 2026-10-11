@@ -1,12 +1,29 @@
 "use client";
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { EASE, STAGGER } from "@/styles/theme";
 import { useAppStore } from "@/store/useAppStore";
 import { HERO_COPY } from "@/data/hero";
 import { cloudinaryVideoPoster, cloudinaryVideoUrl } from "@/lib/media"; // SICKO_DYNAMIC_SITE_MEDIA
 import styles from "./Hero.module.css";
+
+/**
+ * Grade Cloudinary video *before* it reaches the browser so the decoder can
+ * present frames directly. Filtering an entire moving video with CSS forces
+ * a costly per-frame GPU composition pass while Lenis is scrolling.
+ *
+ * All three effects are supported for Cloudinary video. For a non-Cloudinary
+ * URL, leave the URL untouched and use the previous CSS grade as a fallback.
+ */
+const HERO_GRADE = "e_saturation:-100/e_contrast:20/e_brightness:-10";
+const CLOUDINARY_VIDEO_UPLOAD = "/video/upload/";
+
+function colorGradeHeroMedia(deliveryUrl: string): string {
+  return deliveryUrl.includes(CLOUDINARY_VIDEO_UPLOAD)
+    ? deliveryUrl.replace(CLOUDINARY_VIDEO_UPLOAD, `${CLOUDINARY_VIDEO_UPLOAD}${HERO_GRADE}/`)
+    : deliveryUrl;
+}
 
 const formatTimecode = (totalSeconds: number) => {
   const s = Math.floor(totalSeconds);
@@ -25,6 +42,12 @@ export default function Hero({ videoUrl }: { videoUrl: string }) {
   const edgeRef = useRef<HTMLDivElement>(null);
   const railRef = useRef<HTMLSpanElement>(null);
   const timecodeRef = useRef<HTMLSpanElement>(null);
+  // Some Cloudinary accounts restrict newly derived transformations. If a
+  // graded source fails, swap back to the known-good original delivery and
+  // keep the previous CSS treatment so the Hero never becomes a blank video.
+  const [useOriginalDelivery, setUseOriginalDelivery] = useState(false);
+  const hasServerGrade = videoUrl.includes(CLOUDINARY_VIDEO_UPLOAD) && !useOriginalDelivery;
+  const heroDeliveryUrl = (url: string) => hasServerGrade ? colorGradeHeroMedia(url) : url;
 
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
@@ -161,16 +184,28 @@ export default function Hero({ videoUrl }: { videoUrl: string }) {
 
       let entered = useAppStore.getState().hasEntered;
       let sectionActive = false;
+      let enteringThroughPreloader = false;
+      let isScrolling = false;
 
       const syncAmbient = () => {
-        const active = entered && sectionActive && !document.hidden;
+        // Continuous footage is the point of this hero. Pause only secondary
+        // text/marquee effects during a scroll gesture; never pause the video
+        // merely because the visitor is scrolling.
+        const visible = entered && sectionActive && !document.hidden;
+        const active = visible && !isScrolling;
         ambient.forEach((animation) => (active ? animation.resume() : animation.pause()));
+        // Don't compute GSAP entrance transforms during an active gesture.
+        // Resume unfinished entrance motion only when scrolling has settled.
+        if (isScrolling && intro.isActive()) intro.pause();
+        else if (active && intro.paused() && intro.progress() < 1) intro.resume();
 
         const video = videoRef.current;
         if (!video) return;
-        // Leave decoding completely idle outside the hero, while hidden,
-        // or when the visitor requested less animation.
-        const playVideo = active && !prefersReducedMotion;
+        // Video stays in motion while Lenis scrolls. Only pause when the hero
+        // actually leaves the viewport, document is hidden or reduced motion
+        // is requested; avoid retriggering play() on every scroll frame.
+        const playVideo = (visible || (enteringThroughPreloader && !entered)) &&
+          !prefersReducedMotion && !document.hidden;
         if (playVideo && video.paused) void video.play().catch(() => {});
         else if (!playVideo && !video.paused) video.pause();
       };
@@ -182,15 +217,42 @@ export default function Hero({ videoUrl }: { videoUrl: string }) {
         end: "bottom top",
         onToggle: (self) => {
           sectionActive = self.isActive;
+          isScrolling = ScrollTrigger.isScrolling();
           syncAmbient();
         },
         onRefresh: (self) => {
           sectionActive = self.isActive;
+          isScrolling = ScrollTrigger.isScrolling();
           syncAmbient();
         },
       });
       sectionActive = visibilityTrigger.isActive;
       document.addEventListener("visibilitychange", syncAmbient);
+      // ScrollTrigger receives every Lenis update. Its scrollStart/scrollEnd
+      // are gesture-level events, so there is no scroll listener doing timer
+      // work on every animation frame.
+      const onScrollStart = () => {
+        if (!entered || !sectionActive) return;
+        isScrolling = true;
+        // Pause expensive SplitText entrance work while scroll owns the frame.
+        if (intro.isActive()) intro.pause();
+        syncAmbient();
+      };
+      const onScrollEnd = () => {
+        if (!isScrolling) return;
+        isScrolling = false;
+        syncAmbient();
+      };
+      ScrollTrigger.addEventListener("scrollStart", onScrollStart);
+      ScrollTrigger.addEventListener("scrollEnd", onScrollEnd);
+      const prepareEntryPlayback = () => {
+        enteringThroughPreloader = true;
+        syncAmbient();
+      };
+      window.addEventListener("sicko-hero-entering", prepareEntryPlayback);
+      // A video can remount if Cloudinary denies the color transform. Resume
+      // normal video lifecycle as soon as that fallback has its first frame.
+      window.addEventListener("sicko-hero-media-ready", syncAmbient);
       syncAmbient();
 
       const unsubscribe = useAppStore.subscribe((state) => {
@@ -200,28 +262,17 @@ export default function Hero({ videoUrl }: { videoUrl: string }) {
         syncAmbient();
       });
 
-      // Scroll only the headline, never the full-screen filtered video.
-      // Animating the video while it decodes forces large compositor updates
-      // and causes scroll frame drops, especially on shared/mobile GPUs.
-      const mm = gsap.matchMedia();
-      mm.add("(min-width: 1024px) and (prefers-reduced-motion: no-preference)", () => {
-        gsap.to(".hero-headline", {
-          yPercent: -15,
-          autoAlpha: 0.35,
-          ease: "none",
-          scrollTrigger: {
-            id: "hero-headline-parallax",
-            trigger: rootRef.current,
-            start: "top top",
-            end: "bottom top",
-            scrub: 0.35,
-          },
-        });
-      });
+      // Intentionally no scrubbed headline parallax: GSAP SplitText and
+      // per-frame transform updates are costly
+      // on lower-end GPUs. The static headline retains the brand typography.
 
       return () => {
         unsubscribe();
         document.removeEventListener("visibilitychange", syncAmbient);
+        ScrollTrigger.removeEventListener("scrollStart", onScrollStart);
+        ScrollTrigger.removeEventListener("scrollEnd", onScrollEnd);
+        window.removeEventListener("sicko-hero-entering", prepareEntryPlayback);
+        window.removeEventListener("sicko-hero-media-ready", syncAmbient);
         split.revert();
       };
     }, rootRef);
@@ -238,19 +289,24 @@ export default function Hero({ videoUrl }: { videoUrl: string }) {
       <div className={`${styles.videoWrap} absolute inset-0`}>
         <div className={`${styles.videoInner} absolute inset-0`}>
           <video
-            key={videoUrl}
+            id="sicko-hero-video"
+            key={`${videoUrl}:${hasServerGrade ? "graded" : "original"}`}
             ref={videoRef}
-            className="media-treat h-full w-full object-cover"
-            poster={cloudinaryVideoPoster(videoUrl, 1280)}
+            className={`${hasServerGrade ? "" : "media-treat "}h-full w-full object-cover`}
+            poster={heroDeliveryUrl(cloudinaryVideoPoster(videoUrl, 960))}
+            onLoadedData={() => window.dispatchEvent(new Event("sicko-hero-media-ready"))}
+            onError={() => { if (hasServerGrade) setUseOriginalDelivery(true); }}
             muted
             loop
             playsInline
-            preload="metadata"
+            preload="auto"
             aria-hidden
           >
-            <source media="(max-width: 767px)" src={cloudinaryVideoUrl(videoUrl, 768)} />
-            <source media="(max-width: 1279px)" src={cloudinaryVideoUrl(videoUrl, 1080)} />
-            <source src={cloudinaryVideoUrl(videoUrl, 1440)} />
+            {/* Grade once at Cloudinary (not on every browser frame), while
+                retaining the three responsive decoding resolutions. */}
+            <source media="(max-width: 767px)" src={heroDeliveryUrl(cloudinaryVideoUrl(videoUrl, 640))} />
+            <source media="(max-width: 1279px)" src={heroDeliveryUrl(cloudinaryVideoUrl(videoUrl, 768))} />
+            <source src={heroDeliveryUrl(cloudinaryVideoUrl(videoUrl, 1080))} />
           </video>
         </div>
       </div>
