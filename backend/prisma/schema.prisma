@@ -376,7 +376,26 @@ model payments {
   @@index([provider, provider_reference], map: "idx_payments_provider_reference")
 }
 
+model catalog_segments {
+  segment_id         BigInt               @id @default(autoincrement()) @db.UnsignedBigInt
+  code               String               @unique(map: "uq_catalog_segments_code") @db.VarChar(64)
+  slug               String               @unique(map: "uq_catalog_segments_slug") @db.VarChar(120)
+  name               String               @db.VarChar(120)
+  cover_url          String?              @db.VarChar(1000)
+  cover_alt          String?              @db.VarChar(255)
+  tagline            String?              @db.VarChar(255)
+  sort_order         Int                  @default(0) @db.UnsignedInt
+  is_active          Boolean              @default(true)
+  created_at         DateTime             @default(now()) @db.DateTime(0)
+  updated_at         DateTime             @default(now()) @db.DateTime(0)
+  product_categories product_categories[]
+
+  @@index([is_active, sort_order], map: "idx_catalog_segments_active_sort")
+}
+
 model product_categories {
+  segment_id  BigInt?    @db.UnsignedBigInt
+  catalog_segments catalog_segments? @relation(fields: [segment_id], references: [segment_id], onDelete: Restrict, onUpdate: Cascade, map: "fk_product_categories_segment")
   category_id BigInt     @id @default(autoincrement()) @db.UnsignedBigInt
   code        String     @unique(map: "uq_product_categories_code") @db.VarChar(64)
   slug        String     @unique(map: "uq_product_categories_slug") @db.VarChar(120)
@@ -395,6 +414,7 @@ model product_categories {
   products    products[]
 
   @@index([is_active, sort_order], map: "idx_product_categories_active_sort")
+  @@index([segment_id, is_active, sort_order], map: "idx_product_categories_segment")
 }
 
 model product_features {
