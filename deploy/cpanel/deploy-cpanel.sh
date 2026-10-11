@@ -259,14 +259,42 @@ touch "$FRONTEND/tmp/restart.txt" "$BACKEND/tmp/restart.txt"
 # Require the NEW PROCESS's runtime SHA, not a marker modified by the deployer.
 # A stale Passenger process cannot satisfy this check.
 echo 'Waiting for newly activated gateway, homepage, API, and database...'
+# Passenger/cPanel HTTPS connections can take a few seconds to complete while
+# a new gateway starts. Keep all three health requirements, but give TLS a
+# realistic timeout and report which endpoint failed.
+HEALTH_CONNECT_TIMEOUT="${SICKO_HEALTH_CONNECT_TIMEOUT_SECONDS:-10}"
+HEALTH_REQUEST_TIMEOUT="${SICKO_HEALTH_REQUEST_TIMEOUT_SECONDS:-25}"
+HEALTH_HOMEPAGE_TIMEOUT="${SICKO_HEALTH_HOMEPAGE_TIMEOUT_SECONDS:-30}"
 healthcheck() {
   local body
-  body="$(curl -fsS --connect-timeout 2 --max-time 5 "$PUBLIC_ORIGIN/__sicko_gateway_health" 2>/dev/null || true)"
-  if ! printf '%s' "$body" | node -e 'const expected=process.argv[1];let s="";process.stdin.on("data",x=>s+=x);process.stdin.on("end",()=>{try{let x=JSON.parse(s);process.exit(x.status==="ok"&&x.backend===true&&x.frontend===true&&x.runtimeSource===expected?0:1)}catch{process.exit(1)}})' "$SOURCE_SHA"; then return 1; fi
-  curl -fsS --connect-timeout 2 --max-time 5 "$PUBLIC_ORIGIN/api/v1/health" \
-    | node -e 'let s="";process.stdin.on("data",x=>s+=x);process.stdin.on("end",()=>{try{let x=JSON.parse(s);process.exit(x.data?.status==="ok"&&x.data?.database==="connected"?0:1)}catch{process.exit(1)}})' || return 1
-  curl -fsS --connect-timeout 2 --max-time 10 "$PUBLIC_ORIGIN/" -o /dev/null || return 1
+  if ! body="$(curl -fsS --retry 1 --retry-delay 1 \
+    --connect-timeout "$HEALTH_CONNECT_TIMEOUT" --max-time "$HEALTH_REQUEST_TIMEOUT" \
+    "$PUBLIC_ORIGIN/__sicko_gateway_health")"; then
+    echo 'WARN: Production gateway HTTPS health request failed.' >&2
+    return 1
+  fi
+  if ! printf '%s' "$body" | node -e 'const expected=process.argv[1];let s="";process.stdin.on("data",x=>s+=x);process.stdin.on("end",()=>{try{let x=JSON.parse(s);process.exit(x.status==="ok"&&x.backend===true&&x.frontend===true&&x.runtimeSource===expected?0:1)}catch{process.exit(1)}})' "$SOURCE_SHA"; then
+    echo 'WARN: Gateway health JSON or active runtime SHA did not match the candidate.' >&2
+    return 1
+  fi
+  if ! body="$(curl -fsS --retry 1 --retry-delay 1 \
+    --connect-timeout "$HEALTH_CONNECT_TIMEOUT" --max-time "$HEALTH_REQUEST_TIMEOUT" \
+    "$PUBLIC_ORIGIN/api/v1/health")"; then
+    echo 'WARN: Production API HTTPS health request failed.' >&2
+    return 1
+  fi
+  if ! printf '%s' "$body" | node -e 'let s="";process.stdin.on("data",x=>s+=x);process.stdin.on("end",()=>{try{let x=JSON.parse(s);process.exit(x.data?.status==="ok"&&x.data?.database==="connected"?0:1)}catch{process.exit(1)}})'; then
+    echo 'WARN: API health JSON did not confirm healthy backend and database.' >&2
+    return 1
+  fi
+  if ! curl -fsS --retry 1 --retry-delay 1 \
+    --connect-timeout "$HEALTH_CONNECT_TIMEOUT" --max-time "$HEALTH_HOMEPAGE_TIMEOUT" \
+    "$PUBLIC_ORIGIN/" -o /dev/null; then
+    echo 'WARN: Production homepage HTTPS health request failed.' >&2
+    return 1
+  fi
 }
+
 verified=0
 for _ in $(seq 1 "${SICKO_ACTIVATION_ATTEMPTS:-35}"); do
   if healthcheck; then verified=1; break; fi
@@ -277,10 +305,22 @@ if (( verified != 1 )); then
   exit 1
 fi
 
-# Brief probation catches immediate crashes after initial readiness.
+# Brief probation catches immediate crashes after initial readiness. Retry
+# isolated HTTPS glitches, but still roll back if the runtime stays unhealthy.
 for _ in $(seq 1 "${SICKO_PROBATION_CHECKS:-3}"); do
   sleep "${SICKO_PROBATION_INTERVAL_SECONDS:-5}"
-  healthcheck || { echo 'ERROR: New runtime failed its post-activation probation.' >&2; exit 1; }
+  if ! healthcheck; then
+    recovered=0
+    for retry in $(seq 1 "${SICKO_PROBATION_RETRIES:-2}"); do
+      echo "WARN: Probation health check failed; retrying ($retry/${SICKO_PROBATION_RETRIES:-2})..." >&2
+      sleep "${SICKO_PROBATION_RETRY_INTERVAL_SECONDS:-3}"
+      if healthcheck; then recovered=1; break; fi
+    done
+    if (( recovered != 1 )); then
+      echo 'ERROR: New runtime failed its post-activation probation.' >&2
+      exit 1
+    fi
+  fi
 done
 
 # Commit marker only after all production probes succeed; preserve old release.
