@@ -3,6 +3,7 @@
 import { useCallback, useState, type FormEvent } from "react";
 import { apiRequest } from "@/lib/apiClient";
 import SiteMediaEditor from "@/components/admin/SiteMediaEditor"; // SICKO_DYNAMIC_SITE_MEDIA
+import CatalogHierarchyEditor from "@/components/admin/CatalogHierarchyEditor";
 
 type Staff = { fullName: string; email: string; role: string };
 type RecordRow = Record<string, unknown>;
@@ -41,6 +42,7 @@ export default function AdminConsole() {
   // Refresh/sign-out drops the staff token. API always revalidates staff role.
   const [token, setToken] = useState("");
   const [showSiteMedia, setShowSiteMedia] = useState(false);
+  const [showCatalogEditor, setShowCatalogEditor] = useState(false);
   const [staff, setStaff] = useState<Staff | null>(null);
   const [resource, setResource] = useState<Resource>("orders");
   const [rows, setRows] = useState<RecordRow[]>([]);
@@ -127,6 +129,12 @@ export default function AdminConsole() {
             {showSiteMedia ? "CLOSE SITE MEDIA EDITOR" : "EDIT HERO / DROP / CAUGHT ON CAMERA"}
           </button>
         </div>}
+        {(staff.role === "SUPER_ADMIN" || staff.role === "ADMIN") && <div className="mt-3">
+          <button type="button" className={`${button} ${showCatalogEditor ? "border-red-600 bg-red-950" : ""}`} onClick={() => setShowCatalogEditor(value => !value)}>
+            {showCatalogEditor ? "CLOSE CATALOG EDITOR" : "MANAGE CLOTHING / LIFESTYLE / SUBCATEGORIES"}
+          </button>
+        </div>}
+        {showCatalogEditor && (staff.role === "SUPER_ADMIN" || staff.role === "ADMIN") && <CatalogHierarchyEditor token={token} />}
         {showSiteMedia && (staff.role === "SUPER_ADMIN" || staff.role === "ADMIN") && <SiteMediaEditor token={token} />}
         <div className="mt-6 flex items-center justify-between"><h2 className="text-xl font-bold uppercase">{resource} / {rows.length} records</h2><button onClick={()=>void refresh()} disabled={loading} className={button}>REFRESH</button></div>
         {resource === "shipments" && <form onSubmit={event => {
