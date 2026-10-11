@@ -34,17 +34,23 @@ const updateSchema = z.object({
 }).strict();
 
 type SiteMediaConfig = z.infer<typeof updateSchema>;
+type StreetsImage = { src: string; alt: string; caption: string };
+type PublicSiteMediaConfig = SiteMediaConfig & {
+  streetsImages: { primary: StreetsImage | null; secondary: StreetsImage | null };
+};
 const MEDIA_CACHE_MS = 20_000;
-let cache: { config: SiteMediaConfig; expires: number } | null = null;
-let inFlight: Promise<SiteMediaConfig> | null = null;
+let cache: { config: PublicSiteMediaConfig; expires: number } | null = null;
+let inFlight: Promise<PublicSiteMediaConfig> | null = null;
 let mediaVersion = 0;
 
-async function loadFromDatabase(): Promise<SiteMediaConfig> {
+async function loadFromDatabase(): Promise<PublicSiteMediaConfig> {
   const records = await prisma.site_media.findMany({
     orderBy: [{ slot: "asc" }, { sort_order: "asc" }],
   });
   const hero = records.find(row => row.slot === "HERO_VIDEO");
   const drop = records.find(row => row.slot === "DROP_VIDEO");
+  const streetsPrimary = records.find(row => row.slot === "STREETS_PRIMARY" && row.sort_order === 0);
+  const streetsSecondary = records.find(row => row.slot === "STREETS_SECONDARY" && row.sort_order === 0);
   if (!hero || !drop) {
     throw new Error("site_media needs HERO_VIDEO and DROP_VIDEO rows. Seed the local database first.");
   }
@@ -59,10 +65,22 @@ async function loadFromDatabase(): Promise<SiteMediaConfig> {
       line: row.caption ?? "",
       reveal: row.reveal ?? "",
     })),
+    streetsImages: {
+      primary: streetsPrimary ? {
+        src: streetsPrimary.media_url,
+        alt: streetsPrimary.alt_text ?? "",
+        caption: streetsPrimary.caption ?? "",
+      } : null,
+      secondary: streetsSecondary ? {
+        src: streetsSecondary.media_url,
+        alt: streetsSecondary.alt_text ?? "",
+        caption: streetsSecondary.caption ?? "",
+      } : null,
+    },
   };
 }
 
-async function getMedia(): Promise<SiteMediaConfig> {
+async function getMedia(): Promise<PublicSiteMediaConfig> {
   if (cache && cache.expires > Date.now()) return cache.config;
   // Deduplicate simultaneous requests so one high-traffic period makes one DB query.
   if (!inFlight) {
@@ -93,7 +111,14 @@ siteMediaRouter.get("/", publicRead);
 export const adminSiteMediaRouter = Router();
 adminSiteMediaRouter.get("/", (async (_req, res) => {
   res.setHeader("Cache-Control", "private, no-store");
-  res.json({ data: await loadFromDatabase() });
+  // Keep the editor's request/response contract unchanged. Streets image
+  // slots are managed in site_media and are never touched by gallery saves.
+  const config = await loadFromDatabase();
+  res.json({ data: {
+    heroVideoUrl: config.heroVideoUrl,
+    dropVideoUrl: config.dropVideoUrl,
+    lookbookImages: config.lookbookImages,
+  } });
 }) satisfies RequestHandler);
 
 adminSiteMediaRouter.put("/", (async (req, res) => {
