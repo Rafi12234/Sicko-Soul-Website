@@ -2,7 +2,7 @@
 
 import { useLayoutEffect } from "react";
 import Lenis from "lenis";
-import { gsap, ScrollTrigger } from "@/lib/gsap";
+import { ScrollTrigger } from "@/lib/gsap";
 import { useAppStore } from "@/store/useAppStore";
 
 let instance: Lenis | null = null;
@@ -11,8 +11,10 @@ let instance: Lenis | null = null;
 export const getLenis = () => instance;
 
 /**
- * Smooth scroll driven off the GSAP ticker so Lenis and ScrollTrigger share
- * one RAF loop. Call this exactly once, at the root. See ANIMATION_GUIDE.md.
+ * Lenis uses the browser's real requestAnimationFrame timestamps. Keeping it
+ * off GSAP's lag-smoothed clock avoids uneven Lenis time deltas when large
+ * hero video frames delay GSAP. ScrollTrigger still updates on Lenis scroll.
+ * Call this exactly once, at the root.
  */
 export function useLenis() {
   useLayoutEffect(() => {
@@ -27,14 +29,15 @@ export function useLenis() {
     });
     instance = lenis;
 
-    // A single GSAP frame clock drives both scrolling and scroll animations.
+    // Real browser RAF time in milliseconds; no GSAP lag-smoothed clock.
+    // Lenis still drives ScrollTrigger synchronously from its scroll event.
     lenis.on("scroll", ScrollTrigger.update);
-    const raf = (time: number) => lenis.raf(time * 1000);
-    gsap.ticker.add(raf);
-
-    // Do NOT call gsap.ticker.lagSmoothing(0): long frames then jump the
-    // scroll position and make the stutter more noticeable. GSAP's default
-    // lag protection is safer during video decode and main-thread spikes.
+    let rafId = 0;
+    const raf = (time: number) => {
+      lenis.raf(time);
+      rafId = window.requestAnimationFrame(raf);
+    };
+    rafId = window.requestAnimationFrame(raf);
     let allowed = true; // Lenis starts running when constructed.
     const syncLock = () => {
       const state = useAppStore.getState();
@@ -52,7 +55,7 @@ export function useLenis() {
     return () => {
       unsubscribe();
       document.removeEventListener("visibilitychange", syncLock);
-      gsap.ticker.remove(raf);
+      window.cancelAnimationFrame(rafId);
       lenis.destroy();
       instance = null;
     };
