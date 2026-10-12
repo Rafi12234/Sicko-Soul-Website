@@ -1,29 +1,12 @@
 "use client";
 
-import { useLayoutEffect, useRef, useState } from "react";
+import { useLayoutEffect, useRef } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { EASE, STAGGER } from "@/styles/theme";
 import { useAppStore } from "@/store/useAppStore";
 import { HERO_COPY } from "@/data/hero";
 import { cloudinaryVideoPoster, cloudinaryVideoUrl } from "@/lib/media"; // SICKO_DYNAMIC_SITE_MEDIA
 import styles from "./Hero.module.css";
-
-/**
- * Grade Cloudinary video *before* it reaches the browser so the decoder can
- * present frames directly. Filtering an entire moving video with CSS forces
- * a costly per-frame GPU composition pass while Lenis is scrolling.
- *
- * All three effects are supported for Cloudinary video. For a non-Cloudinary
- * URL, leave the URL untouched and use the previous CSS grade as a fallback.
- */
-const HERO_GRADE = "e_saturation:-100/e_contrast:20/e_brightness:-10";
-const CLOUDINARY_VIDEO_UPLOAD = "/video/upload/";
-
-function colorGradeHeroMedia(deliveryUrl: string): string {
-  return deliveryUrl.includes(CLOUDINARY_VIDEO_UPLOAD)
-    ? deliveryUrl.replace(CLOUDINARY_VIDEO_UPLOAD, `${CLOUDINARY_VIDEO_UPLOAD}${HERO_GRADE}/`)
-    : deliveryUrl;
-}
 
 const formatTimecode = (totalSeconds: number) => {
   const s = Math.floor(totalSeconds);
@@ -42,13 +25,6 @@ export default function Hero({ videoUrl }: { videoUrl: string }) {
   const edgeRef = useRef<HTMLDivElement>(null);
   const railRef = useRef<HTMLSpanElement>(null);
   const timecodeRef = useRef<HTMLSpanElement>(null);
-  // Some Cloudinary accounts restrict newly derived transformations. If a
-  // graded source fails, swap back to the known-good original delivery and
-  // keep the previous CSS treatment so the Hero never becomes a blank video.
-  const [useOriginalDelivery, setUseOriginalDelivery] = useState(false);
-  const hasServerGrade = videoUrl.includes(CLOUDINARY_VIDEO_UPLOAD) && !useOriginalDelivery;
-  const heroDeliveryUrl = (url: string) => hasServerGrade ? colorGradeHeroMedia(url) : url;
-
   useLayoutEffect(() => {
     const ctx = gsap.context(() => {
       /* ---- Entrance: chars rise out of their masks with a slight tilt. ---- */
@@ -250,8 +226,7 @@ export default function Hero({ videoUrl }: { videoUrl: string }) {
         syncAmbient();
       };
       window.addEventListener("sicko-hero-entering", prepareEntryPlayback);
-      // A video can remount if Cloudinary denies the color transform. Resume
-      // normal video lifecycle as soon as that fallback has its first frame.
+      // Resume video playback as soon as the first frame becomes available.
       window.addEventListener("sicko-hero-media-ready", syncAmbient);
       syncAmbient();
 
@@ -290,29 +265,25 @@ export default function Hero({ videoUrl }: { videoUrl: string }) {
         <div className={`${styles.videoInner} absolute inset-0`}>
           <video
             id="sicko-hero-video"
-            key={`${videoUrl}:${hasServerGrade ? "graded" : "original"}`}
+            key={videoUrl}
             ref={videoRef}
-            className={`${hasServerGrade ? "" : "media-treat "}h-full w-full object-cover`}
-            poster={heroDeliveryUrl(cloudinaryVideoPoster(videoUrl, 960))}
+            className="h-full w-full object-cover"
+            poster={cloudinaryVideoPoster(videoUrl, 960)}
             onLoadedData={() => window.dispatchEvent(new Event("sicko-hero-media-ready"))}
-            onError={() => { if (hasServerGrade) setUseOriginalDelivery(true); }}
             muted
             loop
             playsInline
             preload="auto"
             aria-hidden
           >
-            {/* Grade once at Cloudinary (not on every browser frame), while
-                retaining the three responsive decoding resolutions. */}
-            <source media="(max-width: 767px)" src={heroDeliveryUrl(cloudinaryVideoUrl(videoUrl, 640))} />
-            <source media="(max-width: 1279px)" src={heroDeliveryUrl(cloudinaryVideoUrl(videoUrl, 768))} />
-            <source src={heroDeliveryUrl(cloudinaryVideoUrl(videoUrl, 1080))} />
+            {/* Original uploaded colors at responsive delivery sizes.
+                No Cloudinary color grade or browser-side CSS filter. */}
+            <source media="(max-width: 767px)" src={cloudinaryVideoUrl(videoUrl, 640)} />
+            <source media="(max-width: 1279px)" src={cloudinaryVideoUrl(videoUrl, 768)} />
+            <source src={cloudinaryVideoUrl(videoUrl, 1080)} />
           </video>
         </div>
       </div>
-
-      <div className={`${styles.vignette} pointer-events-none absolute inset-0`} />
-      <div className={`${styles.scanlines} pointer-events-none absolute inset-0`} />
 
       <div className="relative flex h-full flex-col justify-between">
         <div className="flex items-start justify-between px-gutter pt-28 lg:pr-32">
