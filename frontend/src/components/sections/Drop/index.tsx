@@ -8,10 +8,11 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER } from "@/styles/theme";
 import { DROP_COPY as DEFAULT_DROP_COPY, type DropDrawer } from "@/data/drop";
-import { cloudinaryVideoPoster, cloudinaryVideoUrl } from "@/lib/media"; // SICKO_DYNAMIC_SITE_MEDIA
+import { cloudinaryVideoPoster, cloudinaryVideoUrl, cloudinaryVideoMp4Url } from "@/lib/media"; // SICKO_DYNAMIC_SITE_MEDIA
 import { archiveProductFromApi, listCatalogCategories } from "@/lib/catalogApi";
 import { listCollections } from "@/lib/customerApi";
 import type { CollectionRecord, PublicCategoryRecord } from "@/types/commerce";
+import { createVideoPlaybackController, type VideoPlaybackController, type VideoPlaybackIssue } from "@/lib/videoPlayback";
 import styles from "./Drop.module.css";
 
 
@@ -20,6 +21,8 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
   const rootRef = useRef<HTMLElement>(null);
   const videoWrapRef = useRef<HTMLDivElement>(null);
   const backgroundVideoRef = useRef<HTMLVideoElement>(null);
+  const playbackRef = useRef<VideoPlaybackController | null>(null);
+  const [videoIssue, setVideoIssue] = useState<VideoPlaybackIssue>(null);
   const sectionActiveRef = useRef(false);
   const yearRef = useRef<HTMLSpanElement>(null);
   const statusRef = useRef<HTMLSpanElement>(null);
@@ -332,32 +335,40 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
 
       loops.forEach((loop) => loop.pause());
 
-      // One master video powers the whole Drop section. Drawer windows are
-      // CSS reveals onto this plate, so there are no duplicate video decoders
-      // or duplicate media streams to keep in sync.
-      const syncVideo = (active: boolean) => {
-        sectionActiveRef.current = active;
-        const video = backgroundVideoRef.current;
-        if (!video) return;
+      if (backgroundVideoRef.current) {
+        playbackRef.current = createVideoPlaybackController(backgroundVideoRef.current, {
+          fallbackUrl: () => cloudinaryVideoMp4Url(videoUrl,
+            window.innerWidth < 768 ? 640 : window.innerWidth < 1280 ? 960 : 1280),
+          onIssue: setVideoIssue,
+        });
+      }
 
-        const shouldPlay = active && !document.hidden &&
-          !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-        if (shouldPlay && video.paused) void video.play().catch(() => {});
-        else if (!shouldPlay && !video.paused) video.pause();
-      };
-
-      const runtimeTrigger = ScrollTrigger.create({
+      // Keep the existing ScrollTrigger for drawer/background animations only.
+      // Video playback uses actual viewport intersection independently: Lenis
+      // transforms and a delayed ScrollTrigger refresh must not strand a video
+      // on its poster. IntersectionObserver adds NO scroll/animation-frame work.
+      ScrollTrigger.create({
         id: "drop-loops",
         trigger: rootRef.current,
         start: "top bottom",
         end: "bottom top",
         onToggle: (self) => {
           loops.forEach((loop) => (self.isActive ? loop.play() : loop.pause()));
-          syncVideo(self.isActive);
         },
-        onRefresh: (self) => syncVideo(self.isActive),
       });
-      syncVideo(runtimeTrigger.isActive);
+
+      const playbackVisibility = new IntersectionObserver(([entry]) => {
+        if (!entry) return;
+        sectionActiveRef.current = entry.isIntersecting;
+        const video = backgroundVideoRef.current;
+        if (entry.isIntersecting && video &&
+            video.networkState === HTMLMediaElement.NETWORK_EMPTY) {
+          video.preload = "auto";
+          video.load();
+        }
+        playbackRef.current?.sync(entry.isIntersecting);
+      }, { threshold: 0 });
+      if (rootRef.current) playbackVisibility.observe(rootRef.current);
 
       // Warm the single optimized Cloudinary stream shortly before Drop arrives.
       // Drawer reveals never create their own media requests; they only change
@@ -531,6 +542,9 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
         tileCleanups.forEach((fn) => fn());
         enterCleanups.forEach((fn) => fn());
         prewarm.disconnect();
+        playbackVisibility.disconnect();
+        playbackRef.current?.destroy();
+        playbackRef.current = null;
         backgroundVideoRef.current?.pause();
         cancelAnimationFrame(resizeFrame);
         window.removeEventListener("resize", onResize);
@@ -542,7 +556,7 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
       ctxRef.current = null;
       ctx.revert();
     };
-  }, [drawers, statusLabel, yearLabel]);
+  }, [drawers, statusLabel, yearLabel, videoUrl]);
 
   const handleToggle = (id: string) => {
     if (id === openRef.current) return;
@@ -576,6 +590,18 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
       </div>
       <div className={`${styles.vignette} pointer-events-none absolute inset-0 z-0`} />
       <div className={`${styles.scanlines} pointer-events-none absolute inset-0 z-0 opacity-40`} />
+      {videoIssue && (
+        <div className="relative z-20 px-gutter pt-4">
+          <button
+            type="button"
+            onClick={() => playbackRef.current?.playManually()}
+            className="min-h-11 border border-bone-white/50 bg-black/85 px-4 py-2 font-stencil text-xs uppercase tracking-wider text-bone-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-bone-white"
+            aria-label="Play the New Drop background video"
+          >
+            {videoIssue === "reduced-motion" ? "Play background video" : "Tap to play video"}
+          </button>
+        </div>
+      )}
 
       <span
         aria-hidden
