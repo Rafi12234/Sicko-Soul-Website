@@ -558,7 +558,7 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
         <video
           key={videoUrl}
           ref={backgroundVideoRef}
-          className="media-treat h-full w-full object-cover opacity-[0.22]"
+          className="h-full w-full object-cover opacity-[0.22]"
           poster={cloudinaryVideoPoster(videoUrl, 960)}
           muted
           loop
