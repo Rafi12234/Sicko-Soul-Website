@@ -56,6 +56,16 @@ export function cloudinaryVideoUrl(src: string, width = 1920) {
   );
 }
 
+/** Compatibility fallback only: H.264 MP4 for devices that cannot play
+ * the automatically negotiated Cloudinary video variant. */
+export function cloudinaryVideoMp4Url(src: string, width = 1920) {
+  if (!src.includes("/video/upload/")) return src;
+  return src.replace(
+    "/video/upload/",
+    `/video/upload/c_limit,w_${Math.round(width)}/q_auto/f_mp4,vc_h264/`,
+  );
+}
+
 /** Generate a lightweight first-frame poster from an uploaded Cloudinary video. */
 export function cloudinaryVideoPoster(src: string, width = 1920) {
   if (!src.includes("/video/upload/")) return "";
