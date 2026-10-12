@@ -343,7 +343,7 @@ export default function Streets({ images }: { images: StreetsImages | null }) {
                   alt={images.primary.alt}
                   fill
                   sizes="(max-width: 1024px) 100vw, 46vw"
-                  className="media-treat object-cover"
+                  className="object-cover"
                 />
               )}
             </div>
@@ -376,7 +376,7 @@ export default function Streets({ images }: { images: StreetsImages | null }) {
                   alt={images.secondary.alt}
                   fill
                   sizes="(max-width: 1024px) 50vw, 22vw"
-                  className="media-treat object-cover"
+                  className="object-cover"
                 />
               )}
             </div>
