@@ -1,14 +1,17 @@
 "use client";
 
+import { useSiteCopy } from "@/components/providers/SiteContentContext";
+
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLayoutEffect, useRef } from "react";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
 import { COLOR, EASE } from "@/styles/theme";
-import { FOOTER_COPY } from "@/data/footer";
+import { FOOTER_COPY as DEFAULT_FOOTER_COPY } from "@/data/footer";
 import styles from "./Footer.module.css";
 
 export default function Footer() {
+  const FOOTER_COPY = useSiteCopy("footer", DEFAULT_FOOTER_COPY);
   const pathname = usePathname();
   const rootRef = useRef<HTMLElement>(null);
   const wordmarkRef = useRef<HTMLDivElement>(null);

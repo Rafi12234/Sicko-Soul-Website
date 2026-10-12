@@ -64,7 +64,7 @@ function isStreetsImages(value: unknown): value is StreetsImages {
     if (!image || typeof image !== "object") return false;
     const item = image as Partial<StreetsImage>;
     return typeof item.src === "string" &&
-      item.src.startsWith("https://res.cloudinary.com/dec82taov/image/upload/") &&
+      /^https:\/\/res\.cloudinary\.com\/[a-z0-9_-]+\/image\/upload\//i.test(item.src) &&
       typeof item.alt === "string" && typeof item.caption === "string";
   });
 }

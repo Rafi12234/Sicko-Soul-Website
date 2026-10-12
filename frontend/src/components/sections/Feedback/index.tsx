@@ -1,10 +1,12 @@
 "use client";
 
+import { useSiteCopy } from "@/components/providers/SiteContentContext";
+
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useRef, useState, type FormEvent } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER, themeColor } from "@/styles/theme";
-import { FEEDBACK_COPY } from "@/data/feedback";
+import { FEEDBACK_COPY as DEFAULT_FEEDBACK_COPY } from "@/data/feedback";
 import { createComplaint, listComplaintCategories } from "@/lib/customerApi";
 import { privateAccessLink } from "@/lib/customerAccess";
 import type { ComplaintCategoryCode, ComplaintDirectory } from "@/types/commerce";
@@ -13,6 +15,7 @@ import styles from "./Feedback.module.css";
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 
 export default function Feedback() {
+  const FEEDBACK_COPY = useSiteCopy("feedback", DEFAULT_FEEDBACK_COPY);
   const rootRef = useRef<HTMLElement>(null);
   const watchRef = useRef<HTMLSpanElement>(null);
   const ghostRef = useRef<HTMLSpanElement>(null);

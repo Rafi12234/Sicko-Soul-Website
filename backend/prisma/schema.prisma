@@ -848,3 +848,25 @@ model site_media {
 
   @@unique([slot, sort_order], map: "uq_site_media_slot_order")
 }
+
+// Homepage/brand copy overrides. SQL is manually applied, no Prisma migration.
+model site_content_sections {
+  section_key String @id @db.VarChar(64)
+  content_json String @db.LongText
+  updated_at DateTime @default(now()) @updatedAt @db.DateTime(0)
+}
+
+// Revocable server-side sessions for the Admin Control Room. The browser keeps
+// only an HttpOnly refresh cookie; access tokens are held in JS memory.
+model admin_sessions {
+  session_id        String    @id @db.VarChar(64)
+  staff_user_id     BigInt    @db.UnsignedBigInt
+  refresh_hash      String    @db.Char(64)
+  created_at        DateTime  @default(now()) @db.DateTime(0)
+  last_refreshed_at DateTime  @default(now()) @db.DateTime(0)
+  expires_at        DateTime  @db.DateTime(0)
+  revoked_at        DateTime? @db.DateTime(0)
+
+  @@index([staff_user_id, revoked_at], map: "idx_admin_sessions_staff")
+  @@index([expires_at], map: "idx_admin_sessions_expires")
+}

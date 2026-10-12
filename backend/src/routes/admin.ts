@@ -1,8 +1,10 @@
 import { Router } from "express";
 import { authenticateStaff, requireRoles } from "../middleware/auth.js";
 import { adminAuthRouter } from "../modules/admin-auth/admin-auth.routes.js";
+import { adminSiteContentRouter } from "./site-content.js";
 import { adminSiteMediaRouter } from "./site-media.js"; // SICKO_DYNAMIC_SITE_MEDIA
 import { adminCatalogRouter } from "../modules/admin-catalog/admin-catalog.routes.js";
+import { adminSegmentsRouter } from "../modules/catalog-segments/catalog-segments.routes.js";
 import { adminCollectionsRouter } from "../modules/collections/collections.routes.js";
 import { adminInventoryRouter } from "../modules/inventory/inventory.routes.js";
 import { adminOrdersRouter } from "../modules/orders/orders.routes.js";
@@ -21,7 +23,9 @@ export const adminRouter = Router();
 adminRouter.use("/auth", adminAuthRouter);
 adminRouter.use(authenticateStaff);
 adminRouter.use("/site-media", requireRoles("ADMIN"), adminSiteMediaRouter);
+adminRouter.use("/site-content", requireRoles("ADMIN"), adminSiteContentRouter);
 
+adminRouter.use("/catalog/segments", requireRoles("ADMIN"), adminSegmentsRouter);
 adminRouter.use(
   "/catalog",
   requireRoles("ADMIN"),

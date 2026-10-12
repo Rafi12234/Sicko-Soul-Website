@@ -1,12 +1,9 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
-import SmoothScroll from "@/components/providers/SmoothScroll";
-import ClientRuntime from "@/components/providers/ClientRuntime";
-import Preloader from "@/components/sections/Preloader";
-import CustomCursor from "@/components/ui/CustomCursor";
-import NoiseOverlay from "@/components/ui/NoiseOverlay";
-import SiteAudio from "@/components/ui/SiteAudio";
-import RouteTransition from "@/components/ui/RouteTransition";
+import RuntimeShell from "@/components/providers/RuntimeShell";
+import { SiteContentProvider } from "@/components/providers/SiteContentContext";
+import { getSiteContent, mergeCopy } from "@/lib/siteContent";
+import { MEDIA } from "@/lib/media";
 import { CLOUDINARY_ORIGIN } from "@/lib/media";
 import "./globals.css";
 
@@ -27,7 +24,9 @@ export const viewport: Viewport = {
   colorScheme: "dark",
 };
 
-export default function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children }: { children: ReactNode }) {
+  const content = await getSiteContent();
+  const audio = mergeCopy({ soundtrackUrl: MEDIA.audio.soundtrack }, content.audio);
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -60,19 +59,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         />
       </head>
       <body className="bg-black text-bone-white antialiased" suppressHydrationWarning>
-        <ClientRuntime />
-
-        {/* Fresh document load = entry ritual. Internal routes keep this layout alive. */}
-        <Preloader />
-
-        <SmoothScroll>{children}</SmoothScroll>
-
-        <RouteTransition />
-        <NoiseOverlay />
-        <CustomCursor />
-
-        {/* Persistent across every client-side route. */}
-        <SiteAudio />
+        <SiteContentProvider value={content}><RuntimeShell soundtrackUrl={audio.soundtrackUrl}>{children}</RuntimeShell></SiteContentProvider>
       </body>
     </html>
   );

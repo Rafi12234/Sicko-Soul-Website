@@ -1,11 +1,13 @@
 "use client";
 
+import { useSiteCopy } from "@/components/providers/SiteContentContext";
+
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER } from "@/styles/theme";
-import { DROP_COPY, type DropDrawer } from "@/data/drop";
+import { DROP_COPY as DEFAULT_DROP_COPY, type DropDrawer } from "@/data/drop";
 import { cloudinaryVideoPoster, cloudinaryVideoUrl } from "@/lib/media"; // SICKO_DYNAMIC_SITE_MEDIA
 import { archiveProductFromApi, listCatalogCategories } from "@/lib/catalogApi";
 import { listCollections } from "@/lib/customerApi";
@@ -14,6 +16,7 @@ import styles from "./Drop.module.css";
 
 
 export default function Drop({ videoUrl }: { videoUrl: string }) {
+  const DROP_COPY = useSiteCopy("drop", DEFAULT_DROP_COPY);
   const rootRef = useRef<HTMLElement>(null);
   const videoWrapRef = useRef<HTMLDivElement>(null);
   const backgroundVideoRef = useRef<HTMLVideoElement>(null);

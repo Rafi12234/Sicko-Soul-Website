@@ -1,9 +1,11 @@
 "use client";
 
+import { useSiteCopy } from "@/components/providers/SiteContentContext";
+
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER, themeColor } from "@/styles/theme";
-import { CRED_COPY } from "@/data/cred";
+import { CRED_COPY as DEFAULT_CRED_COPY } from "@/data/cred";
 import { listPublicReviews } from "@/lib/customerApi";
 import type { ProductReview, PublicReviewFeed } from "@/types/commerce";
 import styles from "./Cred.module.css";
@@ -36,6 +38,7 @@ function statementFromReview(review: ProductReview): CredStatement {
 }
 
 export default function Cred() {
+  const CRED_COPY = useSiteCopy("cred", DEFAULT_CRED_COPY);
   const [feed, setFeed] = useState<PublicReviewFeed>({
     data: [],
     meta: { total: 0, averageRating: 0, verifiedCount: 0 },

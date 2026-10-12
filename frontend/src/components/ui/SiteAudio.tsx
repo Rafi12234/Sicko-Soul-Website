@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { MEDIA } from "@/lib/media";
 import { isMusicDisabledByUser, rememberMusicEnabled } from "@/lib/audioPreference";
 import { useAppStore } from "@/store/useAppStore";
 import styles from "./SiteAudio.module.css";
@@ -23,7 +22,7 @@ import styles from "./SiteAudio.module.css";
  * - User returns / screen becomes visible:
  *   track resumes from the exact previous timestamp.
  */
-export default function SiteAudio() {
+export default function SiteAudio({ src }: { src: string }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const hasEntered = useAppStore((state) => state.hasEntered);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -188,7 +187,7 @@ export default function SiteAudio() {
       <audio
         id="sicko-soul-audio"
         ref={audioRef}
-        src={MEDIA.audio.soundtrack}
+        src={src}
         loop
         preload="auto"
         className="hidden"

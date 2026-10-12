@@ -9,7 +9,8 @@ import { gsap, ScrollTrigger } from "@/lib/gsap";
 import { EASE } from "@/styles/theme";
 import { useCartStore } from "@/store/useCartStore";
 import { MEDIA } from "@/lib/media";
-import { NAV_COPY } from "@/data/hero";
+import { NAV_COPY as DEFAULT_NAV_COPY } from "@/data/hero";
+import { useSiteCopy } from "@/components/providers/SiteContentContext";
 import styles from "./Navbar.module.css";
 
 /**
@@ -18,6 +19,7 @@ import styles from "./Navbar.module.css";
  * Opening the directory never pauses Lenis or hides the video below it.
  */
 export default function Navbar() {
+  const NAV_COPY = useSiteCopy("navigation", DEFAULT_NAV_COPY);
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const openRef = useRef(false);
@@ -275,7 +277,7 @@ export default function Navbar() {
             <span ref={logoImpactRef} className={styles.logoImpact}>
               <span className={styles.logoCrop} aria-hidden="true">
                 <Image
-                  src={MEDIA.images.logo}
+                  src={NAV_COPY.logoUrl}
                   alt=""
                   width={150}
                   height={150}
@@ -326,7 +328,7 @@ export default function Navbar() {
               aria-label={`Cart with ${cartCount} item${cartCount === 1 ? "" : "s"}`}
             >
               <span className={styles.cartIcon} aria-hidden>+</span>
-              <span className={styles.cartLabel}>CART</span>
+              <span className={styles.cartLabel}>{NAV_COPY.cartLabel}</span>
               <span className={styles.cartCount}>{String(cartCount).padStart(2, "0")}</span>
             </Link>
 
@@ -352,7 +354,7 @@ export default function Navbar() {
                   <span />
                   <span />
                 </span>
-                <span>MENU</span>
+                <span>{NAV_COPY.menuOpen}</span>
                 <span className={`${styles.chevron} ${menuOpen ? styles.chevronActive : ""}`} aria-hidden>⌄</span>
               </button>
 
@@ -364,14 +366,10 @@ export default function Navbar() {
                   inert={!menuOpen}
                   className={styles.dropdown}
                 >
-
-<div className={styles.dropdownHeading}>
-  <span>THE DIRECTORY</span>
-  <span>
-    01—{String(NAV_COPY.links.length).padStart(2, "0")}
-  </span>
-</div>
-
+                  <div className={styles.dropdownHeading}>
+                    <span>{NAV_COPY.directoryHeading}</span>
+                    <span>01—07</span>
+                  </div>
 
                   {NAV_COPY.links.map((link) => (
                     <Link

@@ -1,9 +1,11 @@
 "use client";
 
+import { useSiteCopy } from "@/components/providers/SiteContentContext";
+
 import { useLayoutEffect, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { EASE, STAGGER } from "@/styles/theme";
-import { RACK_COPY, type RackProduct } from "@/data/rack";
+import { RACK_COPY as DEFAULT_RACK_COPY, type RackProduct } from "@/data/rack";
 import { getProductVariants, type ArchiveCategory } from "@/data/products";
 import type { CatalogSegmentRecord } from "@/types/commerce";
 import RackCard from "./RackCard";
@@ -13,6 +15,7 @@ import styles from "./Rack.module.css";
 const OFFSET = ["lg:mt-0", "lg:mt-[6vh]", "lg:mt-[2vh]", "lg:mt-[8vh]"];
 
 export default function Rack({ catalogCategories, segments }: { catalogCategories: readonly ArchiveCategory[]; segments: readonly CatalogSegmentRecord[] }) {
+  const RACK_COPY = useSiteCopy("rack", DEFAULT_RACK_COPY);
   const rootRef = useRef<HTMLElement>(null);
   const railRef = useRef<HTMLDivElement>(null);
   const markerRef = useRef<HTMLSpanElement>(null);

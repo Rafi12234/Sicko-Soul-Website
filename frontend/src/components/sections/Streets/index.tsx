@@ -1,15 +1,18 @@
 "use client";
 
+import { useSiteCopy } from "@/components/providers/SiteContentContext";
+
 import Image from "next/image";
 import Link from "next/link";
 import type { StreetsImages } from "@/lib/siteMedia";
 import { useLayoutEffect, useRef } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER } from "@/styles/theme";
-import { STREETS_COPY } from "@/data/streets";
+import { STREETS_COPY as DEFAULT_STREETS_COPY } from "@/data/streets";
 import styles from "./Streets.module.css";
 
 export default function Streets({ images }: { images: StreetsImages | null }) {
+  const STREETS_COPY = useSiteCopy("streets", DEFAULT_STREETS_COPY);
   const rootRef = useRef<HTMLElement>(null);
   const mediaRef = useRef<HTMLDivElement>(null);
   const primaryFrameRef = useRef<HTMLDivElement>(null);

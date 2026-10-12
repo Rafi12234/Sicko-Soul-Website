@@ -5,11 +5,13 @@ import type { PointerEvent as ReactPointerEvent } from "react";
 import { gsap } from "@/lib/gsap";
 import { COLOR, EASE } from "@/styles/theme";
 import { useAppStore } from "@/store/useAppStore";
-import { PRELOADER_COPY } from "@/data/preloader";
+import { PRELOADER_COPY as DEFAULT_PRELOADER_COPY } from "@/data/preloader";
+import { useSiteCopy } from "@/components/providers/SiteContentContext";
 import { isMusicDisabledByUser } from "@/lib/audioPreference";
 import styles from "./Preloader.module.css";
 
 export default function Preloader() {
+  const PRELOADER_COPY = useSiteCopy("preloader", DEFAULT_PRELOADER_COPY);
   const rootRef = useRef<HTMLDivElement>(null);
   const panelTopRef = useRef<HTMLDivElement>(null);
   const panelBottomRef = useRef<HTMLDivElement>(null);

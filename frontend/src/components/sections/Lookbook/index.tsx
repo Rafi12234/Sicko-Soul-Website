@@ -1,10 +1,12 @@
 "use client";
 
+import { useSiteCopy } from "@/components/providers/SiteContentContext";
+
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type TouchEvent } from "react";
 import { gsap, SplitText } from "@/lib/gsap";
 import { EASE, STAGGER } from "@/styles/theme";
-import { LOOKBOOK_COPY, type LookbookFrame } from "@/data/lookbook"; // SICKO_DYNAMIC_SITE_MEDIA
+import { LOOKBOOK_COPY as DEFAULT_LOOKBOOK_COPY, type LookbookFrame } from "@/data/lookbook"; // SICKO_DYNAMIC_SITE_MEDIA
 import styles from "./Lookbook.module.css";
 
 const ROTATION_MS = 4600;
@@ -21,6 +23,7 @@ function circularOffset(index: number, active: number, count: number) {
  * flat strip. Only the five nearest cards are visible and interactive.
  */
 export default function Lookbook({ frames }: { frames: LookbookFrame[] }) {
+  const LOOKBOOK_COPY = useSiteCopy("lookbook", DEFAULT_LOOKBOOK_COPY);
   const FRAME_COUNT = frames.length;
   const rootRef = useRef<HTMLElement>(null);
   const touchStartX = useRef<number | null>(null);

@@ -3,20 +3,19 @@ import type { RequestHandler } from "express";
 import { Router } from "express";
 import { z } from "zod";
 import { prisma } from "../lib/prisma.js";
+import { env } from "../config/env.js";
+import { isAllowedCloudinaryUrl } from "../utils/cloudinary-urls.js";
+import { AppError } from "../errors/app-error.js";
 import { recordAudit } from "../services/audit.service.js";
 import { auditContextFromRequest } from "../utils/audit-context.js";
 
 // The URL is stored as metadata. Video/image bytes are delivered directly by
 // Cloudinary; neither the cPanel API nor the Next.js process proxies media.
 const cloudinaryUrl = (kind: "image" | "video") =>
-  z.string().trim().url().max(1200).refine((value) => {
-    try {
-      const u = new URL(value);
-      return u.protocol === "https:" && !u.username && !u.password &&
-        u.hostname === "res.cloudinary.com" &&
-        u.pathname.startsWith(`/dec82taov/${kind}/upload/`);
-    } catch { return false; }
-  }, { message: `Use an HTTPS Cloudinary ${kind} URL from dec82taov.` });
+  z.string().trim().url().max(1200).refine(
+    (value) => isAllowedCloudinaryUrl(value, kind),
+    { message: `Use an HTTPS Cloudinary ${kind} URL from the configured cloud or the existing legacy media cloud.` },
+  );
 
 const lookbookImageSchema = z.object({
   src: cloudinaryUrl("image"),
@@ -160,23 +159,153 @@ adminSiteMediaRouter.put("/", (async (req, res) => {
  * Requires CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in BACKEND .env only.
  * The secret is never returned; no binary data or PHP storage hits cPanel.
  */
+
+// Streets photographs are managed separately from Lookbook so editing one
+// media group never deletes the other group's database rows.
+const streetImage = z.object({
+  src: cloudinaryUrl("image"), alt: z.string().trim().max(255),
+  caption: z.string().trim().max(255),
+}).strict();
+const streetsSchema = z.object({
+  primary: streetImage.nullable(), secondary: streetImage.nullable(),
+}).strict();
+
+adminSiteMediaRouter.get("/streets", (async (_req, res) => {
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json({ data: (await loadFromDatabase()).streetsImages });
+}) satisfies RequestHandler);
+
+adminSiteMediaRouter.put("/streets", (async (req, res) => {
+  const content = streetsSchema.parse(req.body);
+  const items = [
+    { slot: "STREETS_PRIMARY", item: content.primary },
+    { slot: "STREETS_SECONDARY", item: content.secondary },
+  ];
+  await prisma.$transaction(async tx => {
+    const previous = await tx.site_media.findMany({ where: { slot: { in: ["STREETS_PRIMARY", "STREETS_SECONDARY"] } } });
+    await tx.site_media.deleteMany({ where: { slot: { in: ["STREETS_PRIMARY", "STREETS_SECONDARY"] } } });
+    await tx.site_media.createMany({ data: items.filter((value) => value.item !== null).map(value => ({
+      slot: value.slot, sort_order: 0, media_url: value.item!.src,
+      alt_text: value.item!.alt, caption: value.item!.caption,
+    })) });
+    await recordAudit(auditContextFromRequest(req, res), {
+      action: "STREETS_MEDIA_UPDATE", entityType: "site_media",
+      oldData: previous.map(row => ({ slot: row.slot, url: row.media_url })),
+      newData: items.map(row => ({ slot: row.slot, url: row.item?.src ?? null })),
+    }, tx);
+  });
+  mediaVersion += 1; cache = null; inFlight = null;
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json({ data: content });
+}) satisfies RequestHandler);
+
 adminSiteMediaRouter.post("/upload-signature", (async (req, res) => {
-  const { kind } = z.object({ kind: z.enum(["image", "video"]) }).strict().parse(req.body);
-  const apiKey = process.env.CLOUDINARY_API_KEY?.trim();
-  const secret = process.env.CLOUDINARY_API_SECRET?.trim();
-  if (!apiKey || !secret) {
+  const { kind, sizeBytes } = z.object({
+    kind: z.enum(["image", "video"]),
+    sizeBytes: z.number().int().positive().max(60 * 1024 * 1024),
+  }).strict().parse(req.body);
+  const maximum = kind === "image" ? 3 * 1024 * 1024 : 60 * 1024 * 1024;
+  if (sizeBytes > maximum) {
+    res.status(413).json({ error: { code: "MEDIA_TOO_LARGE", message: `Images must be at most 3 MB and video/audio at most 60 MB.` } });
+    return;
+  }
+  const apiKey = env.CLOUDINARY_API_KEY;
+  const secret = env.CLOUDINARY_API_SECRET;
+  const cloudName = env.CLOUDINARY_CLOUD_NAME;
+  if (!cloudName || !apiKey || !secret) {
     res.status(503).json({
-      error: { code: "CLOUDINARY_UPLOAD_NOT_CONFIGURED", message: "Set CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in backend .env to upload files. Pasting a Cloudinary URL still works." },
+      error: { code: "CLOUDINARY_UPLOAD_NOT_CONFIGURED", message: "Set CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY and CLOUDINARY_API_SECRET in backend/.env (all from the same Cloudinary environment)." },
     });
     return;
   }
   const timestamp = Math.floor(Date.now() / 1000);
-  const publicId = `sicko-soul/site-media/${randomUUID()}`;
+  const publicId = `sicko-soul/site-media/${kind}/${randomUUID()}`;
   const overwrite = "false";
   // Cloudinary signs all supplied upload params (except api_key, file and signature),
   // lexicographically ordered and joined without a separator before the secret.
   const signed = `overwrite=${overwrite}&public_id=${publicId}&timestamp=${timestamp}`;
   const signature = createHash("sha1").update(signed + secret).digest("hex");
   res.setHeader("Cache-Control", "private, no-store");
-  res.json({ data: { kind, apiKey, cloudName: "dec82taov", publicId, timestamp, overwrite, signature } });
+  res.json({ data: { kind, apiKey, cloudName, publicId, timestamp, overwrite, signature } });
+}) satisfies RequestHandler);
+
+
+/**
+ * The authenticated browser first uploads directly to Cloudinary using the
+ * signed request above, then calls this endpoint with the Cloudinary URL.
+ * Updating one slot at a time prevents an upload from overwriting drafts or
+ * other admins' changes to unrelated media rows.
+ */
+const uploadedAssetSchema = z.discriminatedUnion("target", [
+  z.object({ target: z.literal("hero"), url: cloudinaryUrl("video") }).strict(),
+  z.object({ target: z.literal("drop"), url: cloudinaryUrl("video") }).strict(),
+  z.object({
+    target: z.literal("lookbook"), url: cloudinaryUrl("image"),
+    index: z.number().int().min(0).max(39),
+    alt: z.string().trim().max(255).optional(),
+  }).strict(),
+  z.object({
+    target: z.enum(["streetsPrimary", "streetsSecondary"]), url: cloudinaryUrl("image"),
+    alt: z.string().trim().max(255).optional(),
+  }).strict(),
+]);
+
+adminSiteMediaRouter.put("/uploaded-asset", (async (req, res) => {
+  const body = uploadedAssetSchema.parse(req.body);
+  const audit = auditContextFromRequest(req, res);
+  const slot = body.target === "hero" ? "HERO_VIDEO" :
+    body.target === "drop" ? "DROP_VIDEO" :
+    body.target === "lookbook" ? "LOOKBOOK" :
+    body.target === "streetsPrimary" ? "STREETS_PRIMARY" : "STREETS_SECONDARY";
+  const row = await prisma.$transaction(async tx => {
+    let before: { media_url: string } | null = null;
+    let after: { media_id: bigint; media_url: string };
+    if (body.target === "lookbook") {
+      const frames = await tx.site_media.findMany({
+        where: { slot: "LOOKBOOK" },
+        orderBy: [{ sort_order: "asc" }, { media_id: "asc" }],
+        select: { media_id: true, media_url: true },
+      });
+      if (body.index > frames.length) throw new AppError({
+        statusCode: 409, code: "LOOKBOOK_INDEX_CHANGED",
+        message: "The gallery changed. Reload the Site Media editor and upload again.",
+      });
+      const existingFrame = frames[body.index];
+      if (existingFrame) {
+        before = existingFrame;
+        after = await tx.site_media.update({
+          where: { media_id: existingFrame.media_id },
+          data: { media_url: body.url },
+        });
+      } else {
+        after = await tx.site_media.create({ data: {
+          slot: "LOOKBOOK", sort_order: body.index, media_url: body.url,
+          title: `FRAME ${String(body.index + 1).padStart(2, "0")}`,
+          alt_text: body.alt || `Lookbook photo ${body.index + 1}`,
+        } });
+      }
+    } else {
+      const key = { slot_sort_order: { slot, sort_order: 0 } };
+      before = await tx.site_media.findUnique({ where: key, select: { media_url: true } });
+      after = await tx.site_media.upsert({
+        where: key,
+        create: {
+          slot, sort_order: 0, media_url: body.url,
+          ...("alt" in body ? { alt_text: body.alt || null } : {}),
+        },
+        update: { media_url: body.url },
+      });
+    }
+    await recordAudit(audit, {
+      action: "SITE_MEDIA_UPLOAD_SAVE", entityType: "site_media", entityId: after.media_id,
+      oldData: { slot, url: before?.media_url ?? null },
+      newData: { slot, url: after.media_url },
+    }, tx);
+    return after;
+  });
+  mediaVersion += 1;
+  cache = null;
+  inFlight = null;
+  res.setHeader("Cache-Control", "private, no-store");
+  res.json({ data: { id: row.media_id.toString(), slot, url: row.media_url, saved: true } });
 }) satisfies RequestHandler);

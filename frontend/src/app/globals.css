@@ -325,3 +325,14 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* Admin uses a native pointer, with no red cursor overlay, entry gate or music. */
+html:has([data-admin-shell]),
+html:has([data-admin-shell]) body,
+html:has([data-admin-shell]) a,
+html:has([data-admin-shell]) button,
+html:has([data-admin-shell]) input,
+html:has([data-admin-shell]) textarea,
+html:has([data-admin-shell]) select { cursor: auto !important; }
+html:has([data-admin-shell]) a, html:has([data-admin-shell]) button,
+html:has([data-admin-shell]) select { cursor: pointer !important; }

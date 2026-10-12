@@ -41,9 +41,9 @@ test('cancel or reject of a released order never releases inventory twice', () =
 
 test('admin UI exposes expired stock hold without changing pending order status', () => {
   const mapper = read('src/modules/orders/orders.mapper.ts');
-  const admin = read('../frontend/src/components/admin/AdminConsole.tsx');
+  const admin = read('../frontend/src/components/admin/AdminOperationPage.tsx');
   assert.match(mapper, /stockHoldStatus: row\.order_status === "PENDING_CONFIRMATION"/);
-  assert.match(admin, /STOCK HOLD EXPIRED — ORDER STILL PENDING/);
+  assert.match(admin, /Stock hold expired; confirming will recheck availability/);
   assert.match(admin, /stockHoldStatus/);
 });
 

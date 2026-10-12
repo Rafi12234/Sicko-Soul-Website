@@ -33,6 +33,7 @@ const envSchema = z.object({
     .min(32)
     .default("development-only-sicko-soul-jwt-secret-change-me"),
   JWT_EXPIRES_IN: z.string().trim().min(1).default("8h"),
+  ADMIN_REFRESH_DAYS: z.coerce.number().int().min(1).max(90).default(30),
 
   // Backward-compatible name: now releases the STOCK HOLD, not the order.
   // Set a different duration (15..10080 min) in production if needed.
@@ -48,6 +49,13 @@ const envSchema = z.object({
   EMAIL_TRANSPORT: z.enum(["console", "resend"]).default("console"),
   EMAIL_FROM: z.string().trim().min(3).default("Sicko Soul <noreply@sickosoul.shop>"),
   RESEND_API_KEY: z.string().trim().optional(),
+
+  // Optional signed uploads. Never pass the secret to frontend/Next.js.
+  // Uploads are environment-specific. Set the cloud name separately in each
+  // backend/.env; existing legacy-media URLs remain valid for rendering.
+  CLOUDINARY_CLOUD_NAME: z.string().trim().regex(/^[a-z0-9][a-z0-9_-]*$/i).optional(),
+  CLOUDINARY_API_KEY: z.string().trim().min(1).optional(),
+  CLOUDINARY_API_SECRET: z.string().trim().min(1).optional(),
 
   BOOTSTRAP_ADMIN_NAME: z.string().trim().optional(),
   BOOTSTRAP_ADMIN_EMAIL: z.string().email().optional(),

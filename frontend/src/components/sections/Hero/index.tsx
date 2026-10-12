@@ -1,10 +1,12 @@
 "use client";
 
+import { useSiteCopy } from "@/components/providers/SiteContentContext";
+
 import { useLayoutEffect, useRef } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { EASE, STAGGER } from "@/styles/theme";
 import { useAppStore } from "@/store/useAppStore";
-import { HERO_COPY } from "@/data/hero";
+import { HERO_COPY as DEFAULT_HERO_COPY } from "@/data/hero";
 import { cloudinaryVideoPoster, cloudinaryVideoUrl } from "@/lib/media"; // SICKO_DYNAMIC_SITE_MEDIA
 import styles from "./Hero.module.css";
 
@@ -17,6 +19,7 @@ const formatTimecode = (totalSeconds: number) => {
 };
 
 export default function Hero({ videoUrl }: { videoUrl: string }) {
+  const HERO_COPY = useSiteCopy("hero", DEFAULT_HERO_COPY);
   const rootRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cycleRef = useRef<HTMLSpanElement>(null);

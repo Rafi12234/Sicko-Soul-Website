@@ -47,36 +47,42 @@ export function requireApiBaseUrl(): string {
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const base = requireApiBaseUrl();
-  const response = await fetch(`${base}${path}`, {
+  const isAdmin = typeof window !== "undefined" && path.startsWith("/admin/");
+  const authEndpoint = path.startsWith("/admin/auth/");
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
+  const call = () => fetch(`${base}${path}`, {
     ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers ?? {}),
-    },
+    credentials: isAdmin ? "include" : init?.credentials,
+    headers,
   });
-
+  let response = await call();
+  if (isAdmin && !authEndpoint && response.status === 401 && headers.has("Authorization")) {
+    // Lazily import the admin client so public/storefront bundles aren't tied
+    // to admin authentication. A single concurrent refresh rotates the cookie.
+    const { refreshAdminSession } = await import("@/lib/adminSession");
+    try {
+      const session = await refreshAdminSession();
+      headers.set("Authorization", `Bearer ${session.token}`);
+      response = await call();
+    } catch {
+      // Preserve the original API error for the page to display.
+    }
+  }
   if (!response.ok) {
     let message = `REQUEST FAILED (${response.status})`;
     let code: string | undefined;
     let details: unknown;
-
     try {
       const payload = (await response.json()) as ApiErrorPayload;
-      message =
-        payload.message ??
-        (typeof payload.error === "object" ? payload.error?.message : payload.error) ??
-        message;
+      message = payload.message ?? (typeof payload.error === "object" ? payload.error?.message : payload.error) ?? message;
       if (typeof payload.error === "object") {
         code = payload.error?.code;
         details = payload.error?.details;
       }
-    } catch {
-      // Keep the HTTP fallback when the response has no JSON body.
-    }
-
+    } catch { /* Keep fallback when response has no JSON. */ }
     throw new ApiError(message, response.status, code, details);
   }
-
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }

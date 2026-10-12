@@ -10,6 +10,8 @@ import type { StaffContext } from "../types/auth.js";
 const tokenPayloadSchema = z.object({
   sub: z.string().regex(/^\d+$/),
   email: z.string().email(),
+  sid: z.string().uuid(),
+  type: z.literal("staff_access"),
   role: z.enum([
     "SUPER_ADMIN",
     "ADMIN",
@@ -38,8 +40,14 @@ export async function authenticateStaff(
 
   try {
     const token = header.slice("Bearer ".length).trim();
-    const decoded = jwt.verify(token, env.JWT_SECRET);
+    const decoded = jwt.verify(token, env.JWT_SECRET, { algorithms: ["HS256"] });
     const payload = tokenPayloadSchema.parse(decoded);
+
+    const session = await prisma.admin_sessions.findFirst({
+      where: { session_id: payload.sid, staff_user_id: BigInt(payload.sub), revoked_at: null, expires_at: { gt: new Date() } },
+      select: { session_id: true },
+    });
+    if (!session) throw new AppError({ statusCode: 401, code: "STAFF_SESSION_REVOKED", message: "Session expired or signed out." });
 
     const staff = await prisma.staff_users.findFirst({
       where: {
