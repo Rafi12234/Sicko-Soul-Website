@@ -24,6 +24,18 @@ export type ContentKey = keyof typeof CONTENT_DEFAULTS;
 export type SiteContent = Partial<Record<ContentKey, Record<string, unknown>>>;
 
 export async function getSiteContent(): Promise<SiteContent> {
+  // During CI prerendering there is no backend or absolute API origin. Avoid
+  // attempting a relative server-side fetch; retain the versioned copy until
+  // the deployed server has SICKO_INTERNAL_API_BASE_URL available.
+  if (typeof window === "undefined") {
+    const base = process.env.SICKO_INTERNAL_API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL;
+    try {
+      if (!base || !/^https?:$/.test(new URL(base).protocol)) return {};
+    } catch {
+      return {};
+    }
+  }
+
   try {
     const result = await apiRequest<DataEnvelope<SiteContent>>("/site-content", {
       next: { revalidate: 10 },
