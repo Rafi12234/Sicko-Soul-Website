@@ -79,6 +79,10 @@ export async function uploadToCloudinary(
     onProgress?.({ stage: "uploading", percent: 0 });
     xhr.send(form);
   });
+  if (!body.secure_url) {
+    throw new Error("Cloudinary upload response is missing a secure URL.");
+  }
+
   const src = new URL(body.secure_url);
   if (src.protocol !== "https:" || src.hostname !== "res.cloudinary.com" ||
       !src.pathname.startsWith(`/${signed.cloudName}/${kind}/upload/`)) {
