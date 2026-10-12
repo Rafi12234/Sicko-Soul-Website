@@ -2,12 +2,13 @@
 
 import { useSiteCopy } from "@/components/providers/SiteContentContext";
 
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { EASE, STAGGER } from "@/styles/theme";
 import { useAppStore } from "@/store/useAppStore";
 import { HERO_COPY as DEFAULT_HERO_COPY } from "@/data/hero";
-import { cloudinaryVideoPoster, cloudinaryVideoUrl } from "@/lib/media"; // SICKO_DYNAMIC_SITE_MEDIA
+import { cloudinaryVideoPoster, cloudinaryVideoUrl, cloudinaryVideoMp4Url } from "@/lib/media"; // SICKO_DYNAMIC_SITE_MEDIA
+import { createVideoPlaybackController, type VideoPlaybackController, type VideoPlaybackIssue } from "@/lib/videoPlayback";
 import styles from "./Hero.module.css";
 
 const formatTimecode = (totalSeconds: number) => {
@@ -22,6 +23,8 @@ export default function Hero({ videoUrl }: { videoUrl: string }) {
   const HERO_COPY = useSiteCopy("hero", DEFAULT_HERO_COPY);
   const rootRef = useRef<HTMLElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const playbackRef = useRef<VideoPlaybackController | null>(null);
+  const [videoIssue, setVideoIssue] = useState<VideoPlaybackIssue>(null);
   const cycleRef = useRef<HTMLSpanElement>(null);
   const taglineRef = useRef<HTMLSpanElement>(null);
   const marqueeRef = useRef<HTMLDivElement>(null);
@@ -166,6 +169,14 @@ export default function Hero({ videoUrl }: { videoUrl: string }) {
       let enteringThroughPreloader = false;
       let isScrolling = false;
 
+      if (videoRef.current) {
+        playbackRef.current = createVideoPlaybackController(videoRef.current, {
+          fallbackUrl: () => cloudinaryVideoMp4Url(videoUrl,
+            window.innerWidth < 768 ? 640 : window.innerWidth < 1280 ? 768 : 1080),
+          onIssue: setVideoIssue,
+        });
+      }
+
       const syncAmbient = () => {
         // Continuous footage is the point of this hero. Pause only secondary
         // text/marquee effects during a scroll gesture; never pause the video
@@ -178,15 +189,9 @@ export default function Hero({ videoUrl }: { videoUrl: string }) {
         if (isScrolling && intro.isActive()) intro.pause();
         else if (active && intro.paused() && intro.progress() < 1) intro.resume();
 
-        const video = videoRef.current;
-        if (!video) return;
-        // Video stays in motion while Lenis scrolls. Only pause when the hero
-        // actually leaves the viewport, document is hidden or reduced motion
-        // is requested; avoid retriggering play() on every scroll frame.
-        const playVideo = (visible || (enteringThroughPreloader && !entered)) &&
-          !prefersReducedMotion && !document.hidden;
-        if (playVideo && video.paused) void video.play().catch(() => {});
-        else if (!playVideo && !video.paused) video.pause();
+        // Video stays in motion during Lenis scrolling. Only viewport and
+        // preloader lifecycle control play/pause; recovery is media-event driven.
+        playbackRef.current?.sync(visible || (enteringThroughPreloader && !entered));
       };
 
       const visibilityTrigger = ScrollTrigger.create({
@@ -245,6 +250,8 @@ export default function Hero({ videoUrl }: { videoUrl: string }) {
       // on lower-end GPUs. The static headline retains the brand typography.
 
       return () => {
+        playbackRef.current?.destroy();
+        playbackRef.current = null;
         unsubscribe();
         document.removeEventListener("visibilitychange", syncAmbient);
         ScrollTrigger.removeEventListener("scrollStart", onScrollStart);
@@ -256,7 +263,7 @@ export default function Hero({ videoUrl }: { videoUrl: string }) {
     }, rootRef);
 
     return () => ctx.revert();
-  }, []);
+  }, [videoUrl]);
 
   return (
     <section
@@ -287,6 +294,16 @@ export default function Hero({ videoUrl }: { videoUrl: string }) {
           </video>
         </div>
       </div>
+      {videoIssue && (
+        <button
+          type="button"
+          onClick={() => playbackRef.current?.playManually()}
+          className="absolute right-4 top-20 z-30 min-h-11 border border-bone-white/50 bg-black/85 px-4 py-2 font-stencil text-xs uppercase tracking-wider text-bone-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-bone-white sm:right-8"
+          aria-label="Play the Hero background video"
+        >
+          {videoIssue === "reduced-motion" ? "Play background video" : "Tap to play video"}
+        </button>
+      )}
 
       <div className="relative flex h-full flex-col justify-between">
         <div className="flex items-start justify-between px-gutter pt-28 lg:pr-32">
