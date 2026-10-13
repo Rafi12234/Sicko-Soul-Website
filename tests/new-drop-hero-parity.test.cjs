@@ -70,9 +70,25 @@ test('New Drop loading begins during counter, but only Hero gates its 100 comple
 });
 
 test('Preloader does not prime videos under reduced-motion or Save Data, and cleans up listeners', () => {
-  assert.match(pre, /window\.matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches &&/);
+  assert.match(pre, /window\.matchMedia\("\(prefers-reduced-motion: reduce\)"\)\.matches/);
   assert.match(pre, /\.connection\?\.saveData/);
   assert.match(pre, /let cancelDropPrime = \(\) => \{\}/);
   assert.match(pre, /observer\?\.disconnect\(\)/);
   assert.match(pre, /cancelDropPrime\(\)/);
+});
+
+
+test('New Drop no longer GPU-transforms or backdrop-filters the decoding video surface', () => {
+  const css = get('frontend/src/components/sections/Drop/Drop.module.css');
+  assert.doesNotMatch(drop, /ref={videoWrapRef}|to\(videoWrapRef\.current|fromTo\(\s*videoWrapRef\.current/);
+  assert.doesNotMatch(css, /-webkit-backdrop-filter:|(?<!-)backdrop-filter:/);
+  assert.doesNotMatch(drop, /id: "drop-plate"/);
+});
+
+test('New Drop preloads through the counter and never waits on its loading deadline', () => {
+  assert.match(pre, /let cancelDropPrime = \(\) => \{\};/);
+  assert.match(pre, /primeDropVideo\(\);/);
+  assert.match(pre, /if \(found\.networkState === HTMLMediaElement\.NETWORK_EMPTY\) found\.load\(\)/);
+  assert.match(pre, /cancelDropPrime\(\)/);
+  assert.doesNotMatch(pre, /await dropPrimed|dropPrimed\.then/);
 });
