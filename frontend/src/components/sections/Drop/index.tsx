@@ -12,7 +12,7 @@ import { cloudinaryVideoPoster, cloudinaryVideoUrl } from "@/lib/media"; // SICK
 import { archiveProductFromApi, listCatalogCategories } from "@/lib/catalogApi";
 import { listCollections } from "@/lib/customerApi";
 import type { CollectionRecord, PublicCategoryRecord } from "@/types/commerce";
-import { createDropPlaybackController, type DropPlaybackController, type DropPlaybackIssue } from "@/lib/dropPlayback";
+import { createVideoPlaybackController, type VideoPlaybackController, type VideoPlaybackIssue } from "@/lib/videoPlayback";
 import styles from "./Drop.module.css";
 
 export default function Drop({ videoUrl }: { videoUrl: string }) {
@@ -20,8 +20,8 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
   const rootRef = useRef<HTMLElement>(null);
   const videoWrapRef = useRef<HTMLDivElement>(null);
   const backgroundVideoRef = useRef<HTMLVideoElement>(null);
-  const playbackRef = useRef<DropPlaybackController | null>(null);
-  const [videoIssue, setVideoIssue] = useState<DropPlaybackIssue>(null);
+  const playbackRef = useRef<VideoPlaybackController | null>(null);
+  const [videoIssue, setVideoIssue] = useState<VideoPlaybackIssue>(null);
   const [videoInView, setVideoInView] = useState(false);
   const yearRef = useRef<HTMLSpanElement>(null);
   const statusRef = useRef<HTMLSpanElement>(null);
@@ -103,43 +103,36 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
     }
   }, [drawers]);
 
-  // Mirror Hero's viewport-driven playback without tying video lifecycle to
-  // asynchronously fetched catalog drawers. GSAP still owns all drawer FX.
+  // VIDEO LIFECYCLE IS DELIBERATELY INDEPENDENT OF DRAWERS/CATALOG DATA.
+  // The previous video controller lived inside a GSAP useLayoutEffect that
+  // restarted whenever the async catalog response changed `drawers`. On slow
+  // networks the restart could cancel a pending video.play() or reset loading.
+  // This effect only restarts when the CMS video URL actually changes.
   useEffect(() => {
     const root = rootRef.current;
     const video = backgroundVideoRef.current;
     if (!root || !video) return;
 
-    const playback = createDropPlaybackController(video, {
-      originalUrl: videoUrl,
+    const playback = createVideoPlaybackController(video, {
+      // If the responsive derivative cannot be loaded, try the existing
+      // original Cloudinary URL. Do not request an unverified on-the-fly
+      // transcoding profile: it can fail or take time to generate.
+      fallbackUrl: () => videoUrl,
       onIssue: setVideoIssue,
     });
     playbackRef.current = playback;
-    let sectionActive = false;
 
-    // Exactly the same visibility boundaries as Hero; no scroll listeners.
-    const trigger = ScrollTrigger.create({
-      id: "drop-video-runtime",
-      trigger: root,
-      start: "top bottom",
-      end: "bottom top",
-      onToggle: self => {
-        sectionActive = self.isActive;
-        setVideoInView(sectionActive);
-        playback.sync(sectionActive);
-      },
-      onRefresh: self => {
-        sectionActive = self.isActive;
-        setVideoInView(sectionActive);
-        playback.sync(sectionActive);
-      },
-    });
-    sectionActive = trigger.isActive;
-    setVideoInView(sectionActive);
-    playback.sync(sectionActive);
+    // Observe visual intersection without subscribing to scroll events.
+    const videoVisibility = new IntersectionObserver(([entry]) => {
+      if (!entry) return;
+      setVideoInView(entry.isIntersecting);
+      if (entry.isIntersecting) video.preload = "auto";
+      playback.sync(entry.isIntersecting);
+    }, { threshold: 0 });
+    videoVisibility.observe(root);
 
-    // Warm only when nearing New Drop, not at initial Hero playback. This
-    // prefetch hint never calls load(), so it cannot abort a pending play().
+    // A preload hint, not a second load() call. Calling load() during play()
+    // interrupts playback on affected Safari/Android WebView versions.
     const prewarm = new IntersectionObserver(([entry]) => {
       if (!entry?.isIntersecting) return;
       video.preload = "auto";
@@ -149,7 +142,7 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
 
     return () => {
       prewarm.disconnect();
-      trigger.kill();
+      videoVisibility.disconnect();
       playback.destroy();
       if (playbackRef.current === playback) playbackRef.current = null;
       video.pause();
@@ -591,11 +584,12 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
           muted
           loop
           playsInline
-          preload="metadata"
+          preload="none"
           aria-hidden
         >
-          {/* Same responsive Cloudinary helper as Hero; keep the known-working
-              New Drop widths. An error may fall back to the original CMS URL. */}
+          {/* Restore the original delivery variants that were already working.
+              Do not force an unverified Cloudinary transcode. f_auto may serve
+              a different container, so do not claim a fixed video/mp4 type. */}
           <source media="(max-width: 767px)" src={cloudinaryVideoUrl(videoUrl, 640)} />
           <source media="(max-width: 1279px)" src={cloudinaryVideoUrl(videoUrl, 960)} />
           <source src={cloudinaryVideoUrl(videoUrl, 1280)} />
