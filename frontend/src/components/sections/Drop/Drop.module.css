@@ -7,14 +7,11 @@
 
 /*
  * There is one real video for the entire Drop section. Drawer windows do not
- * own media elements; they brighten the already-rendered master plate beneath
- * them. This preserves the cut-out surveillance feel without extra video
- * decoders, buffers, or range requests.
+ * own media elements. Avoid backdrop-filter on top of live video: it forces
+ * expensive off-screen video composition on affected iOS/Android GPUs.
  */
 .window {
   background: rgb(242 240 235 / 0.025);
-  -webkit-backdrop-filter: brightness(1.72) contrast(1.05);
-  backdrop-filter: brightness(1.72) contrast(1.05);
   will-change: opacity;
 }
 
