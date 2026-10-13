@@ -8,22 +8,21 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER } from "@/styles/theme";
 import { DROP_COPY as DEFAULT_DROP_COPY, type DropDrawer } from "@/data/drop";
-import { cloudinaryVideoPoster, cloudinaryVideoUrl, cloudinaryVideoMp4Url } from "@/lib/media"; // SICKO_DYNAMIC_SITE_MEDIA
+import { cloudinaryVideoPoster, cloudinaryVideoUrl } from "@/lib/media"; // SICKO_DYNAMIC_SITE_MEDIA
 import { archiveProductFromApi, listCatalogCategories } from "@/lib/catalogApi";
 import { listCollections } from "@/lib/customerApi";
 import type { CollectionRecord, PublicCategoryRecord } from "@/types/commerce";
-import { createVideoPlaybackController, type VideoPlaybackController, type VideoPlaybackIssue } from "@/lib/videoPlayback";
+import { createDropPlaybackController, type DropPlaybackController, type DropPlaybackIssue } from "@/lib/dropPlayback";
 import styles from "./Drop.module.css";
-
 
 export default function Drop({ videoUrl }: { videoUrl: string }) {
   const DROP_COPY = useSiteCopy("drop", DEFAULT_DROP_COPY);
   const rootRef = useRef<HTMLElement>(null);
   const videoWrapRef = useRef<HTMLDivElement>(null);
   const backgroundVideoRef = useRef<HTMLVideoElement>(null);
-  const playbackRef = useRef<VideoPlaybackController | null>(null);
-  const [videoIssue, setVideoIssue] = useState<VideoPlaybackIssue>(null);
-  const sectionActiveRef = useRef(false);
+  const playbackRef = useRef<DropPlaybackController | null>(null);
+  const [videoIssue, setVideoIssue] = useState<DropPlaybackIssue>(null);
+  const [videoInView, setVideoInView] = useState(false);
   const yearRef = useRef<HTMLSpanElement>(null);
   const statusRef = useRef<HTMLSpanElement>(null);
   const ctxRef = useRef<ReturnType<typeof gsap.context> | null>(null);
@@ -103,6 +102,59 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
       setOpenId(drawers[0].id);
     }
   }, [drawers]);
+
+  // Mirror Hero's viewport-driven playback without tying video lifecycle to
+  // asynchronously fetched catalog drawers. GSAP still owns all drawer FX.
+  useEffect(() => {
+    const root = rootRef.current;
+    const video = backgroundVideoRef.current;
+    if (!root || !video) return;
+
+    const playback = createDropPlaybackController(video, {
+      originalUrl: videoUrl,
+      onIssue: setVideoIssue,
+    });
+    playbackRef.current = playback;
+    let sectionActive = false;
+
+    // Exactly the same visibility boundaries as Hero; no scroll listeners.
+    const trigger = ScrollTrigger.create({
+      id: "drop-video-runtime",
+      trigger: root,
+      start: "top bottom",
+      end: "bottom top",
+      onToggle: self => {
+        sectionActive = self.isActive;
+        setVideoInView(sectionActive);
+        playback.sync(sectionActive);
+      },
+      onRefresh: self => {
+        sectionActive = self.isActive;
+        setVideoInView(sectionActive);
+        playback.sync(sectionActive);
+      },
+    });
+    sectionActive = trigger.isActive;
+    setVideoInView(sectionActive);
+    playback.sync(sectionActive);
+
+    // Warm only when nearing New Drop, not at initial Hero playback. This
+    // prefetch hint never calls load(), so it cannot abort a pending play().
+    const prewarm = new IntersectionObserver(([entry]) => {
+      if (!entry?.isIntersecting) return;
+      video.preload = "auto";
+      prewarm.disconnect();
+    }, { rootMargin: "600px 0px" });
+    prewarm.observe(root);
+
+    return () => {
+      prewarm.disconnect();
+      trigger.kill();
+      playback.destroy();
+      if (playbackRef.current === playback) playbackRef.current = null;
+      video.pause();
+    };
+  }, [videoUrl]);
 
   const yearLabel = collection?.releaseYear ? String(collection.releaseYear) : "—";
   const statusLabel = collection?.status ?? "NO DROP";
@@ -335,18 +387,9 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
 
       loops.forEach((loop) => loop.pause());
 
-      if (backgroundVideoRef.current) {
-        playbackRef.current = createVideoPlaybackController(backgroundVideoRef.current, {
-          fallbackUrl: () => cloudinaryVideoMp4Url(videoUrl,
-            window.innerWidth < 768 ? 640 : window.innerWidth < 1280 ? 960 : 1280),
-          onIssue: setVideoIssue,
-        });
-      }
-
-      // Keep the existing ScrollTrigger for drawer/background animations only.
-      // Video playback uses actual viewport intersection independently: Lenis
-      // transforms and a delayed ScrollTrigger refresh must not strand a video
-      // on its poster. IntersectionObserver adds NO scroll/animation-frame work.
+      // GSAP remains responsible only for the decorative section loops.
+      // Actual video visibility, loading and retry are managed by the stable
+      // [videoUrl] effect above, not reconstructed when catalog drawers update.
       ScrollTrigger.create({
         id: "drop-loops",
         trigger: rootRef.current,
@@ -356,33 +399,6 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
           loops.forEach((loop) => (self.isActive ? loop.play() : loop.pause()));
         },
       });
-
-      const playbackVisibility = new IntersectionObserver(([entry]) => {
-        if (!entry) return;
-        sectionActiveRef.current = entry.isIntersecting;
-        const video = backgroundVideoRef.current;
-        if (entry.isIntersecting && video &&
-            video.networkState === HTMLMediaElement.NETWORK_EMPTY) {
-          video.preload = "auto";
-          video.load();
-        }
-        playbackRef.current?.sync(entry.isIntersecting);
-      }, { threshold: 0 });
-      if (rootRef.current) playbackVisibility.observe(rootRef.current);
-
-      // Warm the single optimized Cloudinary stream shortly before Drop arrives.
-      // Drawer reveals never create their own media requests; they only change
-      // how this one plate is composited.
-      const prewarm = new IntersectionObserver(
-        ([entry]) => {
-          if (!entry.isIntersecting || !backgroundVideoRef.current) return;
-          backgroundVideoRef.current.preload = "auto";
-          if (!sectionActiveRef.current) backgroundVideoRef.current.load();
-          prewarm.disconnect();
-        },
-        { rootMargin: "1000px 0px" },
-      );
-      if (rootRef.current) prewarm.observe(rootRef.current);
 
       /* ---- Closed bars preview the plate on hover. ---- */
       const barCleanups = q(".drop-bar").map((bar) => {
@@ -541,11 +557,6 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
         barCleanups.forEach((fn) => fn());
         tileCleanups.forEach((fn) => fn());
         enterCleanups.forEach((fn) => fn());
-        prewarm.disconnect();
-        playbackVisibility.disconnect();
-        playbackRef.current?.destroy();
-        playbackRef.current = null;
-        backgroundVideoRef.current?.pause();
         cancelAnimationFrame(resizeFrame);
         window.removeEventListener("resize", onResize);
       };
@@ -580,9 +591,11 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
           muted
           loop
           playsInline
-          preload="none"
+          preload="metadata"
           aria-hidden
         >
+          {/* Same responsive Cloudinary helper as Hero; keep the known-working
+              New Drop widths. An error may fall back to the original CMS URL. */}
           <source media="(max-width: 767px)" src={cloudinaryVideoUrl(videoUrl, 640)} />
           <source media="(max-width: 1279px)" src={cloudinaryVideoUrl(videoUrl, 960)} />
           <source src={cloudinaryVideoUrl(videoUrl, 1280)} />
@@ -590,17 +603,17 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
       </div>
       <div className={`${styles.vignette} pointer-events-none absolute inset-0 z-0`} />
       <div className={`${styles.scanlines} pointer-events-none absolute inset-0 z-0 opacity-40`} />
-      {videoIssue && (
-        <div className="relative z-20 px-gutter pt-4">
-          <button
-            type="button"
-            onClick={() => playbackRef.current?.playManually()}
-            className="min-h-11 border border-bone-white/50 bg-black/85 px-4 py-2 font-stencil text-xs uppercase tracking-wider text-bone-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-bone-white"
-            aria-label="Play the New Drop background video"
-          >
-            {videoIssue === "reduced-motion" ? "Play background video" : "Tap to play video"}
-          </button>
-        </div>
+      {videoIssue && videoInView && (
+        // A button at the top of this tall section disappears when the visitor
+        // scrolls to a drawer. Keep the recovery control reachable on mobile.
+        <button
+          type="button"
+          onClick={() => playbackRef.current?.playManually()}
+          className="fixed bottom-5 right-4 z-[80] min-h-11 border border-bone-white/50 bg-black/90 px-4 py-2 font-stencil text-xs uppercase tracking-wider text-bone-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-bone-white sm:right-8"
+          aria-label="Play the New Drop background video"
+        >
+          {videoIssue === "reduced-motion" ? "Play background video" : "Tap to play video"}
+        </button>
       )}
 
       <span
