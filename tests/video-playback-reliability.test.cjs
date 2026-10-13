@@ -57,7 +57,7 @@ test('reduced motion stays still unless user explicitly clicks Play',async()=>{
  assert.deepEqual(v.issues,['reduced-motion']);v.controller.playManually();await tick();
  assert.equal(v.video.paused,false);assert.equal(v.issues.at(-1),null);v.controller.destroy();
 });
-test('autoplay denied shows button and user gesture may recover',async()=>{
+test('autoplay denied by the browser can be retried from a user gesture',async()=>{
  const v=setup({playError:new DOMException('blocked','NotAllowedError')});v.controller.sync(true);await tick();
  assert.equal(v.issues.at(-1),'blocked');let before=v.video.playCalls;v.controller.sync(true);assert.equal(v.video.playCalls,before);
  v.controller.playManually();await tick();assert.equal(v.video.paused,false);v.controller.destroy();
@@ -75,7 +75,7 @@ test('destroy removes browser/media listeners',()=>{
  const v=setup();v.controller.destroy();assert.equal(v.video.listeners('error'),0);assert.equal(v.video.listeners('waiting'),0);
  assert.equal(v.document.listeners('visibilitychange'),0);assert.equal(v.media.listeners('change'),0);
 });
-test('Hero is read-only and Drop retains its known-working Cloudinary sources',()=>{
+test('Hero remains unchanged; New Drop now matches its responsive sources and controller',()=>{
  const hero=fs.readFileSync(path.join(root,'frontend/src/components/sections/Hero/index.tsx'),'utf8');
  const drop=fs.readFileSync(path.join(root,'frontend/src/components/sections/Drop/index.tsx'),'utf8');
  assert.match(hero,/cloudinaryVideoPoster\(videoUrl/);
@@ -83,30 +83,36 @@ test('Hero is read-only and Drop retains its known-working Cloudinary sources',(
  assert.match(hero,/cloudinaryVideoUrl\(videoUrl/);
  assert.match(drop,/cloudinaryVideoPoster\(videoUrl/);
  assert.match(drop,/ScrollTrigger\.create/);
- assert.match(drop,/createDropPlaybackController/);
- for (const width of [640,960,1280]) assert.match(drop,new RegExp(`cloudinaryVideoUrl\\(videoUrl, ${width}\\)`));
- assert.doesNotMatch(drop,/cloudinaryVideoMp4Url|vc_h264:baseline:3\.1/);
+ assert.match(drop,/createVideoPlaybackController/);
+ for (const width of [640,768,1080]) assert.match(drop,new RegExp(`cloudinaryVideoUrl\\(videoUrl, ${width}\\)`));
+ assert.match(drop,/cloudinaryVideoMp4Url/);
+ assert.doesNotMatch(drop,/vc_h264:baseline:3\.1/);
  assert.doesNotMatch(drop,/<source[^>]*type="video\/mp4"/);
- assert.match(drop,/preload="metadata"/);
+ assert.match(drop,/preload="auto"/);
 });
 
 test('Drop playback lifecycle is independent of catalog/drawer effects',()=>{
  const drop=fs.readFileSync(path.join(root,'frontend/src/components/sections/Drop/index.tsx'),'utf8');
- const beforeGsap = drop.split('  useLayoutEffect(() => {')[0];
- assert.match(beforeGsap,/useEffect\(\(\) => \{[\s\S]*createDropPlaybackController[\s\S]*\}, \[videoUrl\]\);/);
- const gsap = drop.split('  useLayoutEffect(() => {')[1];
- assert.doesNotMatch(gsap,/createDropPlaybackController/);
+ const stable = drop.split('  const yearLabel =')[0];
+ assert.match(stable,/useLayoutEffect\(\(\) => \{[\s\S]*createVideoPlaybackController[\s\S]*\}, \[videoUrl\]\);/);
+ const gsap = drop.split('  const yearLabel =')[1];
+ assert.doesNotMatch(gsap,/createVideoPlaybackController/);
  assert.doesNotMatch(gsap,/playback\.destroy\(\)/);
  assert.doesNotMatch(gsap,/backgroundVideoRef\.current\?\.pause\(\)/);
 });
 
-test('prewarm never calls load while primary media playback is starting',()=>{
+test('countdown warms the Drop video without making countdown wait for it',()=>{
  const drop=fs.readFileSync(path.join(root,'frontend/src/components/sections/Drop/index.tsx'),'utf8');
- assert.match(drop,/const prewarm = new IntersectionObserver/);
- assert.match(drop,/video\.preload = "auto"/);
- assert.doesNotMatch(drop,/\bvideo\.load\(\)/);
- assert.match(drop,/videoInView &&/);
- assert.match(drop,/onClick=\{\(\) => playbackRef\.current\?\.playManually\(\)\}/);
+ const pre=fs.readFileSync(path.join(root,'frontend/src/components/sections/Preloader/index.tsx'),'utf8');
+ assert.match(drop,/id="sicko-drop-video"/);
+ assert.match(drop,/preload="auto"/);
+ assert.match(pre,/document\.getElementById\("sicko-drop-video"\)/);
+ assert.match(pre,/found\.preload = "auto"/);
+ assert.match(pre,/found\.networkState === HTMLMediaElement\.NETWORK_EMPTY/);
+ assert.match(pre,/cancelDropPrime\(\)/);
+ assert.match(pre,/void heroPrimed\.then/);
+ assert.doesNotMatch(pre,/Promise\.all\(\[heroPrimed,\s*dropPrimed/);
+ assert.doesNotMatch(drop,/Tap to play video|videoInView/);
 });
 
 test('Drop uses the same ScrollTrigger viewport boundary as Hero and no secondary visibility controller',()=>{
@@ -114,7 +120,7 @@ test('Drop uses the same ScrollTrigger viewport boundary as Hero and no secondar
  assert.match(drop,/id: "drop-video-runtime"/);
  assert.match(drop,/start: "top bottom"/);
  assert.match(drop,/end: "bottom top"/);
- assert.match(drop,/playback\.sync\(sectionActive\)/);
+ assert.match(drop,/playback\.sync\(active && !document\.hidden\)/);
  assert.match(drop,/trigger\.kill\(\)/);
  assert.doesNotMatch(drop,/const videoVisibility = new IntersectionObserver/);
  assert.match(drop,/id: "drop-loops"/);
