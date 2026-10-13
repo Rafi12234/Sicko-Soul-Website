@@ -1,6 +1,7 @@
 "use client";
 
 import { useSiteCopy } from "@/components/providers/SiteContentContext";
+import { useAppStore } from "@/store/useAppStore";
 
 import Image from "next/image";
 import Link from "next/link";
@@ -8,7 +9,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { gsap, ScrollTrigger, SplitText } from "@/lib/gsap";
 import { COLOR, EASE, STAGGER } from "@/styles/theme";
 import { DROP_COPY as DEFAULT_DROP_COPY, type DropDrawer } from "@/data/drop";
-import { cloudinaryVideoPoster, cloudinaryVideoUrl } from "@/lib/media"; // SICKO_DYNAMIC_SITE_MEDIA
+import { cloudinaryVideoPoster, cloudinaryVideoUrl, cloudinaryVideoMp4Url } from "@/lib/media"; // SICKO_DYNAMIC_SITE_MEDIA
 import { archiveProductFromApi, listCatalogCategories } from "@/lib/catalogApi";
 import { listCollections } from "@/lib/customerApi";
 import type { CollectionRecord, PublicCategoryRecord } from "@/types/commerce";
@@ -18,11 +19,9 @@ import styles from "./Drop.module.css";
 export default function Drop({ videoUrl }: { videoUrl: string }) {
   const DROP_COPY = useSiteCopy("drop", DEFAULT_DROP_COPY);
   const rootRef = useRef<HTMLElement>(null);
-  const videoWrapRef = useRef<HTMLDivElement>(null);
   const backgroundVideoRef = useRef<HTMLVideoElement>(null);
   const playbackRef = useRef<VideoPlaybackController | null>(null);
   const [videoIssue, setVideoIssue] = useState<VideoPlaybackIssue>(null);
-  const [videoInView, setVideoInView] = useState(false);
   const yearRef = useRef<HTMLSpanElement>(null);
   const statusRef = useRef<HTMLSpanElement>(null);
   const ctxRef = useRef<ReturnType<typeof gsap.context> | null>(null);
@@ -103,49 +102,64 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
     }
   }, [drawers]);
 
-  // VIDEO LIFECYCLE IS DELIBERATELY INDEPENDENT OF DRAWERS/CATALOG DATA.
-  // The previous video controller lived inside a GSAP useLayoutEffect that
-  // restarted whenever the async catalog response changed `drawers`. On slow
-  // networks the restart could cancel a pending video.play() or reset loading.
-  // This effect only restarts when the CMS video URL actually changes.
-  useEffect(() => {
+  // The Drop video follows Hero's entry/viewport/page-visibility lifecycle.
+  // Keep it separate from drawer/catalog GSAP so a data update never resets
+  // a pending media request. Unlike the previous patch, the preloader no
+  // longer issues an explicit load() request for New Drop alongside Hero.
+  useLayoutEffect(() => {
     const root = rootRef.current;
     const video = backgroundVideoRef.current;
     if (!root || !video) return;
 
+    // Same playback controller and H.264 fallback expression as Hero.
     const playback = createVideoPlaybackController(video, {
-      // If the responsive derivative cannot be loaded, try the existing
-      // original Cloudinary URL. Do not request an unverified on-the-fly
-      // transcoding profile: it can fail or take time to generate.
-      fallbackUrl: () => videoUrl,
+      fallbackUrl: () => cloudinaryVideoMp4Url(videoUrl,
+        window.innerWidth < 768 ? 640 : window.innerWidth < 1280 ? 768 : 1080),
       onIssue: setVideoIssue,
     });
     playbackRef.current = playback;
 
-    // Observe visual intersection without subscribing to scroll events.
-    const videoVisibility = new IntersectionObserver(([entry]) => {
-      if (!entry) return;
-      setVideoInView(entry.isIntersecting);
-      if (entry.isIntersecting) video.preload = "auto";
-      playback.sync(entry.isIntersecting);
-    }, { threshold: 0 });
-    videoVisibility.observe(root);
+    let entered = useAppStore.getState().hasEntered;
+    let sectionActive = false;
+    const syncPlayback = () => {
+      // Exact Hero gating: video only runs after entry, in the viewport,
+      // when the browser tab is visible. Scrolling never pauses the video.
+      const visible = entered && sectionActive && !document.hidden;
+      playback.sync(visible);
+    };
 
-    // A preload hint, not a second load() call. Calling load() during play()
-    // interrupts playback on affected Safari/Android WebView versions.
-    const prewarm = new IntersectionObserver(([entry]) => {
-      if (!entry?.isIntersecting) return;
-      video.preload = "auto";
-      prewarm.disconnect();
-    }, { rootMargin: "600px 0px" });
-    prewarm.observe(root);
+    const visibilityTrigger = ScrollTrigger.create({
+      id: "drop-video-runtime",
+      trigger: root,
+      start: "top bottom",
+      end: "bottom top",
+      onToggle: (self) => {
+        sectionActive = self.isActive;
+        syncPlayback();
+      },
+      onRefresh: (self) => {
+        sectionActive = self.isActive;
+        syncPlayback();
+      },
+    });
+    sectionActive = visibilityTrigger.isActive;
+    document.addEventListener("visibilitychange", syncPlayback);
+    window.addEventListener("sicko-drop-media-ready", syncPlayback);
+    syncPlayback();
+
+    const unsubscribe = useAppStore.subscribe((state) => {
+      if (!state.hasEntered || entered) return;
+      entered = true;
+      syncPlayback();
+    });
 
     return () => {
-      prewarm.disconnect();
-      videoVisibility.disconnect();
       playback.destroy();
       if (playbackRef.current === playback) playbackRef.current = null;
-      video.pause();
+      unsubscribe();
+      document.removeEventListener("visibilitychange", syncPlayback);
+      window.removeEventListener("sicko-drop-media-ready", syncPlayback);
+      visibilityTrigger.kill();
     };
   }, [videoUrl]);
 
@@ -285,25 +299,9 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
         },
       });
 
-      /* ---- Plate pushes in slowly for the whole length of the section. ---- */
-      mm.add("(min-width: 768px)", () => {
-        gsap.fromTo(
-          videoWrapRef.current,
-          { scale: 1.16, yPercent: -4 },
-          {
-            scale: 1,
-            yPercent: 4,
-            ease: "none",
-            scrollTrigger: {
-              id: "drop-plate",
-              trigger: rootRef.current,
-              start: "top bottom",
-              end: "bottom top",
-              scrub: true,
-            },
-          },
-        );
-      });
+      // Keep the video plate still, as Hero does. Animating the full-sized
+      // decoding video layer with a scroll-scrub forces expensive GPU texture
+      // recomposition and can visibly freeze playback on some mobile devices.
 
       /* ---- Continuous layer, parked until the section is on screen. ---- */
       const loops: gsap.core.Animation[] = [];
@@ -347,13 +345,6 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
           scrambleText: { text: statusLabel, chars: "upperCase", speed: 0.8 },
         });
 
-        // Plate stutter: a dropped frame every few seconds, never a smooth fade.
-        const glitch = gsap
-          .timeline({ repeat: -1, repeatDelay: 4.4 })
-          .to(videoWrapRef.current, { x: 9, autoAlpha: 0.55, duration: 0.05, ease: "none" })
-          .to(videoWrapRef.current, { x: -7, autoAlpha: 0.9, duration: 0.05, ease: "none" })
-          .to(videoWrapRef.current, { x: 0, autoAlpha: 1, duration: 0.08, ease: "none" });
-
         // Tiles breathe out of phase so the strip never sits perfectly still.
         const tileDrift = gsap.to(".drop-tile-img", {
           scale: 1.06,
@@ -375,7 +366,7 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
           stagger: { each: 0.45, from: "random" },
         });
 
-        loops.push(scan, blink, yearLoop, statusLoop, glitch, tileDrift, tileFlicker);
+        loops.push(scan, blink, yearLoop, statusLoop, tileDrift, tileFlicker);
       });
 
       loops.forEach((loop) => loop.pause());
@@ -560,7 +551,7 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
       ctxRef.current = null;
       ctx.revert();
     };
-  }, [drawers, statusLabel, yearLabel, videoUrl]);
+  }, [drawers, statusLabel, yearLabel]);
 
   const handleToggle = (id: string) => {
     if (id === openRef.current) return;
@@ -575,31 +566,30 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
   return (
     <section ref={rootRef} id="drop" className="relative overflow-hidden bg-black pb-[14vh] pt-[13vh]">
       {/* Plate sits behind everything and is only uncovered by an open drawer. */}
-      <div ref={videoWrapRef} className="pointer-events-none absolute inset-0 z-0">
+      <div className="pointer-events-none absolute inset-0 z-0">
         <video
+          id="sicko-drop-video"
           key={videoUrl}
           ref={backgroundVideoRef}
           className="h-full w-full object-cover opacity-[0.22]"
           poster={cloudinaryVideoPoster(videoUrl, 960)}
+          onLoadedData={() => window.dispatchEvent(new Event("sicko-drop-media-ready"))}
           muted
           loop
           playsInline
-          preload="none"
+          preload="auto"
           aria-hidden
         >
-          {/* Restore the original delivery variants that were already working.
-              Do not force an unverified Cloudinary transcode. f_auto may serve
-              a different container, so do not claim a fixed video/mp4 type. */}
+          {/* Match Hero's adaptive Cloudinary sources exactly. The same playback
+              controller will retry with a compatible H.264 MP4 if needed. */}
           <source media="(max-width: 767px)" src={cloudinaryVideoUrl(videoUrl, 640)} />
-          <source media="(max-width: 1279px)" src={cloudinaryVideoUrl(videoUrl, 960)} />
-          <source src={cloudinaryVideoUrl(videoUrl, 1280)} />
+          <source media="(max-width: 1279px)" src={cloudinaryVideoUrl(videoUrl, 768)} />
+          <source src={cloudinaryVideoUrl(videoUrl, 1080)} />
         </video>
       </div>
       <div className={`${styles.vignette} pointer-events-none absolute inset-0 z-0`} />
       <div className={`${styles.scanlines} pointer-events-none absolute inset-0 z-0 opacity-40`} />
-      {videoIssue && videoInView && (
-        // A button at the top of this tall section disappears when the visitor
-        // scrolls to a drawer. Keep the recovery control reachable on mobile.
+      {videoIssue && (
         <button
           type="button"
           onClick={() => playbackRef.current?.playManually()}
