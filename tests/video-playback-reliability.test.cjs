@@ -42,7 +42,7 @@ function setup({reduced = false,playError=null}={}){
  video.pause=()=>{video.paused=true;video.dispatch('pause')};
  video.load=()=>{video.loadCalls++;video.readyState=0;video.paused=true};
  const issues=[];
- const controller=createVideoPlaybackController(video,{fallbackUrl:()=> 'https://res.cloudinary.com/prod/video/upload/f_mp4,vc_h264/clip.mp4',onIssue:x=>issues.push(x)});
+ const controller=createVideoPlaybackController(video,{fallbackUrl:()=> 'https://res.cloudinary.com/prod/video/upload/v123/clip.mp4',onIssue:x=>issues.push(x)});
  return {video,controller,issues,document,window,media};
 }
 afterEach(()=>{delete global.window;delete global.document;delete global.HTMLMediaElement});
@@ -62,9 +62,9 @@ test('autoplay denied shows button and user gesture may recover',async()=>{
  assert.equal(v.issues.at(-1),'blocked');let before=v.video.playCalls;v.controller.sync(true);assert.equal(v.video.playCalls,before);
  v.controller.playManually();await tick();assert.equal(v.video.paused,false);v.controller.destroy();
 });
-test('unsupported format switches once to H264 MP4 fallback',async()=>{
+test('unsupported format switches once to original-media fallback',async()=>{
  const v=setup({playError:new DOMException('codec','NotSupportedError')});v.controller.sync(true);await tick();
- assert.equal(v.video.loadCalls,1);assert.match(v.video.src,/f_mp4,vc_h264/);v.controller.destroy();
+ assert.equal(v.video.loadCalls,1);assert.match(v.video.src,/\/video\/upload\/v123\/clip\.mp4/);v.controller.destroy();
 });
 test('visibilitychange pauses, restores video when visible again',async()=>{
  const v=setup();v.controller.sync(true);await tick();v.document.hidden=true;v.document.dispatch('visibilitychange');
@@ -75,66 +75,47 @@ test('destroy removes browser/media listeners',()=>{
  const v=setup();v.controller.destroy();assert.equal(v.video.listeners('error'),0);assert.equal(v.video.listeners('waiting'),0);
  assert.equal(v.document.listeners('visibilitychange'),0);assert.equal(v.media.listeners('change'),0);
 });
-test('both videos retain GSAP/Lenis wiring and original optimized media sources',()=>{
+test('Hero is read-only and Drop retains its known-working Cloudinary sources',()=>{
  const hero=fs.readFileSync(path.join(root,'frontend/src/components/sections/Hero/index.tsx'),'utf8');
  const drop=fs.readFileSync(path.join(root,'frontend/src/components/sections/Drop/index.tsx'),'utf8');
- for(const [label,s] of [['Hero',hero],['Drop',drop]]){
-  assert.match(s,/createVideoPlaybackController/);assert.match(s,/playbackRef.current\?\.sync/);
-  assert.match(s,/cloudinaryVideoUrl\(videoUrl/);assert.match(s,/cloudinaryVideoPoster\(videoUrl/);
-  assert.match(s,/ScrollTrigger\.create/);assert.match(s,/videoIssue/);
-  assert.doesNotMatch(s,/video\.play\(\)\.catch\(\(\) => \{\}\)/);
- }
+ assert.match(hero,/cloudinaryVideoPoster\(videoUrl/);
+ assert.match(hero,/ScrollTrigger\.create/);
+ assert.match(hero,/cloudinaryVideoUrl\(videoUrl/);
+ assert.match(drop,/cloudinaryVideoPoster\(videoUrl/);
+ assert.match(drop,/ScrollTrigger\.create/);
+ assert.match(drop,/createDropPlaybackController/);
+ for (const width of [640,960,1280]) assert.match(drop,new RegExp(`cloudinaryVideoUrl\\(videoUrl, ${width}\\)`));
+ assert.doesNotMatch(drop,/cloudinaryVideoMp4Url|vc_h264:baseline:3\.1/);
+ assert.doesNotMatch(drop,/<source[^>]*type="video\/mp4"/);
+ assert.match(drop,/preload="metadata"/);
 });
 
-test('New Drop visibility follows viewport intersection independently of scroll animations',()=>{
+test('Drop playback lifecycle is independent of catalog/drawer effects',()=>{
  const drop=fs.readFileSync(path.join(root,'frontend/src/components/sections/Drop/index.tsx'),'utf8');
- assert.match(drop,/const playbackVisibility = new IntersectionObserver/);
- assert.match(drop,/playbackRef\.current\?\.sync\(entry\.isIntersecting\)/);
- assert.match(drop,/playbackVisibility\.disconnect\(\)/);
- assert.match(drop,/ScrollTrigger\.create\(\{\s*id: "drop-loops"/);
- assert.doesNotMatch(drop,/syncVideo\(runtimeTrigger\.isActive\)/);
+ const beforeGsap = drop.split('  useLayoutEffect(() => {')[0];
+ assert.match(beforeGsap,/useEffect\(\(\) => \{[\s\S]*createDropPlaybackController[\s\S]*\}, \[videoUrl\]\);/);
+ const gsap = drop.split('  useLayoutEffect(() => {')[1];
+ assert.doesNotMatch(gsap,/createDropPlaybackController/);
+ assert.doesNotMatch(gsap,/playback\.destroy\(\)/);
+ assert.doesNotMatch(gsap,/backgroundVideoRef\.current\?\.pause\(\)/);
 });
 
-test('a video that stops advancing falls back once, then exposes manual recovery',async()=>{
- const timeout=global.setTimeout;const clear=global.clearTimeout;
- const pending=[];
- global.setTimeout=(callback)=>{const handle={callback,stopped:false};pending.push(handle);return handle};
- global.clearTimeout=(handle)=>{if(handle)handle.stopped=true};
- let v;
- try {
-  v=setup();v.controller.sync(true);await tick();
-  assert.equal(v.video.playCalls,1);
-  const first=pending.find(x=>!x.stopped);
-  assert.ok(first,'no playback progress watchdog scheduled');
-  first.stopped=true;first.callback();await tick();
-  assert.equal(v.video.loadCalls,1,'one MP4 fallback should load');
-  assert.match(v.video.src,/f_mp4,vc_h264/);
-  const next=pending.find(x=>!x.stopped);
-  assert.ok(next,'fallback should be watched too');
-  next.stopped=true;next.callback();await tick();
-  assert.equal(v.issues.at(-1),'unavailable');
-  assert.equal(v.video.loadCalls,1,'do not continuously reload media');
- } finally {
-  v?.controller.destroy();
-  global.setTimeout=timeout;global.clearTimeout=clear;
- }
+test('prewarm never calls load while primary media playback is starting',()=>{
+ const drop=fs.readFileSync(path.join(root,'frontend/src/components/sections/Drop/index.tsx'),'utf8');
+ assert.match(drop,/const prewarm = new IntersectionObserver/);
+ assert.match(drop,/video\.preload = "auto"/);
+ assert.doesNotMatch(drop,/\bvideo\.load\(\)/);
+ assert.match(drop,/videoInView &&/);
+ assert.match(drop,/onClick=\{\(\) => playbackRef\.current\?\.playManually\(\)\}/);
 });
 
-test('timeupdate confirms active playback and prevents a false stalled fallback',async()=>{
- const timeout=global.setTimeout;const clear=global.clearTimeout;
- const pending=[];
- global.setTimeout=(callback)=>{const handle={callback,stopped:false};pending.push(handle);return handle};
- global.clearTimeout=(handle)=>{if(handle)handle.stopped=true};
- let v;
- try {
-  v=setup();v.controller.sync(true);await tick();
-  v.video.dispatch('timeupdate');
-  const first=pending.find(x=>!x.stopped);assert.ok(first);
-  first.stopped=true;first.callback();await tick();
-  assert.equal(v.video.loadCalls,0);
-  assert.equal(v.issues.at(-1)??null,null);
- } finally {
-  v?.controller.destroy();
-  global.setTimeout=timeout;global.clearTimeout=clear;
- }
+test('Drop uses the same ScrollTrigger viewport boundary as Hero and no secondary visibility controller',()=>{
+ const drop=fs.readFileSync(path.join(root,'frontend/src/components/sections/Drop/index.tsx'),'utf8');
+ assert.match(drop,/id: "drop-video-runtime"/);
+ assert.match(drop,/start: "top bottom"/);
+ assert.match(drop,/end: "bottom top"/);
+ assert.match(drop,/playback\.sync\(sectionActive\)/);
+ assert.match(drop,/trigger\.kill\(\)/);
+ assert.doesNotMatch(drop,/const videoVisibility = new IntersectionObserver/);
+ assert.match(drop,/id: "drop-loops"/);
 });
