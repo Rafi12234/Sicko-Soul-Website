@@ -48,6 +48,7 @@ export default function Rack({ catalogCategories, segments }: { catalogCategorie
       line: product.line,
       variantId: defaultVariant?.id,
       available: Boolean(defaultVariant),
+      availableQty: product.availableQty,
     };
   });
 
