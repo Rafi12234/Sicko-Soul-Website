@@ -24,6 +24,8 @@ const blankCategory = (segmentId = ""): CategoryDraft => ({ code: "", slug: "", 
 const field = "mt-1 block w-full min-w-0 border border-bone-white/20 bg-[#151515] px-3 py-2 font-body text-sm text-bone-white outline-none focus:border-blood-accent";
 const action = "border border-bone-white/25 px-4 py-2 font-stencil text-[0.63rem] uppercase tracking-wider text-bone-white transition hover:border-blood-accent hover:text-blood-accent disabled:opacity-40";
 const textOpt = (v: string) => v.trim() || null;
+const makeSlug = (value: string) => value.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 60);
+const makeCode = (value: string) => makeSlug(value).replaceAll("-", "_");
 
 export default function CatalogHierarchyEditor({ token }: { token: string }) {
   const [segments, setSegments] = useState<CatalogSegmentRecord[]>([]);
@@ -129,7 +131,7 @@ export default function CatalogHierarchyEditor({ token }: { token: string }) {
   return <section aria-label="Catalog hierarchy editor" className="mt-8 border border-blood-accent/40 bg-[#0f0f0f] p-4 text-bone-white md:p-7">
     <p className="font-stencil text-[0.6rem] tracking-[0.25em] text-blood-accent">SICKO SOUL / CATALOG CONTROL</p>
     <h2 className="mt-3 font-display text-[clamp(2.4rem,5vw,4.5rem)] leading-none tracking-crushed">SEGMENTS & FILES</h2>
-    <p className="mt-3 max-w-2xl font-body text-sm text-concrete-gray">Main segments own subcategories. Hide any entry using INACTIVE; permanent removal is allowed only when it has no dependent records. Covers accept Cloudinary HTTPS image URLs.</p>
+    <p className="mt-3 max-w-2xl font-body text-sm text-concrete-gray">Create main segments, then add subcategories underneath them. Names automatically generate technical IDs. Use Inactive to hide a category without deleting its products. Only empty entries can be deleted.</p>
     <div className="mt-6 grid gap-8 lg:grid-cols-2">
       <div className="border-t border-bone-white/20 pt-5">
         <h3 className="font-display text-3xl">MAIN SEGMENTS</h3>
@@ -139,11 +141,8 @@ export default function CatalogHierarchyEditor({ token }: { token: string }) {
         </div>
         <form onSubmit={saveSegment} className="mt-5 space-y-4">
           <p className="font-stencil text-xs text-blood-accent">{segmentId === "new" ? "CREATE MAIN SEGMENT" : "EDIT MAIN SEGMENT"}</p>
-          {segmentId === "new" && <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-xs">CODE<input className={field} required maxLength={64} pattern="[a-z0-9_-]+" value={segmentDraft.code} onChange={e => setSegmentDraft(s => ({ ...s, code: e.target.value }))} placeholder="accessories" /></label>
-            <label className="text-xs">SLUG<input className={field} required maxLength={120} pattern="[a-z0-9-]+" value={segmentDraft.slug} onChange={e => setSegmentDraft(s => ({ ...s, slug: e.target.value }))} placeholder="accessories" /></label>
-          </div>}
-          <label className="block text-xs">DISPLAY NAME<input className={field} required maxLength={120} value={segmentDraft.name} onChange={e => setSegmentDraft(s => ({ ...s, name: e.target.value }))}/></label>
+          <label className="block text-xs">SEGMENT NAME<input className={field} required maxLength={120} value={segmentDraft.name} onChange={e => setSegmentDraft(s => ({ ...s, name: e.target.value, ...(segmentId === "new" ? { slug: makeSlug(e.target.value), code: makeCode(e.target.value) } : {}) }))} placeholder="e.g. Accessories, Clothing, Lifestyle"/></label>
+          {segmentId === "new" && <details className="text-xs text-concrete-gray"><summary className="cursor-pointer py-2">Advanced: generated identifiers (normally no need to change)</summary><div className="grid gap-3 sm:grid-cols-2"><label>CODE<input required className={field} value={segmentDraft.code} onChange={e => setSegmentDraft(s => ({...s,code:e.target.value}))}/></label><label>SLUG<input required className={field} value={segmentDraft.slug} onChange={e => setSegmentDraft(s => ({...s,slug:e.target.value}))}/></label></div></details>}
           <label className="block text-xs">COVER IMAGE URL<input className={field} type="url" maxLength={1000} value={segmentDraft.coverUrl} onChange={e => setSegmentDraft(s => ({ ...s, coverUrl: e.target.value }))}/></label>
           <label className="block text-xs">COVER ALT TEXT<input className={field} maxLength={255} value={segmentDraft.coverAlt} onChange={e => setSegmentDraft(s => ({ ...s, coverAlt: e.target.value }))}/></label>
           <label className="block text-xs">TAGLINE<input className={field} maxLength={255} value={segmentDraft.tagline} onChange={e => setSegmentDraft(s => ({ ...s, tagline: e.target.value }))}/></label>
@@ -159,16 +158,13 @@ export default function CatalogHierarchyEditor({ token }: { token: string }) {
         <h3 className="font-display text-3xl">SUBCATEGORIES</h3>
         <div className="mt-4 flex flex-wrap gap-2">
           <button className={action} type="button" onClick={() => chooseCategory("new")}>+ NEW SUBCATEGORY</button>
-          {categories.map(c => <button className={`${action} ${c.id === categoryId ? "border-blood-accent text-blood-accent" : ""}`} key={c.id} type="button" onClick={() => chooseCategory(c.id)}>{c.name}{c.isActive ? "" : " / HIDDEN"}</button>)}
+          {categories.map(c => <button className={`${action} ${c.id === categoryId ? "border-blood-accent text-blood-accent" : ""}`} key={c.id} type="button" onClick={() => chooseCategory(c.id)}>{segments.find(s => s.id === c.segmentId)?.name ?? "Unassigned"} → {c.name}{c.isActive ? "" : " / HIDDEN"}</button>)}
         </div>
         <form onSubmit={saveCategory} className="mt-5 space-y-4">
           <p className="font-stencil text-xs text-blood-accent">{categoryId === "new" ? "CREATE SUBCATEGORY" : "EDIT SUBCATEGORY"}</p>
-          {categoryId === "new" && <div className="grid gap-3 sm:grid-cols-2">
-            <label className="text-xs">CODE<input className={field} required maxLength={64} value={categoryDraft.code} onChange={e => setCategoryDraft(s => ({ ...s, code: e.target.value }))} placeholder="perfume" /></label>
-            <label className="text-xs">SLUG<input className={field} required maxLength={120} value={categoryDraft.slug} onChange={e => setCategoryDraft(s => ({ ...s, slug: e.target.value }))} placeholder="perfume" /></label>
-          </div>}
-          <label className="block text-xs">MAIN SEGMENT<select className={field} value={categoryDraft.segmentId} onChange={e => setCategoryDraft(s => ({ ...s, segmentId: e.target.value }))}><option value="">UNASSIGNED / HIDDEN FROM CATALOG</option>{segments.map(s => <option key={s.id} value={s.id}>{s.name}{s.isActive ? "" : " (HIDDEN)"}</option>)}</select></label>
-          <label className="block text-xs">DISPLAY NAME<input className={field} required maxLength={120} value={categoryDraft.name} onChange={e => setCategoryDraft(s => ({ ...s, name: e.target.value }))}/></label>
+          <label className="block text-xs">SUBCATEGORY NAME<input className={field} required maxLength={120} value={categoryDraft.name} onChange={e => setCategoryDraft(s => ({ ...s, name: e.target.value, ...(categoryId === "new" ? { slug: makeSlug(e.target.value), code: makeCode(e.target.value) } : {}) }))} placeholder="e.g. T-Shirts, Pants, Perfume"/></label>
+          <label className="block text-xs">INSIDE MAIN SEGMENT<select className={field} value={categoryDraft.segmentId} onChange={e => setCategoryDraft(s => ({ ...s, segmentId: e.target.value }))}><option value="">UNASSIGNED / HIDDEN FROM CATALOG</option>{segments.map(s => <option key={s.id} value={s.id}>{s.name}{s.isActive ? "" : " (HIDDEN)"}</option>)}</select></label>
+          {categoryId === "new" && <details className="text-xs text-concrete-gray"><summary className="cursor-pointer py-2">Advanced: generated identifiers (normally no need to change)</summary><div className="grid gap-3 sm:grid-cols-2"><label>CODE<input required maxLength={64} className={field} value={categoryDraft.code} onChange={e => setCategoryDraft(s => ({...s,code:e.target.value}))}/></label><label>SLUG<input required maxLength={120} className={field} value={categoryDraft.slug} onChange={e => setCategoryDraft(s => ({...s,slug:e.target.value}))}/></label></div></details>}
           <div className="grid gap-3 sm:grid-cols-2">
             <label className="text-xs">INDEX CODE<input className={field} maxLength={20} value={categoryDraft.indexCode} onChange={e => setCategoryDraft(s => ({ ...s, indexCode: e.target.value }))}/></label>
             <label className="text-xs">GHOST NAME<input className={field} maxLength={120} value={categoryDraft.ghostName} onChange={e => setCategoryDraft(s => ({ ...s, ghostName: e.target.value }))}/></label>
