@@ -8,6 +8,7 @@ import { gsap } from "@/lib/gsap";
 import { EASE } from "@/styles/theme";
 import { PRODUCTS_COPY, getProductGallery, getProductVariants, type ArchiveProduct } from "@/data/products";
 import { useCartStore } from "@/store/useCartStore";
+import StockCount from "@/components/commerce/StockCount";
 import styles from "./ProductArchive.module.css";
 
 type ProductRecordProps = {
@@ -264,6 +265,11 @@ export default function ProductRecord({ product, ordinal }: ProductRecordProps) 
             <span className="ml-auto font-body text-[1.1rem] font-semibold text-bone-white">
               {product.price}
             </span>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <span className="font-stencil text-[0.52rem] tracking-stencil text-concrete-gray">TOTAL STOCK / ALL SIZES</span>
+            <StockCount availableQty={product.availableQty} />
           </div>
 
           <div className="mt-5 flex items-center gap-3">
