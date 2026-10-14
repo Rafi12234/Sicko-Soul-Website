@@ -1,22 +1,86 @@
 "use client";
-import {useCallback,useEffect,useMemo,useState} from "react";
-import {apiRequest,type DataEnvelope} from "@/lib/apiClient";
-import {useAdminSession} from "@/components/admin/AdminSessionProvider";
-import {adminButton} from "@/components/admin/AdminShell";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { apiRequest, type DataEnvelope } from "@/lib/apiClient";
+import { useAdminSession } from "@/components/admin/AdminSessionProvider";
+import { adminButton } from "@/components/admin/AdminShell";
 import AdminPageHeading from "@/components/admin/AdminPageHeading";
-type Product={publicId:string;slug:string;name:string;skuBase:string;basePrice:number;currency:string;status:"DRAFT"|"ACTIVE"|"ARCHIVED";category?:{slug:string;name:string};imageCount:number;variantCount:number};
-const input="mt-2 w-full min-h-11 border border-white/20 bg-[#101014] px-3 py-2.5 text-sm text-white outline-none focus:border-red-500";
-export default function ProductsManager(){
- const {token}=useAdminSession();const [items,setItems]=useState<Product[]>([]);const [selected,setSelected]=useState<Product|null>(null);const [draft,setDraft]=useState({name:"",basePrice:"",status:"DRAFT"});const [query,setQuery]=useState("");const [loading,setLoading]=useState(true);const [error,setError]=useState("");const [notice,setNotice]=useState("");
- const read=useCallback(async()=>{setLoading(true);setError("");try{const result=await apiRequest<DataEnvelope<Product[]>>("/admin/catalog/products",{cache:"no-store",headers:{Authorization:`Bearer ${token}`}});setItems(result.data??[])}catch(e){setError(e instanceof Error?e.message:"Unable to load products")}finally{setLoading(false)}},[token]);
- useEffect(()=>{void read()},[read]);
- const filtered=useMemo(()=>items.filter(p=>`${p.name} ${p.publicId} ${p.skuBase}`.toLowerCase().includes(query.toLowerCase())),[items,query]);
- const choose=(p:Product)=>{setSelected(p);setDraft({name:p.name,basePrice:String(p.basePrice),status:p.status});setNotice("");setError("")};
- const save=async()=>{if(!selected)return;const price=Number(draft.basePrice);if(!draft.name.trim()||!Number.isFinite(price)||price<=0){setError("Enter a name and a positive price");return}if(!window.confirm(`Save changes to ${selected.publicId}?`))return;setLoading(true);setError("");setNotice("");try{await apiRequest(`/admin/catalog/products/${encodeURIComponent(selected.publicId)}`,{method:"PATCH",cache:"no-store",headers:{Authorization:`Bearer ${token}`},body:JSON.stringify({name:draft.name.trim(),basePrice:price,status:draft.status})});setNotice("Product updated. Changes are recorded in the audit log.");setSelected(null);await read()}catch(e){setError(e instanceof Error?e.message:"Update rejected")}finally{setLoading(false)}};
- return <><AdminPageHeading eyebrow="Commerce / Product Registry" title="PRODUCTS" description="Review the existing catalog and safely edit product name, base price and publication status. Product creation, variants and image management use separate catalog operations and are not silently modified here."/>
- <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><label className="w-full max-w-md text-xs uppercase tracking-wider text-white/60">Search products<input value={query} onChange={e=>setQuery(e.target.value)} className={input} placeholder="Name, public ID, or SKU"/></label><button type="button" disabled={loading} className={adminButton} onClick={()=>void read()}>Refresh registry</button></div>
- {error&&<p role="alert" className="my-4 border-l-2 border-red-600 p-3 text-sm text-red-200">{error}</p>}{notice&&<p role="status" className="my-4 border-l-2 border-white/40 p-3 text-sm">{notice}</p>}
- <div className="mt-5 overflow-x-auto border border-white/15" role="region" tabIndex={0} aria-label="Products table"><table className="w-full min-w-[640px] text-left text-sm"><thead className="bg-white/5"><tr>{["Product","Category","Price","Status","Variants","Images"].map(x=><th key={x} scope="col" className="p-3 text-xs uppercase tracking-wider text-white/50">{x}</th>)}</tr></thead><tbody>{filtered.map(item=><tr key={item.publicId} className="border-t border-white/10 hover:bg-white/5"><td className="p-3"><button className="text-left text-white underline decoration-red-600 underline-offset-4" onClick={()=>choose(item)}>{item.name}</button><p className="mt-1 font-mono text-xs text-white/40">{item.publicId}</p></td><td className="p-3">{item.category?.name??"—"}</td><td className="p-3">{item.currency} {item.basePrice}</td><td className="p-3">{item.status}</td><td className="p-3">{item.variantCount}</td><td className="p-3">{item.imageCount}</td></tr>)}</tbody></table>{!loading&&!filtered.length&&<p className="p-4 text-white/50">No matching products.</p>}{loading&&<p role="status" className="p-4 text-white/50">Loading product registry…</p>}</div>
- {selected&&<section className="mt-6 space-y-5 border border-red-900 bg-[#131316] p-4 sm:p-6"><h2 className="font-display text-3xl">EDIT PRODUCT / {selected.publicId}</h2><div className="grid gap-4 sm:grid-cols-2"><label className="text-xs uppercase text-white/70">Name<input required maxLength={160} className={input} value={draft.name} onChange={e=>setDraft(s=>({...s,name:e.target.value}))}/></label><label className="text-xs uppercase text-white/70">Base price<input required min={0.01} step="0.01" type="number" className={input} value={draft.basePrice} onChange={e=>setDraft(s=>({...s,basePrice:e.target.value}))}/></label><label className="text-xs uppercase text-white/70">Visibility<select className={input} value={draft.status} onChange={e=>setDraft(s=>({...s,status:e.target.value}))}>{["DRAFT","ACTIVE","ARCHIVED"].map(x=><option key={x}>{x}</option>)}</select></label></div><p className="text-xs text-white/50">Changing status may hide products from customers; existing orders are unaffected.</p><div className="flex flex-wrap gap-3"><button type="button" disabled={loading} className={`${adminButton} border-red-600`} onClick={()=>void save()}>Save product</button><button type="button" className={adminButton} onClick={()=>setSelected(null)}>Cancel</button></div></section>}
- </>;
+import ProductEditor from "@/components/admin/ProductEditor";
+
+type Product = {publicId:string;slug:string;name:string;skuBase:string;basePrice:number;currency:string;status:"DRAFT"|"ACTIVE"|"ARCHIVED";category?:{slug:string;name:string};imageCount:number;variantCount:number};
+type Category = {id:string;name:string;slug:string;segmentId:string|null;isActive:boolean};
+type Segment = {id:string;name:string;isActive:boolean};
+const input = "mt-1.5 min-h-11 w-full min-w-0 border border-white/25 bg-[#141416] px-3 py-2.5 text-sm text-white outline-none focus:border-red-500";
+const money = (n:number) => `৳ ${n.toLocaleString("en-BD")}`;
+
+export default function ProductsManager() {
+  const {token} = useAdminSession();
+  const [products,setProducts] = useState<Product[]>([]);
+  const [categories,setCategories] = useState<Category[]>([]);
+  const [segments,setSegments] = useState<Segment[]>([]);
+  const [view,setView] = useState<"list"|"create"|"edit">("list");
+  const [selected,setSelected] = useState<string|null>(null);
+  const [query,setQuery] = useState("");
+  const [status,setStatus] = useState("");
+  const [category,setCategory] = useState("");
+  const [loading,setLoading] = useState(true);
+  const [busy,setBusy] = useState(false);
+  const [error,setError] = useState("");
+  const [notice,setNotice] = useState("");
+
+  const read = useCallback(async () => {
+    if (!token) return;
+    setLoading(true);setError("");
+    try {
+      const headers = {Authorization:`Bearer ${token}`};
+      const [p,c,s] = await Promise.all([
+        apiRequest<DataEnvelope<Product[]>>("/admin/catalog/products",{cache:"no-store",headers}),
+        apiRequest<DataEnvelope<Category[]>>("/admin/catalog/categories",{cache:"no-store",headers}),
+        apiRequest<DataEnvelope<Segment[]>>("/admin/catalog/segments",{cache:"no-store",headers}),
+      ]);
+      setProducts(p.data ?? []);setCategories(c.data ?? []);setSegments(s.data ?? []);
+    } catch (cause) {setError(cause instanceof Error?cause.message:"Could not load product catalog.");}
+    finally {setLoading(false);}
+  },[token]);
+  useEffect(()=>{void read()},[read]);
+
+  const filtered = useMemo(() => products.filter(p => {
+    const text = `${p.name} ${p.publicId} ${p.skuBase} ${p.category?.name ?? ""}`.toLowerCase();
+    return text.includes(query.trim().toLowerCase()) && (!status || status===p.status) && (!category || category===p.category?.slug);
+  }),[products,query,status,category]);
+
+  async function archive(product:Product) {
+    if(!window.confirm(`Archive ${product.name}? It will disappear from the public shop but its order history will remain. You can re-activate it later.`))return;
+    setBusy(true);setError("");setNotice("");
+    try {
+      await apiRequest(`/admin/catalog/products/${encodeURIComponent(product.publicId)}`,{method:"DELETE",cache:"no-store",headers:{Authorization:`Bearer ${token}`}});
+      await read();setNotice(`${product.name} archived. Existing orders are preserved.`);
+    } catch(cause){setError(cause instanceof Error?cause.message:"Could not archive product.");}
+    finally{setBusy(false);}
+  }
+  const openEdit=(id:string)=>{setSelected(id);setView("edit");setNotice("");setError("");window.scrollTo({top:0,behavior:"smooth"});};
+  const goList=()=>{setView("list");setSelected(null);void read();};
+
+  return <>
+    <AdminPageHeading eyebrow="Commerce / Products" title="PRODUCT MANAGER" description="Create products, upload photos, write descriptions and set stock for every size. No coding, SQL or manual product IDs needed." />
+    {error && <p role="alert" className="my-4 border-l-2 border-red-600 p-4 text-sm text-red-200">{error}</p>}
+    {notice && <p role="status" className="my-4 border-l-2 border-emerald-500 p-4 text-sm text-emerald-200">{notice}</p>}
+    {view!=="list" ? <ProductEditor key={selected ?? "new-product"} token={token} productId={selected} categories={categories} segments={segments} onClose={goList} onSaved={message=>{setNotice(message);void read();}} /> : <>
+      <div className="flex flex-wrap items-center justify-between gap-3"><div><p className="text-sm text-white/65">{products.length} products in database</p><p className="mt-1 text-xs text-white/45">Drafts are hidden from customers. Archived products remain in order history.</p></div><button type="button" className={`${adminButton} border-red-700 bg-red-900/50`} onClick={()=>{setSelected(null);setView("create");setError("");window.scrollTo({top:0,behavior:"smooth"});}}>+ Create new product</button></div>
+      <div className="mt-5 grid gap-3 rounded-sm border border-white/15 bg-[#141416] p-4 sm:grid-cols-2 lg:grid-cols-3">
+        <label className="text-xs font-semibold uppercase text-white/65">Search products<input className={input} value={query} onChange={e=>setQuery(e.target.value)} placeholder="Name, category or SKU" /></label>
+        <label className="text-xs font-semibold uppercase text-white/65">Visibility<select className={input} value={status} onChange={e=>setStatus(e.target.value)}><option value="">All statuses</option><option value="ACTIVE">Active</option><option value="DRAFT">Draft</option><option value="ARCHIVED">Archived</option></select></label>
+        <label className="text-xs font-semibold uppercase text-white/65">Subcategory<select className={input} value={category} onChange={e=>setCategory(e.target.value)}><option value="">All subcategories</option>{categories.map(c=><option key={c.id} value={c.slug}>{c.name}</option>)}</select></label>
+      </div>
+      <div className="mt-4 flex items-center justify-between gap-3"><p className="text-xs text-white/55">Showing {filtered.length} of {products.length}</p><button type="button" className={adminButton} disabled={loading||busy} onClick={()=>void read()}>Refresh</button></div>
+      <div className="mt-4 hidden overflow-x-auto border border-white/15 lg:block" role="region" tabIndex={0} aria-label="Product registry">
+        <table className="w-full min-w-[780px] text-left text-sm"><thead className="bg-white/5 text-xs uppercase text-white/55"><tr>{["Product","Subcategory","Base price","Status","Sizes","Photos","Actions"].map(h=><th className="p-3" key={h}>{h}</th>)}</tr></thead>
+          <tbody>{filtered.map(p=><tr key={p.publicId} className="border-t border-white/10 hover:bg-white/5"><td className="p-3"><p className="font-medium">{p.name}</p><p className="mt-1 text-xs text-white/40">{p.publicId}</p></td><td className="p-3">{p.category?.name??"—"}</td><td className="p-3">{money(p.basePrice)}</td><td className="p-3 text-xs uppercase">{p.status}</td><td className="p-3">{p.variantCount}</td><td className="p-3">{p.imageCount}</td><td className="p-3"><div className="flex flex-wrap gap-2"><button type="button" className={adminButton} onClick={()=>openEdit(p.publicId)}>Edit</button>{p.status!=="ARCHIVED"&&<button type="button" className={`${adminButton} border-red-900 text-red-200`} disabled={busy} onClick={()=>void archive(p)}>Archive</button>}</div></td></tr>)}</tbody>
+        </table>
+      </div>
+      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:hidden">{filtered.map(p=><article key={p.publicId} className="min-w-0 border border-white/15 bg-[#141416] p-4"><div className="flex flex-wrap justify-between gap-2"><h2 className="font-semibold">{p.name}</h2><span className="text-xs uppercase text-white/55">{p.status}</span></div><p className="mt-1 text-xs text-white/50">{p.category?.name??"Unassigned"} · {p.publicId}</p><p className="mt-3 text-sm">{money(p.basePrice)} · {p.variantCount} sizes · {p.imageCount} photos</p><div className="mt-4 flex flex-wrap gap-2"><button type="button" className={adminButton} onClick={()=>openEdit(p.publicId)}>Edit product</button>{p.status!=="ARCHIVED"&&<button className={`${adminButton} border-red-900 text-red-200`} disabled={busy} type="button" onClick={()=>void archive(p)}>Archive</button>}</div></article>)}</div>
+      {!loading&&filtered.length===0&&<p className="mt-4 border border-white/15 p-5 text-sm text-white/55">No products match your search. Select “Create new product” to add your first item.</p>}
+      {loading&&<p role="status" className="mt-4 text-sm text-white/55">Loading catalog…</p>}
+    </>}
+  </>;
 }
