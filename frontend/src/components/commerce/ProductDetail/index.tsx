@@ -22,6 +22,7 @@ import {
 import { listReviews, submitReview } from "@/lib/customerApi";
 import { money } from "@/lib/commerce";
 import { useCartStore } from "@/store/useCartStore";
+import StockCount from "@/components/commerce/StockCount";
 import type { ProductReview } from "@/types/commerce";
 import SickoButton from "@/components/ui/SickoButton";
 import styles from "./ProductDetail.module.css";
@@ -265,6 +266,11 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
               <span className="font-body text-[1.45rem] font-semibold text-bone-white">{money(unitPrice)}</span>
             </div>
 
+            <div className="mt-4 flex flex-wrap items-center gap-2">
+              <span className="font-body text-[0.65rem] uppercase tracking-[0.12em] text-concrete-gray">TOTAL STOCK / ALL SIZES</span>
+              <StockCount availableQty={product.availableQty} />
+            </div>
+
             <p className="mt-7 max-w-[15ch] font-display text-[clamp(2.6rem,5vw,4.8rem)] uppercase leading-[0.86] tracking-crushed text-bone-white">
               {product.line}
             </p>
@@ -297,7 +303,10 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
                             : "border-bone-white/25 text-bone-white hover:border-bone-white/70"
                       }`}
                     >
-                      {variant.size}
+                      <span className="block">{variant.size}</span>
+                      <span className="mt-1 block text-[0.55rem] tracking-[0.06em]">
+                        {unavailable ? "SOLD OUT" : `${variant.availableQty} LEFT`}
+                      </span>
                       {unavailable && <span className="absolute inset-x-1 top-1/2 h-px rotate-[-12deg] bg-blood-accent" />}
                     </button>
                   );
