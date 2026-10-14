@@ -33,7 +33,17 @@ export const orderReferenceParamsSchema = z.object({
   reference: z.string().trim().min(3).max(32),
 });
 
+// Date filters use Bangladesh storefront calendar days (UTC+06:00), inclusive.
+const adminDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Use YYYY-MM-DD").refine(
+  value => {
+    const date = new Date(`${value}T12:00:00.000Z`);
+    return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+  }, "Enter a valid calendar date",
+);
+
 export const adminOrderListQuerySchema = z.object({
+  from: adminDate.optional(),
+  to: adminDate.optional(),
   status: z.enum([
     "PENDING_CONFIRMATION",
     "CONFIRMED",
@@ -47,6 +57,8 @@ export const adminOrderListQuerySchema = z.object({
   q: z.string().trim().max(255).optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(30),
+}).refine(input => !input.from || !input.to || input.from <= input.to, {
+  message: "The start date must not be after the end date.", path: ["to"],
 });
 
 export const adminOrderStatusSchema = z.object({
