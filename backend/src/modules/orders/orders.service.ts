@@ -528,10 +528,20 @@ export async function updateOrderStatus(
 export async function listOrdersForAdmin(input: {
   status?: orders_order_status | undefined;
   q?: string | undefined;
+  from?: string | undefined;
+  to?: string | undefined;
   page: number;
   limit: number;
 }) {
   const where: Prisma.ordersWhereInput = {};
+  // Filter by storefront calendar day in Bangladesh (UTC+06:00), end inclusive.
+  // Use a strict exclusive upper bound to avoid millisecond rounding issues.
+  if (input.from || input.to) {
+    where.placed_at = {
+      ...(input.from ? { gte: new Date(`${input.from}T00:00:00+06:00`) } : {}),
+      ...(input.to ? { lt: new Date(new Date(`${input.to}T00:00:00+06:00`).getTime() + 86_400_000) } : {}),
+    };
+  }
   if (input.status) where.order_status = input.status;
   if (input.q) {
     where.OR = [
