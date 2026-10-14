@@ -8,6 +8,7 @@ import { COLOR, EASE, themeColor } from "@/styles/theme";
 import { RACK_COPY, type RackProduct } from "@/data/rack";
 import { getProductVariants } from "@/data/products";
 import { getCatalogProduct } from "@/lib/catalogApi";
+import StockCount from "@/components/commerce/StockCount";
 import { useCartStore } from "@/store/useCartStore";
 import styles from "./Rack.module.css";
 
@@ -418,6 +419,11 @@ export default function RackCard({ product, offsetClass }: Props) {
             {product.price}
           </span>
         </span>
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <span className="font-stencil text-[0.52rem] tracking-stencil text-concrete-gray">TOTAL STOCK / ALL SIZES</span>
+        <StockCount availableQty={product.availableQty} />
       </div>
 
       <div className="mt-4 grid grid-cols-1 gap-2 xl:grid-cols-2">
