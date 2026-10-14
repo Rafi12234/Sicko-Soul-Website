@@ -1,3 +1,3 @@
 "use client";
-import AdminOperationPage from "@/components/admin/AdminOperationPage";
-export default function Page(){return <AdminOperationPage resource="orders"/>}
+import OrdersManager from "@/components/admin/OrdersManager";
+export default function Page() { return <OrdersManager />; }
