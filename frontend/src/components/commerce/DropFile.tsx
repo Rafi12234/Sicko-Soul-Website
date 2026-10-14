@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { archiveProductFromApi } from "@/lib/catalogApi";
+import StockCount from "@/components/commerce/StockCount";
 import { getCollection } from "@/lib/customerApi";
 import { collectionLabel, humanizeStatus } from "@/lib/commerce";
 import type { CollectionRecord } from "@/types/commerce";
@@ -125,6 +126,12 @@ export default function DropFile({ slug }: { slug: string }) {
               <div className="border-x border-b-bone-white/15 p-5">
                 <span className="font-body text-[0.66rem] font-semibold uppercase tracking-[0.17em] text-blood-accent">{entry.product.category.name}</span>
                 <h2 className="mt-2 font-display text-[2.4rem] leading-[0.86] tracking-crushed">{product.name}</h2>
+                {!locked && (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <span className="font-body text-[0.6rem] uppercase tracking-[0.12em] text-concrete-gray">ALL SIZES</span>
+                    <StockCount availableQty={product.availableQty} />
+                  </div>
+                )}
                 <p className="mt-4 font-body text-sm font-semibold uppercase tracking-[0.12em] text-concrete-gray">{locked ? "ACCESS DENIED" : "OPEN GARMENT FILE →"}</p>
               </div>
             </>
