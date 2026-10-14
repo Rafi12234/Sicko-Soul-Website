@@ -13,6 +13,7 @@ import { cloudinaryVideoPoster, cloudinaryVideoUrl, cloudinaryVideoMp4Url } from
 import { archiveProductFromApi, listCatalogCategories } from "@/lib/catalogApi";
 import { listCollections } from "@/lib/customerApi";
 import type { CollectionRecord, PublicCategoryRecord } from "@/types/commerce";
+import StockCount from "@/components/commerce/StockCount";
 import { createVideoPlaybackController, type VideoPlaybackController, type VideoPlaybackIssue } from "@/lib/videoPlayback";
 import styles from "./Drop.module.css";
 
@@ -72,6 +73,7 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
               src: archive.still,
               alt: archive.alt,
               price: archive.price,
+              availableQty: archive.availableQty,
               spec: product.spec ?? "",
               sealed: entry.sealed || collection.status !== "LIVE",
             };
@@ -805,6 +807,9 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
                           <p className="drop-tile-spec mt-1.5 font-stencil text-[0.48rem] tracking-stencil text-concrete-gray">
                             {piece.spec}
                           </p>
+                          {!piece.sealed && (
+                            <StockCount availableQty={piece.availableQty} className="mt-2 border-0 bg-black/75 px-0 py-0 text-[0.6rem]" />
+                          )}
                         </div>
                       </article>
                     ))}
