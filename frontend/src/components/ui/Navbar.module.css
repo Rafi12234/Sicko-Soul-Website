@@ -209,13 +209,31 @@
   border-bottom: 1px solid rgba(242, 240, 235, 0.12);
   transition: background-color 160ms ease, color 160ms ease, padding-left 160ms ease;
 }
-.link:hover,
 .link:focus-visible {
   padding-left: 13px;
-  background: #2d2224;
+  background: var(--blood-accent);
+  color: var(--bone-white);
   outline: none;
+  box-shadow: inset 3px 0 var(--bone-white);
 }
-.link:focus-visible { box-shadow: inset 3px 0 var(--bone-white); }
+/* Only actual hover devices get hover highlighting. Avoid sticky :hover on iOS. */
+@media (hover: hover) and (pointer: fine) {
+  .link:hover {
+    padding-left: 13px;
+    background: var(--blood-accent);
+    color: var(--bone-white);
+  }
+}
+/* On phones/tablets, highlight the link when pressed and the most recent
+   tapped/current destination when the menu is opened again. */
+@media (hover: none), (pointer: coarse) {
+  .link:active,
+  .link[data-touch-selected="true"] {
+    padding-left: 13px;
+    background: var(--blood-accent);
+    color: var(--bone-white);
+  }
+}
 .linkIndex {
   font: 400 0.7rem/1 "Special Elite", monospace;
   letter-spacing: 0.12em;
@@ -234,18 +252,27 @@
   text-align: right;
   transition: transform 160ms ease;
 }
-.link:hover .linkArrow,
 .link:focus-visible .linkArrow { transform: translate(2px, -2px); }
+.link:focus-visible .linkIndex,
+.link:focus-visible .linkArrow { color: var(--bone-white); }
+@media (hover: hover) and (pointer: fine) {
+  .link:hover .linkArrow { transform: translate(2px, -2px); }
+  .link:hover .linkIndex,
+  .link:hover .linkArrow { color: var(--bone-white); }
+}
+@media (hover: none), (pointer: coarse) {
+  .link:active .linkIndex,
+  .link:active .linkArrow,
+  .link[data-touch-selected="true"] .linkIndex,
+  .link[data-touch-selected="true"] .linkArrow {
+    color: var(--bone-white);
+  }
+}
 .cartLink {
   margin-top: 8px;
   padding-right: 10px;
-  background: var(--blood-accent);
-  border-bottom-color: transparent;
+  border-top: 1px solid rgba(242, 240, 235, 0.15);
 }
-.cartLink .linkIndex,
-.cartLink .linkArrow { color: var(--bone-white); }
-.cartLink:hover,
-.cartLink:focus-visible { background: #a30a0a; }
 .dropdownAside {
   margin-top: 18px;
   max-width: 28ch;

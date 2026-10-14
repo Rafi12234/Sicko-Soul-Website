@@ -21,7 +21,16 @@ import styles from "./Navbar.module.css";
 export default function Navbar() {
   const NAV_COPY = useSiteCopy("navigation", DEFAULT_NAV_COPY);
   const pathname = usePathname();
+
+  // Match optional database-edited labels by href, rather than array position.
+  // This prevents old seven-item navigation overrides from restoring removed links
+  // or mislabeling the new Homepage link when the six-item menu is deployed.
+  const directoryLinks = DEFAULT_NAV_COPY.links.map((link) => ({
+    ...link,
+    label: NAV_COPY.links.find((candidate) => candidate.href === link.href)?.label ?? link.label,
+  }));
   const [menuOpen, setMenuOpen] = useState(false);
+  const [tappedHref, setTappedHref] = useState<string | null>(null);
   const openRef = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const barRef = useRef<HTMLElement>(null);
@@ -45,6 +54,7 @@ export default function Navbar() {
   // Close if navigation is changed by the browser or another component.
   useEffect(() => {
     setMenuOpen(false);
+    setTappedHref(null);
   }, [pathname]);
 
   useEffect(() => {
@@ -368,14 +378,22 @@ export default function Navbar() {
                 >
                   <div className={styles.dropdownHeading}>
                     <span>{NAV_COPY.directoryHeading}</span>
-                    <span>01—07</span>
+                    <span>01—{String(directoryLinks.length).padStart(2, "0")}</span>
                   </div>
 
-                  {NAV_COPY.links.map((link) => (
+                  {directoryLinks.map((link) => (
                     <Link
                       key={link.href}
                       href={resolveHref(link.href)}
-                      onClick={() => setMenuOpen(false)}
+                      aria-current={(link.href === "/" ? pathname === "/" : pathname === link.href) ? "page" : undefined}
+                      data-touch-selected={link.href === (tappedHref ?? pathname) ? "true" : undefined}
+                      onPointerDown={(event) => {
+                        if (event.pointerType === "touch" || event.pointerType === "pen") setTappedHref(link.href);
+                      }}
+                      onClick={() => {
+                        setTappedHref(link.href);
+                        setMenuOpen(false);
+                      }}
                       className={`${styles.link} ${link.href === "/cart" ? styles.cartLink : ""}`}
                     >
                       <span className={styles.linkIndex}>{link.index}</span>
