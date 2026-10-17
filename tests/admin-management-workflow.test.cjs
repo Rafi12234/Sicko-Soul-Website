@@ -124,7 +124,7 @@ test('date range is strictly parsed and applied with Bangladesh inclusive end da
 });
 
 test('backend performs order transition and stock checks on confirmation/rejection', () => {
-  assert.match(orderService, /PENDING_CONFIRMATION: \["CONFIRMED", "CANCELLED", "REJECTED"\]/);
+  assert.match(orderService, /PENDING_CONFIRMATION: \["CONFIRMED", "CANCELLED", "REJECTED", "OUT_OF_STOCK"\]/);
   assert.match(orderService, /await lockAndVerifyAvailableStock/);
   assert.match(orderService, /await consumeReservedStock/);
   assert.match(orderService, /await releaseReservedStock/);
