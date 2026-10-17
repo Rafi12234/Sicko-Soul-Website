@@ -24,6 +24,7 @@ export type RackProduct = {
   index: string;
   variantId?: string;
   available: boolean;
+  availableQty: number;
   name: string;
   still: string;
   worn: string;

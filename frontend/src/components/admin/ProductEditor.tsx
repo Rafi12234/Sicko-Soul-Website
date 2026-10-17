@@ -255,6 +255,10 @@ export default function ProductEditor({ token, productId, categories, segments, 
   }
 
   async function updateVariant(variant: VariantEntry, patch: Record<string, unknown>) {
+    if (!productId) {
+      setError("Save the product before editing its sizes.");
+      return;
+    }
     setSaving(true); setError("");
     try {
       await call(`catalog/products/${encodeURIComponent(productId)}/variants/${variant.id}`, {method:"PATCH",body:JSON.stringify(patch)});

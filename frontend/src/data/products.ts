@@ -13,6 +13,7 @@ export type ArchiveProduct = {
   name: string;
   price: string;
   priceValue: number;
+  availableQty: number;
   spec: string;
   line: string;
   description: string;

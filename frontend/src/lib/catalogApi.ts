@@ -66,6 +66,7 @@ export function archiveProductFromApi(record: PublicProductRecord): ArchiveProdu
     name: record.name,
     price: moneyLabel(displayPrice),
     priceValue: displayPrice,
+    availableQty: record.availability.availableQty,
     spec: record.spec ?? "",
     line: record.tagline ?? "",
     description: record.description ?? "",
