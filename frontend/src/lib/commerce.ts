@@ -41,7 +41,7 @@ export function orderStatusIndex(status: OrderStatus) {
 }
 
 export function orderStatusTone(status: OrderStatus) {
-  if (status === "CANCELLED" || status === "REJECTED" || status === "RETURNED") return "danger";
+  if (status === "CANCELLED" || status === "REJECTED" || status === "RETURNED" || status === "OUT_OF_STOCK") return "danger";
   if (status === "DELIVERED") return "success";
   if (status === "PENDING_CONFIRMATION") return "warning";
   return "active";
