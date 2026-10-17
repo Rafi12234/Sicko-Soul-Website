@@ -163,7 +163,8 @@ export type OrderStatus =
   | "DELIVERED"
   | "CANCELLED"
   | "REJECTED"
-  | "RETURNED";
+  | "RETURNED"
+  | "OUT_OF_STOCK";
 
 export type PaymentStatus =
   | "UNPAID"
@@ -275,7 +276,8 @@ export type CustomerOrder = {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   status: OrderStatus;
-  stockHoldStatus?: "HELD" | "RELEASED" | "SOLD" | "CLOSED";
+  stockHoldStatus?: "NONE" | "HELD" | "RELEASED" | "SOLD" | "CLOSED";
+  callAttempts?: Array<{ id: string; outcome: "NO_ANSWER" | "CALL_AGAIN" | "CUSTOMER_CONFIRMED" | "CUSTOMER_DECLINED"; note: string | null; callbackAt: string | null; calledAt: string }>;
   reservationReleasedAt?: string | null;
   currency: "BDT";
   subtotal: number;
