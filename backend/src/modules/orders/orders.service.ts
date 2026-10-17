@@ -15,6 +15,7 @@ import {
   releaseReservedStock,
   reserveStock,
   returnSoldStock,
+  sellAvailableStock,
 } from "../inventory/inventory.service.js";
 import { enqueueEmail } from "../email/email.service.js";
 import { mapOrder } from "./orders.mapper.js";
@@ -243,6 +244,7 @@ export async function createOrder(input: CreateOrderInput) {
         grand_total: subtotal + deliveryCharge,
         currency: "BDT",
         order_status: "PENDING_CONFIRMATION",
+        stock_hold_created_at_checkout: false,
         payment_status: "UNPAID",
       },
     });
@@ -268,18 +270,12 @@ export async function createOrder(input: CreateOrderInput) {
         order_id: order.order_id,
         from_status: null,
         to_status: "PENDING_CONFIRMATION",
-        note: "Order request received.",
+        note: "Order request received; not confirmed and no stock reserved.",
       },
     });
 
-    await reserveStock(
-      tx,
-      snapshots.map((entry) => ({
-        variantId: entry.variant.variant_id,
-        quantity: entry.quantity,
-      })),
-      order.order_id,
-    );
+    // An order request does NOT reserve inventory. Staff confirms after calling
+    // at night; only confirmation deducts stock. Old orders keep legacy holds.
 
     await tx.payments.create({
       data: {
@@ -298,7 +294,7 @@ export async function createOrder(input: CreateOrderInput) {
       recipientName: order.customer_name, recipientEmail: order.customer_email,
       subject: `SICKO SOUL / ORDER ${order.order_reference} RECEIVED`,
       templateKey: "order-received",
-      payload: { orderReference: order.order_reference, status: "PENDING_CONFIRMATION", paymentMethod: order.payment_method },
+      payload: { orderReference: order.order_reference, status: "PENDING_CONFIRMATION", paymentMethod: order.payment_method, message: "We received your request. Our team will call to confirm. Stock is not reserved or guaranteed until confirmed." },
     });
 
     if (sourceCartId) {
@@ -333,7 +329,7 @@ export async function getOrder(reference: string) {
 }
 
 const transitions: Record<orders_order_status, orders_order_status[]> = {
-  PENDING_CONFIRMATION: ["CONFIRMED", "CANCELLED", "REJECTED"],
+  PENDING_CONFIRMATION: ["CONFIRMED", "CANCELLED", "REJECTED", "OUT_OF_STOCK"],
   CONFIRMED: ["PROCESSING", "CANCELLED"],
   PROCESSING: ["SHIPPED", "CANCELLED"],
   SHIPPED: ["DELIVERED", "RETURNED"],
@@ -341,6 +337,7 @@ const transitions: Record<orders_order_status, orders_order_status[]> = {
   CANCELLED: [],
   REJECTED: [],
   RETURNED: [],
+  OUT_OF_STOCK: [],
 };
 
 function itemQuantities(items: Array<{ variant_id: bigint | null; quantity: number }>) {
@@ -367,7 +364,7 @@ export async function updateOrderStatus(
 
     const order = await tx.orders.findUnique({
       where: { order_id: foundId },
-      include: { order_items: { select: { variant_id: true, quantity: true } } },
+      include: { order_items: { select: { variant_id: true, quantity: true, product_name_snapshot: true, size_snapshot: true } } },
     });
     if (!order) throw new AppError({ statusCode: 404, code: "ORDER_NOT_FOUND", message: "Order was not found." });
 
@@ -390,22 +387,27 @@ export async function updateOrderStatus(
     const quantities = itemQuantities(order.order_items);
 
     if (order.order_status === "PENDING_CONFIRMATION" && input.status === "CONFIRMED") {
-      if (order.reservation_released_at !== null) {
-        // The worker released this hold after its TTL, but the COD order is
-        // still valid. Re-check actual available stock inside this locked
-        // transaction before committing the sale; never oversell.
-        await lockAndVerifyAvailableStock(tx, quantities);
-        await reserveStock(tx, quantities, order.order_id);
+      if (!order.stock_hold_created_at_checkout) {
+        // New COD/manual requests were never reserved. Check all requested sizes
+        // atomically and deduct on-hand stock only after staff phone confirmation.
+        await sellAvailableStock(tx, quantities, order.order_id, audit.staff.id);
+      } else {
+        // Legacy orders from before this upgrade may still have a valid hold.
+        if (order.reservation_released_at !== null) {
+          await lockAndVerifyAvailableStock(tx, quantities);
+          await reserveStock(tx, quantities, order.order_id);
+        }
+        await consumeReservedStock(tx, quantities, order.order_id, audit.staff.id);
       }
-      await consumeReservedStock(tx, quantities, order.order_id, audit.staff.id);
     }
 
     if (
       order.order_status === "PENDING_CONFIRMATION" &&
-      (input.status === "CANCELLED" || input.status === "REJECTED") &&
+      (input.status === "CANCELLED" || input.status === "REJECTED" || input.status === "OUT_OF_STOCK") &&
+      order.stock_hold_created_at_checkout &&
       order.reservation_released_at === null
     ) {
-      // A released reservation must not be released twice.
+      // Release only legacy active reservations; new orders never held stock.
       await releaseReservedStock(tx, quantities, order.order_id, audit.staff.id);
     }
 
@@ -432,7 +434,7 @@ export async function updateOrderStatus(
         ...(input.status === "CONFIRMED"
           ? { confirmed_at: now, confirmed_by_staff_id: audit.staff.id }
           : {}),
-        ...(input.status === "CANCELLED" || input.status === "REJECTED"
+        ...(input.status === "CANCELLED" || input.status === "REJECTED" || input.status === "OUT_OF_STOCK"
           ? { cancelled_at: now, cancellation_reason: input.cancellationReason ?? input.note ?? null }
           : {}),
       },
@@ -448,6 +450,17 @@ export async function updateOrderStatus(
       },
     });
 
+    if (order.order_status === "PENDING_CONFIRMATION" && (input.status === "CONFIRMED" || input.status === "REJECTED")) {
+      await tx.order_call_attempts.create({
+        data: {
+          order_id: order.order_id,
+          called_by_staff_id: audit.staff.id,
+          outcome: input.status === "CONFIRMED" ? "CUSTOMER_CONFIRMED" : "CUSTOMER_DECLINED",
+          note: input.note ?? input.cancellationReason ?? null,
+        },
+      });
+    }
+
     if (input.status === "CONFIRMED") {
       await enqueueEmail(tx, {
         dedupeKey: `order-confirmed:${order.order_id.toString()}`,
@@ -458,7 +471,15 @@ export async function updateOrderStatus(
         recipientEmail: order.customer_email,
         subject: `SICKO SOUL / ORDER ${order.order_reference} CONFIRMED`,
         templateKey: "order-confirmed",
-        payload: { orderReference: order.order_reference, status: input.status },
+        payload: {
+          orderReference: order.order_reference,
+          status: input.status,
+          message: "Your order has been confirmed by our team and is being prepared.",
+          items: order.order_items.map(item => `${item.product_name_snapshot} / ${item.size_snapshot} × ${item.quantity}`).join("; "),
+          totalBDT: decimalToNumber(order.grand_total),
+          deliveryAddress: [order.shipping_address, order.shipping_city, order.shipping_district].filter(Boolean).join(", "),
+          paymentMethod: order.payment_method,
+        },
       });
     }
     if (input.status === "SHIPPED") {
@@ -485,6 +506,25 @@ export async function updateOrderStatus(
         subject: `SICKO SOUL / ORDER ${order.order_reference} DELIVERED`,
         templateKey: "order-delivered",
         payload: { orderReference: order.order_reference, status: input.status },
+      });
+    }
+    if (input.status === "OUT_OF_STOCK") {
+      await enqueueEmail(tx, {
+        dedupeKey: `order-out-of-stock:${order.order_id.toString()}`,
+        eventType: "ORDER_OUT_OF_STOCK",
+        orderId: order.order_id,
+        customerId: order.customer_id,
+        recipientName: order.customer_name,
+        recipientEmail: order.customer_email,
+        subject: `SICKO SOUL / ORDER ${order.order_reference} OUT OF STOCK`,
+        templateKey: "order-out-of-stock",
+        payload: {
+          orderReference: order.order_reference,
+          status: input.status,
+          message: "Unfortunately the requested items are no longer available. Your request could not be confirmed.",
+          items: order.order_items.map(item => `${item.product_name_snapshot} / ${item.size_snapshot} × ${item.quantity}`).join("; "),
+          reason: input.cancellationReason ?? input.note ?? "Stock unavailable at confirmation",
+        },
       });
     }
     if (input.status === "CANCELLED" || input.status === "REJECTED") {
@@ -525,6 +565,39 @@ export async function updateOrderStatus(
   return mapOrder(row);
 }
 
+export async function recordOrderCall(
+  reference: string,
+  input: { outcome: "NO_ANSWER" | "CALL_AGAIN"; note?: string | undefined; callbackAt?: string | undefined },
+  audit: AuditContext,
+) {
+  const orderId = await prisma.$transaction(async tx => {
+    const locked = await tx.$queryRaw<Array<{ order_id: bigint }>>(
+      Prisma.sql`SELECT order_id FROM orders WHERE order_reference = ${reference} FOR UPDATE`,
+    );
+    const orderId = locked[0]?.order_id;
+    if (!orderId) throw new AppError({ statusCode: 404, code: "ORDER_NOT_FOUND", message: "Order was not found." });
+    const order = await tx.orders.findUnique({ where: { order_id: orderId }, select: { order_status: true } });
+    if (order?.order_status !== "PENDING_CONFIRMATION") {
+      throw new AppError({ statusCode: 409, code: "ORDER_NOT_PENDING", message: "Calls can only be scheduled for pending orders." });
+    }
+    await tx.order_call_attempts.create({ data: {
+      order_id: orderId,
+      called_by_staff_id: audit.staff.id,
+      outcome: input.outcome,
+      note: input.note ?? null,
+      callback_at: input.callbackAt ? new Date(input.callbackAt) : null,
+    } });
+    await recordAudit(audit, {
+      action: "ORDER_CALL_RECORDED", entityType: "order", entityId: orderId,
+      oldData: null, newData: { outcome: input.outcome, callbackAt: input.callbackAt ?? null },
+    }, tx);
+    return orderId;
+  });
+  const order = await findOrderById(orderId);
+  if (!order) throw new AppError({ statusCode: 404, code: "ORDER_NOT_FOUND", message: "Order was not found." });
+  return mapOrder(order);
+}
+
 export async function listOrdersForAdmin(input: {
   status?: orders_order_status | undefined;
   q?: string | undefined;
@@ -556,7 +629,7 @@ export async function listOrdersForAdmin(input: {
     prisma.orders.findMany({
       where,
       include: orderDetailInclude,
-      orderBy: [{ created_at: "desc" }],
+      orderBy: [{ placed_at: input.status === "PENDING_CONFIRMATION" ? "asc" : "desc" }, { order_id: input.status === "PENDING_CONFIRMATION" ? "asc" : "desc" }],
       skip: (input.page - 1) * input.limit,
       take: input.limit,
     }),
