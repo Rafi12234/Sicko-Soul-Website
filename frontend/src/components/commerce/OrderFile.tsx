@@ -113,7 +113,7 @@ export default function OrderFile({
       index="05"
       eyebrow={confirmation ? "ORDER SEALED / RECEIPT" : "ORDER FILE / LIVE STATUS"}
       title={confirmation ? "ORDER RECEIVED" : order.reference}
-      subtitle={confirmation ? `Your order request has been recorded as ${order.reference}. Keep this reference.` : "Everything cleared for the customer is shown below."}
+      subtitle={confirmation ? `Your request ${order.reference} was received. Our team will call you before confirming; stock is not reserved or guaranteed.` : "Your order status is shown below. Pending requests do not reserve stock."}
     >
       <div className="mb-7 flex flex-wrap items-center gap-4 border border-bone-white/20 bg-off-black p-4">
         <button type="button" className="border border-bone-white/50 px-4 py-3 font-body text-xs font-semibold uppercase tracking-widest text-bone-white" onClick={async () => {
@@ -135,7 +135,7 @@ export default function OrderFile({
             {progressionStopped ? (
               <div className="mt-7 border-l-2 border-blood-accent bg-blood-accent/10 p-5">
                 <p className="font-display text-[clamp(2.3rem,5vw,4.8rem)] leading-[0.85] tracking-crushed">{humanizeStatus(order.status)}</p>
-                <p className="mt-3 max-w-[46ch] font-body text-base leading-relaxed text-bone-white/60">This order is no longer moving through the standard delivery sequence.</p>
+                <p className="mt-3 max-w-[46ch] font-body text-base leading-relaxed text-bone-white/60">{order.status === "OUT_OF_STOCK" ? "We could not confirm your request because the requested items are unavailable. A notification email will be sent if email delivery is enabled." : "This order is no longer moving through the standard delivery sequence."}</p>
               </div>
             ) : (
               <div className="mt-8 grid gap-2 md:grid-cols-5">
