@@ -161,7 +161,7 @@ export async function updateShipmentForAdmin(
     );
     const currentOrder = await tx.orders.findUnique({ where: { order_id: shipment.order_id }, select: { order_status: true } });
     if (!currentOrder) throw new AppError({ statusCode: 404, code: "ORDER_NOT_FOUND", message: "Order was not found." });
-    if (["CANCELLED", "REJECTED", "RETURNED"].includes(currentOrder.order_status) && shipment.status !== input.status) {
+    if (["CANCELLED", "REJECTED", "RETURNED", "OUT_OF_STOCK"].includes(currentOrder.order_status) && shipment.status !== input.status) {
       throw new AppError({ statusCode: 409, code: "ORDER_CLOSED", message: "A closed order cannot change shipment status." });
     }
     if (["DISPATCHED", "IN_TRANSIT"].includes(input.status) && !["PROCESSING", "SHIPPED"].includes(currentOrder.order_status)) {
