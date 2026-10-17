@@ -280,6 +280,29 @@ model order_items {
   @@index([variant_id], map: "idx_order_items_variant")
 }
 
+model order_call_attempts {
+  call_attempt_id    BigInt                       @id @default(autoincrement()) @db.UnsignedBigInt
+  order_id           BigInt                       @db.UnsignedBigInt
+  called_by_staff_id BigInt?                      @db.UnsignedBigInt
+  outcome            order_call_attempts_outcome
+  note               String?                      @db.VarChar(500)
+  callback_at        DateTime?                    @db.DateTime(0)
+  called_at          DateTime                     @default(now()) @db.DateTime(0)
+  orders             orders                       @relation(fields: [order_id], references: [order_id], onDelete: Cascade, map: "fk_order_calls_order")
+  staff_users        staff_users?                 @relation(fields: [called_by_staff_id], references: [staff_user_id], onDelete: SetNull, map: "fk_order_calls_staff")
+
+  @@index([order_id, called_at], map: "idx_order_calls_order_date")
+  @@index([outcome, callback_at], map: "idx_order_calls_callback")
+  @@index([called_by_staff_id, called_at], map: "idx_order_calls_staff_date")
+}
+
+enum order_call_attempts_outcome {
+  NO_ANSWER
+  CALL_AGAIN
+  CUSTOMER_CONFIRMED
+  CUSTOMER_DECLINED
+}
+
 model order_status_history {
   history_id          BigInt       @id @default(autoincrement()) @db.UnsignedBigInt
   order_id            BigInt       @db.UnsignedBigInt
@@ -321,6 +344,7 @@ model orders {
   order_status                                                    orders_order_status    @default(PENDING_CONFIRMATION)
   // An expired stock hold does not cancel or reject a pending order.
   reservation_released_at                                         DateTime?              @db.DateTime(0)
+  stock_hold_created_at_checkout                                  Boolean                @default(true)
   payment_status                                                  orders_payment_status  @default(UNPAID)
   confirmed_by_staff_id                                           BigInt?                @db.UnsignedBigInt
   last_status_changed_by_staff_id                                 BigInt?                @db.UnsignedBigInt
@@ -334,6 +358,7 @@ model orders {
   email_outbox                                                    email_outbox[]
   order_items                                                     order_items[]
   order_status_history                                            order_status_history[]
+  order_call_attempts                                             order_call_attempts[]
   staff_users_orders_confirmed_by_staff_idTostaff_users           staff_users?           @relation("orders_confirmed_by_staff_idTostaff_users", fields: [confirmed_by_staff_id], references: [staff_user_id], map: "fk_orders_confirmed_staff")
   customers                                                       customers              @relation(fields: [customer_id], references: [customer_id], map: "fk_orders_customer")
   staff_users_orders_last_status_changed_by_staff_idTostaff_users staff_users?           @relation("orders_last_status_changed_by_staff_idTostaff_users", fields: [last_status_changed_by_staff_id], references: [staff_user_id], map: "fk_orders_last_status_staff")
@@ -621,6 +646,7 @@ model staff_users {
   complaints                                                 complaints[]
   inventory_movements                                        inventory_movements[]
   order_status_history                                       order_status_history[]
+  order_call_attempts                                         order_call_attempts[]
   orders_orders_confirmed_by_staff_idTostaff_users           orders[]                        @relation("orders_confirmed_by_staff_idTostaff_users")
   orders_orders_last_status_changed_by_staff_idTostaff_users orders[]                        @relation("orders_last_status_changed_by_staff_idTostaff_users")
   payments                                                   payments[]
@@ -647,6 +673,7 @@ enum email_outbox_event_type {
   ORDER_DELIVERED
   ORDER_CANCELLED
   COMPLAINT_REPLY
+  ORDER_OUT_OF_STOCK
 }
 
 enum inventory_movements_movement_type {
@@ -812,6 +839,7 @@ enum orders_order_status {
   CANCELLED
   REJECTED
   RETURNED
+  OUT_OF_STOCK
 }
 
 enum orders_payment_status {
