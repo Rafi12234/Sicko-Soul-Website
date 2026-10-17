@@ -52,6 +52,35 @@ export async function lockAndVerifyAvailableStock(
   }
 }
 
+/** Allocate an unreserved phone-confirmed order, inside the locked order transaction.
+ * Existing holds use consumeReservedStock instead. Always lock in stable order. */
+export async function sellAvailableStock(
+  tx: Prisma.TransactionClient,
+  lines: InventoryQuantity[],
+  orderId: bigint,
+  staffId: bigint,
+): Promise<void> {
+  await lockAndVerifyAvailableStock(tx, lines);
+  for (const line of lines) {
+    await tx.inventory_stock.update({
+      where: { variant_id: line.variantId },
+      data: { on_hand_qty: { decrement: line.quantity } },
+    });
+    await tx.inventory_movements.create({
+      data: {
+        variant_id: line.variantId,
+        movement_type: "SALE",
+        on_hand_delta: -line.quantity,
+        reserved_delta: 0,
+        reference_type: "ORDER",
+        reference_id: orderId,
+        created_by_staff_id: staffId,
+        note: "Stock sold after phone confirmation, with no previous reservation.",
+      },
+    });
+  }
+}
+
 export async function reserveStock(
   tx: Prisma.TransactionClient,
   lines: InventoryQuantity[],
