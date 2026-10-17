@@ -14,6 +14,7 @@ export async function expirePendingOrders(limit = 30): Promise<number> {
     where: {
       order_status: "PENDING_CONFIRMATION",
       reservation_released_at: null,
+      stock_hold_created_at_checkout: true,
       created_at: { lt: cutoff },
     },
     select: { order_id: true },
@@ -36,6 +37,7 @@ export async function expirePendingOrders(limit = 30): Promise<number> {
       if (
         !order ||
         order.order_status !== "PENDING_CONFIRMATION" ||
+        !order.stock_hold_created_at_checkout ||
         order.reservation_released_at !== null ||
         order.created_at >= cutoff
       ) return false;
