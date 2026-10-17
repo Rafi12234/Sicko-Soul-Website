@@ -3,6 +3,7 @@ import { checkoutRateLimit } from "../../middleware/sensitive-rate-limit.js";
 import {
   adminGetOrderController,
   adminListOrdersController,
+  adminRecordOrderCallController,
   adminUpdateOrderStatusController,
   createOrderController,
   getOrderController,
@@ -16,3 +17,4 @@ export const adminOrdersRouter = Router();
 adminOrdersRouter.get("/", adminListOrdersController);
 adminOrdersRouter.get("/:reference", adminGetOrderController);
 adminOrdersRouter.patch("/:reference/status", adminUpdateOrderStatusController);
+adminOrdersRouter.post("/:reference/calls", adminRecordOrderCallController);
