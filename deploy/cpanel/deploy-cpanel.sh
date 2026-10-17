@@ -159,7 +159,19 @@ try {
   if (Number(rows[0]?.amount ?? 0) !== 1) {
     throw new Error('Manual phpMyAdmin SQL not yet applied: orders.reservation_released_at is missing. No database changes were made.');
   }
-  console.log('Required orders stock-hold column exists; no SQL changes made.');
+  for (const [table, column] of [
+    ['orders', 'stock_hold_created_at_checkout'],
+    ['order_call_attempts', 'outcome'],
+  ]) {
+    const found = await connection.query(
+      'SELECT COUNT(*) AS amount FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ? AND COLUMN_NAME = ?',
+      [table, column]
+    );
+    if (Number(found[0]?.amount ?? 0) !== 1) {
+      throw new Error(`Manual order phone-confirmation SQL not yet applied: ${table}.${column} missing.`);
+    }
+  }
+  console.log('Required phone-confirmation schema exists; no SQL changes made.');
 } finally {
   await connection.end();
 }
