@@ -291,7 +291,7 @@ export default function OrderIntake({ source, productId, size, quantity = 1, buy
           <div className="mt-7">
             <SickoButton type="submit" tone="blood" full disabled={submitting}>{submitting ? "SEALING ORDER..." : "SEAL ORDER REQUEST"}</SickoButton>
           </div>
-          <p className="mt-4 max-w-[55ch] font-body text-sm leading-relaxed text-concrete-gray">Prices and stock are validated again by the server before an order is accepted.</p>
+          <p className="mt-4 max-w-[55ch] font-body text-sm leading-relaxed text-concrete-gray">Your order is a request, not a reservation. Our team will call to confirm. Stock is not guaranteed until we confirm by phone. Prices and stock are checked again by the server.</p>
         </form>
 
         <aside className={`${styles.summary} order-summary h-fit border border-bone-white/15 bg-off-black p-6 xl:sticky xl:top-28 xl:col-span-5`}>
