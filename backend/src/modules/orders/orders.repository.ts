@@ -5,6 +5,7 @@ export const orderDetailInclude = {
   order_items: {
     orderBy: [{ order_item_id: "asc" }],
   },
+  order_call_attempts: { orderBy: [{ called_at: "desc" }, { call_attempt_id: "desc" }] },
   order_status_history: {
     orderBy: [{ changed_at: "asc" }, { history_id: "asc" }],
   },
