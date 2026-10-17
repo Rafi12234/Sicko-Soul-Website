@@ -53,6 +53,7 @@ export const adminOrderListQuerySchema = z.object({
     "CANCELLED",
     "REJECTED",
     "RETURNED",
+    "OUT_OF_STOCK",
   ]).optional(),
   q: z.string().trim().max(255).optional(),
   page: z.coerce.number().int().min(1).default(1),
@@ -70,7 +71,15 @@ export const adminOrderStatusSchema = z.object({
     "CANCELLED",
     "REJECTED",
     "RETURNED",
+    "OUT_OF_STOCK",
   ]),
   note: z.string().trim().max(500).optional(),
   cancellationReason: z.string().trim().max(500).optional(),
+});
+
+/** Call Again is a separate workflow action; it never confirms inventory. */
+export const adminOrderCallSchema = z.object({
+  outcome: z.enum(["NO_ANSWER", "CALL_AGAIN"]),
+  note: z.string().trim().max(500).optional(),
+  callbackAt: z.string().datetime({ offset: true }).optional(),
 });
