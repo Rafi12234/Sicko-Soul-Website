@@ -2,6 +2,7 @@ import type { RequestHandler } from "express";
 import { requireCustomerAccess, signCustomerAccess } from "../customer-access/customer-access.js";
 import { auditContextFromRequest } from "../../utils/audit-context.js";
 import {
+  adminOrderCallSchema,
   adminOrderListQuerySchema,
   adminOrderStatusSchema,
   createOrderSchema,
@@ -11,6 +12,7 @@ import {
   createOrder,
   getOrder,
   listOrdersForAdmin,
+  recordOrderCall,
   updateOrderStatus,
 } from "./orders.service.js";
 
@@ -42,4 +44,10 @@ export const adminUpdateOrderStatusController: RequestHandler = async (req, res)
   const { reference } = orderReferenceParamsSchema.parse(req.params);
   const input = adminOrderStatusSchema.parse(req.body);
   res.json({ data: await updateOrderStatus(reference, input, auditContextFromRequest(req, res)) });
+};
+
+export const adminRecordOrderCallController: RequestHandler = async (req, res) => {
+  const { reference } = orderReferenceParamsSchema.parse(req.params);
+  const input = adminOrderCallSchema.parse(req.body);
+  res.json({ data: await recordOrderCall(reference, input, auditContextFromRequest(req, res)) });
 };
