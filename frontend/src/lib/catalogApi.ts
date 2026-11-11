@@ -36,6 +36,7 @@ export function archiveProductFromApi(record: PublicProductRecord): ArchiveProdu
     .map((image) => ({
       id: image.id,
       type: image.type,
+      colorCode: image.colorCode,
       url: image.url,
       alt: image.alt ?? record.name,
       label: image.type === "STILL" ? "OBJECT" : image.type === "WORN" ? "ON BODY" : undefined,
@@ -45,6 +46,7 @@ export function archiveProductFromApi(record: PublicProductRecord): ArchiveProdu
   const variants: ProductVariantRecord[] = record.variants.map((variant) => ({
     id: variant.id,
     size: variant.size,
+    colorCode: variant.colorCode,
     sku: variant.sku,
     price: variant.price,
     availableQty: variant.availableQty,
@@ -74,7 +76,7 @@ export function archiveProductFromApi(record: PublicProductRecord): ArchiveProdu
       .slice()
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((feature) => feature.text),
-    sizes: variants.filter((variant) => variant.status !== "ARCHIVED").map((variant) => variant.size),
+    sizes: Array.from(new Set(variants.filter((variant) => variant.status !== "ARCHIVED").map((variant) => variant.size))),
     defaultSize: defaultVariant?.size ?? "",
     still: still?.url ?? "",
     worn: worn?.url,

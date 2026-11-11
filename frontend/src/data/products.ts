@@ -78,6 +78,12 @@ export function getProductVariants(product: ArchiveProduct): ProductVariantRecor
   return product.variants.filter((variant) => variant.status !== "ARCHIVED");
 }
 
-export function getVariantBySize(product: ArchiveProduct, size: string) {
-  return getProductVariants(product).find((variant) => variant.size === size);
+export function getVariantBySize(product: ArchiveProduct, size: string, colorCode?: string) {
+  return getProductVariants(product).find((variant) => variant.size === size &&
+    (colorCode === undefined || variant.colorCode === colorCode));
+}
+
+/** Prefer this for checkout: size alone is ambiguous when a design has two colours. */
+export function getVariantById(product: ArchiveProduct, variantId: string) {
+  return getProductVariants(product).find((variant) => variant.id === variantId);
 }

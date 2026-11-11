@@ -23,6 +23,7 @@ export type CartLine = {
   productSpec?: string | null;
   variantId: string;
   size: string;
+  colorCode: string;
   sku: string;
   imageUrl: string | null;
   quantity: number;
@@ -59,6 +60,7 @@ function linesFromServer(cart: ServerCartRecord): CartLine[] {
     productSpec: item.productSpec,
     variantId: item.variantId,
     size: item.size,
+    colorCode: item.colorCode,
     sku: item.sku,
     imageUrl: item.imageUrl,
     quantity: item.quantity,

@@ -142,7 +142,9 @@ export async function createOrder(input: CreateOrderInput) {
           ? decimalToNumber(variant.price_override)
           : decimalToNumber(variant.products.base_price);
         const image =
-          variant.products.product_images.find((item) => item.image_type === "STILL") ??
+          variant.products.product_images.find((item) => item.image_type === "STILL" && item.color_code === variant.color_code) ??
+           variant.products.product_images.find((item) => item.color_code === variant.color_code) ??
+           variant.products.product_images.find((item) => item.image_type === "STILL") ??
           variant.products.product_images[0] ??
           null;
         return {
@@ -257,7 +259,7 @@ export async function createOrder(input: CreateOrderInput) {
         product_public_id_snapshot: entry.variant.products.public_id,
         sku_snapshot: entry.variant.sku,
         product_name_snapshot: entry.variant.products.name,
-        size_snapshot: entry.variant.sizes.code,
+        size_snapshot: `${entry.variant.color_code} / ${entry.variant.sizes.code}`,
         image_url_snapshot: entry.imageUrl,
         unit_price: entry.unitPrice,
         quantity: entry.quantity,

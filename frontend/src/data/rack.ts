@@ -4,10 +4,10 @@ export const RACK_COPY = {
   heading: "PICK YOUR",
   headingAlt: "POISON",
   aside: "ONE LIVE FILE AT A TIME. SWITCH WHEN YOU WANT.",
-  hint: "HOLD A FRAME TO SEE IT WORN",
+  hint: "HOVER TO REVEAL EVERY FRAME",
   edge: "EVIDENCE ROOM — HANDLE WITH INTENT",
   still: "STILL",
-  worn: "ON BODY",
+  worn: "NEXT FRAME",
   unit: "UNITS",
   addToCart: "ADD TO CART",
   buyNow: "BUY NOW",
@@ -28,6 +28,7 @@ export type RackProduct = {
   name: string;
   still: string;
   worn: string;
+  gallery: readonly { url: string; alt: string }[];
   price: string;
   spec: string;
   line: string;
