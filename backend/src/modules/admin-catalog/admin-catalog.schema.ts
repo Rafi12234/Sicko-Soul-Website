@@ -20,7 +20,10 @@ export const createCategorySchema = categoryBase;
 export const updateCategorySchema = categoryBase.partial();
 export const categoryIdParamsSchema = z.object({ categoryId: z.string().regex(/^\d+$/) });
 
+const colorCodeSchema = z.string().trim().min(2).max(32).regex(/^[a-z0-9_-]+$/i).transform((value) => value.toUpperCase());
+
 const imageSchema = z.object({
+  colorCode: colorCodeSchema.default("BLACK"),
   type: z.enum(["STILL", "WORN", "GALLERY", "OTHER"]).default("GALLERY"),
   url: z.string().trim().url().max(1000),
   alt: z.string().trim().max(255).nullable().optional(),
@@ -28,6 +31,7 @@ const imageSchema = z.object({
 });
 
 const variantSchema = z.object({
+  colorCode: colorCodeSchema.default("BLACK"),
   sizeCode: z.string().trim().min(1).max(20),
   sizeLabel: z.string().trim().min(1).max(50).optional(),
   sizeGroup: z.enum(["TOP", "PANT", "GENERAL"]).default("GENERAL"),
@@ -76,6 +80,13 @@ export const variantIdParamsSchema = productPublicIdParamsSchema.extend({
 });
 
 export const addImageSchema = imageSchema;
+export const orderImagesSchema = z.object({
+  images: z.array(z.object({
+    id: z.string().regex(/^\d+$/),
+    type: z.enum(["STILL", "WORN", "GALLERY", "OTHER"]),
+    colorCode: colorCodeSchema,
+  })).min(1).max(50),
+});
 export const addFeatureSchema = z.object({
   text: z.string().trim().min(1).max(255),
   sortOrder: z.number().int().min(0).max(100000).default(0),

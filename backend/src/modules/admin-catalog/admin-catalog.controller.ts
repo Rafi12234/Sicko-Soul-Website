@@ -3,6 +3,7 @@ import { auditContextFromRequest } from "../../utils/audit-context.js";
 import {
   addFeatureSchema,
   addImageSchema,
+  orderImagesSchema,
   addVariantSchema,
   categoryIdParamsSchema,
   createCategorySchema,
@@ -18,6 +19,7 @@ import {
 import {
   addProductFeature,
   addProductImage,
+  orderProductImages,
   addProductVariant,
   archiveProductForAdmin,
   createCategoryForAdmin,
@@ -73,6 +75,11 @@ export const adminArchiveProductController: RequestHandler = async (req, res) =>
 export const adminAddProductImageController: RequestHandler = async (req, res) => {
   const { productId } = productPublicIdParamsSchema.parse(req.params);
   res.status(201).json({ data: await addProductImage(productId, addImageSchema.parse(req.body), auditContextFromRequest(req, res)) });
+};
+export const adminOrderProductImagesController: RequestHandler = async (req, res) => {
+  const { productId } = productPublicIdParamsSchema.parse(req.params);
+  const { images } = orderImagesSchema.parse(req.body);
+  res.json({ data: await orderProductImages(productId, images, auditContextFromRequest(req, res)) });
 };
 export const adminDeleteProductImageController: RequestHandler = async (req, res) => {
   const { productId, imageId } = imageIdParamsSchema.parse(req.params);

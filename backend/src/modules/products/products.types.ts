@@ -12,6 +12,7 @@ export type ProductCategoryRef = {
 export type ProductImage = {
   id: string;
   type: ProductImageType;
+  colorCode: string;
   url: string;
   alt: string | null;
   sortOrder: number;
@@ -26,6 +27,7 @@ export type ProductFeature = {
 export type ProductVariant = {
   id: string;
   size: string;
+  colorCode: string;
   sizeLabel: string;
   sizeGroup: "TOP" | "PANT" | "GENERAL";
   sku: string;

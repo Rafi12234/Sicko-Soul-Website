@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   adminAddProductFeatureController,
   adminAddProductImageController,
+  adminOrderProductImagesController,
   adminAddProductVariantController,
   adminArchiveProductController,
   adminCreateCategoryController,
@@ -31,6 +32,7 @@ adminCatalogRouter.patch("/products/:productId", adminUpdateProductController);
 adminCatalogRouter.delete("/products/:productId", adminArchiveProductController);
 
 adminCatalogRouter.post("/products/:productId/images", adminAddProductImageController);
+adminCatalogRouter.put("/products/:productId/images/order", adminOrderProductImagesController);
 adminCatalogRouter.delete("/products/:productId/images/:imageId", adminDeleteProductImageController);
 adminCatalogRouter.post("/products/:productId/features", adminAddProductFeatureController);
 adminCatalogRouter.delete("/products/:productId/features/:featureId", adminDeleteProductFeatureController);

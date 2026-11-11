@@ -227,9 +227,10 @@ type CreateProductInput = {
   description?: string | null | undefined;
   status: "DRAFT" | "ACTIVE" | "ARCHIVED";
   publishedAt?: string | null | undefined;
-  images: Array<{ type: "STILL" | "WORN" | "GALLERY" | "OTHER"; url: string; alt?: string | null | undefined; sortOrder: number }>;
+  images: Array<{ colorCode: string; type: "STILL" | "WORN" | "GALLERY" | "OTHER"; url: string; alt?: string | null | undefined; sortOrder: number }>;
   features: string[];
   variants: Array<{
+    colorCode: string;
     sizeCode: string;
     sizeLabel?: string | undefined;
     sizeGroup: "TOP" | "PANT" | "GENERAL";
@@ -273,6 +274,7 @@ export async function createProductForAdmin(input: CreateProductInput, audit: Au
         data: input.images.map((image) => ({
           product_id: product.product_id,
           image_type: image.type,
+          color_code: image.colorCode,
           image_url: image.url,
           alt_text: image.alt ?? null,
           sort_order: image.sortOrder,
@@ -301,6 +303,7 @@ export async function createProductForAdmin(input: CreateProductInput, audit: Au
         data: {
           product_id: product.product_id,
           size_id: size.size_id,
+          color_code: variantInput.colorCode,
           sku: variantInput.sku,
           price_override: variantInput.priceOverride ?? null,
           is_default: variantInput.isDefault,
@@ -406,7 +409,7 @@ export async function archiveProductForAdmin(publicId: string, audit: AuditConte
 
 export async function addProductImage(
   publicId: string,
-  input: { type: "STILL" | "WORN" | "GALLERY" | "OTHER"; url: string; alt?: string | null | undefined; sortOrder: number },
+  input: { colorCode: string; type: "STILL" | "WORN" | "GALLERY" | "OTHER"; url: string; alt?: string | null | undefined; sortOrder: number },
   audit: AuditContext,
 ) {
   const product = await resolveProduct(publicId);
@@ -414,6 +417,7 @@ export async function addProductImage(
     data: {
       product_id: product.product_id,
       image_type: input.type,
+      color_code: input.colorCode,
       image_url: input.url,
       alt_text: input.alt ?? null,
       sort_order: input.sortOrder,
@@ -421,6 +425,35 @@ export async function addProductImage(
   });
   await recordAudit(audit, { action: "PRODUCT_IMAGE_ADD", entityType: "product", entityId: product.product_id, newData: row });
   return { id: row.image_id.toString(), type: row.image_type, url: row.image_url };
+}
+
+/** Atomically order every image in a product, including its colour assignment.
+ * All image IDs must belong to the product; no partial/foreign reorder is allowed.
+ */
+export async function orderProductImages(
+  publicId: string,
+  images: Array<{ id: string; type: "STILL" | "WORN" | "GALLERY" | "OTHER"; colorCode: string }>,
+  audit: AuditContext,
+) {
+  const product = await resolveProduct(publicId);
+  return prisma.$transaction(async (tx) => {
+    const existing = await tx.product_images.findMany({ where: { product_id: product.product_id } });
+    const currentIds = new Set(existing.map((image) => image.image_id.toString()));
+    const incomingIds = images.map((image) => image.id);
+    if (existing.length !== images.length || new Set(incomingIds).size !== images.length ||
+        incomingIds.some((id) => !currentIds.has(id))) {
+      throw new AppError({ statusCode: 422, code: "INVALID_IMAGE_ORDER", message: "Image order must contain each image of this product exactly once." });
+    }
+    for (const [index, image] of images.entries()) {
+      await tx.product_images.update({
+        where: { image_id: BigInt(image.id) },
+        data: { sort_order: index * 10, image_type: image.type, color_code: image.colorCode },
+      });
+    }
+    await recordAudit(audit, { action: "PRODUCT_IMAGE_ORDER", entityType: "product", entityId: product.product_id,
+      newData: { images } }, tx);
+    return { saved: true, count: images.length };
+  });
 }
 
 export async function deleteProductImage(publicId: string, imageId: bigint, audit: AuditContext) {
@@ -457,6 +490,7 @@ export async function deleteProductFeature(publicId: string, featureId: bigint, 
 export async function addProductVariant(
   publicId: string,
   input: {
+    colorCode: string;
     sizeCode: string;
     sizeLabel?: string | undefined;
     sizeGroup: "TOP" | "PANT" | "GENERAL";
@@ -479,6 +513,7 @@ export async function addProductVariant(
       data: {
         product_id: product.product_id,
         size_id: size.size_id,
+        color_code: input.colorCode,
         sku: input.sku,
         price_override: input.priceOverride ?? null,
         is_default: input.isDefault,
@@ -594,6 +629,7 @@ export async function getProductForAdmin(publicId: string) {
     images: row.product_images.map((image) => ({
       id: image.image_id.toString(),
       type: image.image_type,
+      colorCode: image.color_code,
       url: image.image_url,
       alt: image.alt_text,
       sortOrder: image.sort_order,
@@ -606,6 +642,7 @@ export async function getProductForAdmin(publicId: string) {
     variants: row.product_variants.map((variant) => ({
       id: variant.variant_id.toString(),
       size: variant.sizes.code,
+      colorCode: variant.color_code,
       sizeLabel: variant.sizes.label,
       sizeGroup: variant.sizes.size_group,
       sku: variant.sku,

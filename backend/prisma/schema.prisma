@@ -456,6 +456,7 @@ model product_images {
   image_id   BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
   product_id BigInt                    @db.UnsignedBigInt
   image_type product_images_image_type @default(GALLERY)
+  color_code String                    @default("BLACK") @db.VarChar(32)
   image_url  String                    @db.VarChar(1000)
   alt_text   String?                   @db.VarChar(255)
   sort_order Int                       @default(0) @db.UnsignedInt
@@ -514,6 +515,7 @@ model product_variants {
   variant_id          BigInt                  @id @default(autoincrement()) @db.UnsignedBigInt
   product_id          BigInt                  @db.UnsignedBigInt
   size_id             BigInt                  @db.UnsignedBigInt
+  color_code          String                  @default("BLACK") @db.VarChar(32)
   sku                 String                  @unique(map: "uq_product_variants_sku") @db.VarChar(100)
   price_override      Decimal?                @db.Decimal(12, 2)
   is_default          Boolean                 @default(false)
@@ -527,7 +529,7 @@ model product_variants {
   products            products                @relation(fields: [product_id], references: [product_id], map: "fk_product_variants_product")
   sizes               sizes                   @relation(fields: [size_id], references: [size_id], map: "fk_product_variants_size")
 
-  @@unique([product_id, size_id], map: "uq_product_variants_product_size")
+  @@unique([product_id, color_code, size_id], map: "uq_product_variants_product_color_size")
   @@index([size_id], map: "fk_product_variants_size")
   @@index([product_id, status], map: "idx_product_variants_product_status")
 }
