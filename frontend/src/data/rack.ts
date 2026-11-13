@@ -4,11 +4,11 @@ export const RACK_COPY = {
   heading: "PICK YOUR",
   headingAlt: "POISON",
   aside: "ONE LIVE FILE AT A TIME. SWITCH WHEN YOU WANT.",
-  hint: "HOLD A FRAME TO SEE IT WORN",
+  hint: "HOVER TO REVEAL EVERY FRAME",
   edge: "EVIDENCE ROOM — HANDLE WITH INTENT",
   still: "STILL",
-  worn: "ON BODY",
-  unit: "UNITS",
+  worn: "NEXT FRAME",
+  unit: "PRODUCTS",
   addToCart: "ADD TO CART",
   buyNow: "BUY NOW",
   empty: "NO ACTIVE GARMENTS IN THIS FILE.",
@@ -24,10 +24,10 @@ export type RackProduct = {
   index: string;
   variantId?: string;
   available: boolean;
-  availableQty: number;
   name: string;
   still: string;
   worn: string;
+  gallery: readonly { url: string; alt: string }[];
   price: string;
   spec: string;
   line: string;
