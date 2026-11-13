@@ -12,7 +12,7 @@ export async function expirePendingOrders(limit = 30): Promise<number> {
   const cutoff = new Date(Date.now() - env.ORDER_PENDING_TTL_MINUTES * 60_000);
   const candidates = await prisma.orders.findMany({
     where: {
-      order_status: "PENDING_CONFIRMATION",
+      order_status: { in: ["PENDING_CONFIRMATION", "ON_HOLD"] },
       reservation_released_at: null,
       stock_hold_created_at_checkout: true,
       created_at: { lt: cutoff },
@@ -36,7 +36,7 @@ export async function expirePendingOrders(limit = 30): Promise<number> {
       });
       if (
         !order ||
-        order.order_status !== "PENDING_CONFIRMATION" ||
+        (order.order_status !== "PENDING_CONFIRMATION" && order.order_status !== "ON_HOLD") ||
         !order.stock_hold_created_at_checkout ||
         order.reservation_released_at !== null ||
         order.created_at >= cutoff
