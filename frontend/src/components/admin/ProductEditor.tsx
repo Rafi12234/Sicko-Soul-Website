@@ -10,11 +10,11 @@ import { adminButton } from "@/components/admin/AdminShell";
 type Category = { id: string; name: string; slug: string; segmentId: string | null; isActive: boolean };
 type Segment = { id: string; name: string; isActive: boolean };
 type ImageType = "STILL" | "WORN" | "GALLERY" | "OTHER";
-type ImageEntry = { id?: string; type: ImageType; url: string; alt: string | null; sortOrder: number };
+type ImageEntry = { id?: string; type: ImageType; colorCode: string; url: string; alt: string | null; sortOrder: number };
 type FeatureEntry = { id: string; text: string };
 type SizeGroup = "TOP" | "PANT" | "GENERAL";
 type VariantEntry = {
-  id: string; size: string; sizeLabel: string; sizeGroup: SizeGroup; sku: string;
+  id: string; size: string; colorCode: string; sizeLabel: string; sizeGroup: SizeGroup; sku: string;
   priceOverride: number | null; isDefault: boolean; status: "ACTIVE" | "INACTIVE" | "ARCHIVED";
   inventory: {onHandQty: number; reservedQty: number; availableQty: number; reorderLevel: number} | null;
 };
@@ -24,9 +24,9 @@ type ProductDetails = {
   category: {slug: string; id: string}; images: ImageEntry[]; features: FeatureEntry[]; variants: VariantEntry[];
 };
 type ProductForm = {name: string; description: string; spec: string; tagline: string; category: string; basePrice: string; status: "DRAFT" | "ACTIVE" | "ARCHIVED"};
-type NewVariant = {sizeCode: string; sizeGroup: SizeGroup; initialStock: string; priceOverride: string; reorderLevel: string};
+type NewVariant = {colorCode: string; sizeCode: string; sizeGroup: SizeGroup; initialStock: string; priceOverride: string; reorderLevel: string};
 const emptyForm = (): ProductForm => ({ name: "", description: "", spec: "", tagline: "", category: "", basePrice: "", status: "DRAFT" });
-const emptyVariant = (): NewVariant => ({ sizeCode: "", sizeGroup: "GENERAL", initialStock: "0", priceOverride: "", reorderLevel: "3" });
+const emptyVariant = (): NewVariant => ({ colorCode: "BLACK", sizeCode: "", sizeGroup: "GENERAL", initialStock: "0", priceOverride: "", reorderLevel: "3" });
 const input = "mt-1.5 block w-full min-w-0 rounded-sm border border-white/25 bg-[#171719] px-3 py-3 text-sm text-white outline-none focus:border-red-500 disabled:opacity-50";
 const titleClass = "font-display text-2xl uppercase text-white sm:text-3xl";
 const cardClass = "min-w-0 rounded-sm border border-white/15 bg-[#111114] p-4 sm:p-5";
@@ -40,9 +40,10 @@ function cloudinaryPhoto(url: string) {
 function numericStock(s: string) { const value = Number(s); return Number.isSafeInteger(value) && value >= 0 && value <= 100000; }
 function numericPrice(s: string) { return s.trim() === "" || (Number.isFinite(Number(s)) && Number(s) > 0 && Number(s) <= 1_000_000); }
 
-export default function ProductEditor({ token, productId, categories, segments, onClose, onSaved }: {
+export default function ProductEditor({ token, productId, categories, segments, onClose, onSaved, onCreated }: {
   token: string; productId: string | null; categories: Category[]; segments: Segment[];
   onClose: () => void; onSaved: (message: string) => void;
+  onCreated?: (publicId: string) => Promise<void> | void;
 }) {
   const [form, setForm] = useState<ProductForm>(emptyForm);
   const [segmentId, setSegmentId] = useState("");
@@ -60,6 +61,7 @@ export default function ProductEditor({ token, productId, categories, segments, 
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [imageType, setImageType] = useState<ImageType>("STILL");
+  const [imageColorCode, setImageColorCode] = useState("BLACK");
   const [imageUrl, setImageUrl] = useState("");
   const [imageAlt, setImageAlt] = useState("");
   const isEdit = Boolean(productId);
@@ -93,7 +95,7 @@ export default function ProductEditor({ token, productId, categories, segments, 
 
   const visibleCategories = categories.filter(c => c.segmentId === segmentId && (c.isActive || c.slug === form.category));
   const groups = segments.filter(s => s.isActive || s.id === segmentId);
-  const newProductImages = images.map((i, n) => ({ type:i.type, url:i.url, alt:i.alt || null, sortOrder:n * 10 }));
+  const newProductImages = images.map((i, n) => ({ colorCode:i.colorCode, type:i.type, url:i.url, alt:i.alt || null, sortOrder:n * 10 }));
   const pendingFeatures = features.map(i => i.text);
 
   async function submitDetails(event: FormEvent<HTMLFormElement>) {
@@ -103,7 +105,7 @@ export default function ProductEditor({ token, productId, categories, segments, 
     if (!isEdit) {
       if (images.length === 0) { setError("Upload at least one product photo before creating this product."); return; }
       if (!variants.length && !newSize.sizeCode.trim()) { setError("Add at least one size with its available stock."); return; }
-      if (!variants.length) { setError("Click 'Add size' to include your size and stock in the product."); return; }
+      if (!variants.length) { setError("Click 'Add size' to include your colour, size and stock in the product."); return; }
     }
     setSaving(true);
     try {
@@ -123,28 +125,39 @@ export default function ProductEditor({ token, productId, categories, segments, 
           publicId:skuBase, skuBase, slug,
           images:newProductImages, features:pendingFeatures,
           variants:variants.map((v, i) => ({
-            sizeCode:v.size.trim().toUpperCase(), sizeLabel:v.sizeLabel || v.size,
-            sizeGroup:v.sizeGroup, sku:`${skuBase}-${v.size.replace(/[^a-z0-9]/gi, "").toUpperCase()}-${i+1}`,
+            colorCode:v.colorCode, sizeCode:v.size.trim().toUpperCase(), sizeLabel:v.sizeLabel || v.size,
+            sizeGroup:v.sizeGroup, sku:`${skuBase}-${v.colorCode}-${v.size.replace(/[^a-z0-9]/gi, "").toUpperCase()}-${i+1}`,
             priceOverride:v.priceOverride, isDefault:i===0, status:"ACTIVE",
             initialStock:v.inventory?.onHandQty ?? 0, reorderLevel:v.inventory?.reorderLevel ?? 3,
           })),
         }) });
         onSaved("Product created with its photos, description, sizes and initial stock.");
+        if (onCreated) {
+          try {
+            await onCreated(skuBase);
+          } catch (linkError) {
+            // Product creation succeeded. Never encourage retrying creation
+            // because the optional drop-linking step failed.
+            onSaved(`Product created in Products, but could not attach to New Drop: ${linkError instanceof Error ? linkError.message : "please attach it manually"}`);
+          }
+        }
         onClose();
       }
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save product. Check the fields and retry."); }
     finally { setSaving(false); }
   }
 
-  async function addPhoto(url: string, alt: string, type: ImageType, photoIndex = images.length) {
+  async function addPhoto(url: string, alt: string, type: ImageType, photoIndex = images.length, colorCode = imageColorCode) {
+    colorCode = colorCode.trim().toUpperCase();
+    if (!/^[A-Z0-9_-]{2,32}$/.test(colorCode)) throw new Error("Choose a valid image colour (BLACK, WHITE, etc.).");
     if (!cloudinaryPhoto(url)) { setError("Use a secure Cloudinary image URL or upload a photo."); return; }
     if (photoIndex >= 50) { throw new Error("A product can have up to 50 images."); }
     if (productId) {
-      await call(`catalog/products/${encodeURIComponent(productId)}/images`, { method:"POST", body:JSON.stringify({type, url, alt:alt || null, sortOrder:photoIndex * 10}) });
+      await call(`catalog/products/${encodeURIComponent(productId)}/images`, { method:"POST", body:JSON.stringify({type, colorCode, url, alt:alt || null, sortOrder:photoIndex * 10}) });
       await readProduct();
       setNotice("Photo attached to the product.");
     } else {
-      setImages(curr => [...curr, { type, url, alt:alt || null, sortOrder:photoIndex * 10 }]);
+      setImages(curr => [...curr, { type, colorCode, url, alt:alt || null, sortOrder:photoIndex * 10 }]);
       setNotice("Photo ready. It will appear on the website when you create the product.");
     }
     setImageAlt(""); setImageUrl("");
@@ -156,6 +169,7 @@ export default function ProductEditor({ token, productId, categories, segments, 
     try {
       const selection = files;
       const firstPhotoIndex = images.length;
+      const existingInColor = images.filter(image => image.colorCode === imageColorCode).length;
       if (firstPhotoIndex + selection.length > 50) throw new Error("Maximum 50 photos per product.");
       for (let i = 0; i < selection.length; i++) {
         const file = selection[i];
@@ -164,13 +178,45 @@ export default function ProductEditor({ token, productId, categories, segments, 
         try {
           // The first uploaded image becomes the product's primary still.
           const imageIndex = firstPhotoIndex + i;
-          const type = imageType === "STILL" && imageIndex > 0 ? "GALLERY" : imageType;
-          await addPhoto(url, file.name.slice(0, 255), type, imageIndex);
+          const type = imageType === "STILL" && existingInColor + i > 0 ? "GALLERY" : imageType;
+          await addPhoto(url, file.name.slice(0, 255), type, imageIndex, imageColorCode);
         } catch (cause) { throw new Error(`Uploaded ${file.name}, but it could not be attached. Recovery URL: ${url}. ${cause instanceof Error ? cause.message : ""}`); }
       }
       setNotice(`${selection.length} photo${selection.length===1?"":"s"} uploaded. ${productId?"Saved to the product.":"Create the product to publish."}`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Photo upload failed."); }
     finally { setUploading(false); setProgress(null); }
+  }
+
+  async function persistImageOrder(next: ImageEntry[]) {
+    const ordered = next.map((image, index) => ({ ...image, sortOrder:index * 10 }));
+    if (productId) {
+      setSaving(true); setError("");
+      try {
+        await call(`catalog/products/${encodeURIComponent(productId)}/images/order`, {
+          method:"PUT",
+          body:JSON.stringify({images:ordered.map(image => ({id:image.id,colorCode:image.colorCode,type:image.type}))}),
+        });
+        await readProduct(); setNotice("Image order and colour mapping saved.");
+      } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not save image order."); }
+      finally { setSaving(false); }
+    } else {
+      setImages(ordered); setNotice("Image order set. It will be saved when you create this product.");
+    }
+  }
+
+  async function moveImage(index: number, direction: number) {
+    const target = index + direction;
+    if (target < 0 || target >= images.length) return;
+    const next = [...images];
+    [next[index], next[target]] = [next[target], next[index]];
+    await persistImageOrder(next);
+  }
+
+  async function setPhotoColor(index: number, colorCode: string) {
+    const code = colorCode.trim().toUpperCase();
+    if (!/^[A-Z0-9_-]{2,32}$/.test(code)) { setError("Enter a valid colour code, such as BLACK or WHITE."); return; }
+    const next = images.map((image, n) => n === index ? {...image,colorCode:code} : image);
+    await persistImageOrder(next);
   }
 
   async function removePhoto(item: ImageEntry, index: number) {
@@ -213,24 +259,25 @@ export default function ProductEditor({ token, productId, categories, segments, 
   }
 
   async function addVariant() {
-    if (!newSize.sizeCode.trim() || !numericStock(newSize.initialStock) || !numericStock(newSize.reorderLevel) || !numericPrice(newSize.priceOverride)) {
+    if (!/^[A-Z0-9_-]{2,32}$/.test(newSize.colorCode.trim().toUpperCase()) || !newSize.sizeCode.trim() || !numericStock(newSize.initialStock) || !numericStock(newSize.reorderLevel) || !numericPrice(newSize.priceOverride)) {
       setError("Enter a size, a valid whole-number stock count and an optional positive price."); return;
     }
     const size = newSize.sizeCode.trim().toUpperCase();
-    if (variants.some(v => v.size.toUpperCase() === size && v.sizeGroup === newSize.sizeGroup)) { setError("This size already exists in this size group."); return; }
+    const colorCode = newSize.colorCode.trim().toUpperCase();
+    if (variants.some(v => v.size.toUpperCase() === size && v.sizeGroup === newSize.sizeGroup && v.colorCode === colorCode)) { setError("This size already exists in this size group."); return; }
     const qty = Number(newSize.initialStock);
     const price = newSize.priceOverride ? Number(newSize.priceOverride) : null;
     setSaving(true); setError("");
     try {
       if (productId) {
-        const uniqueSku = `SS-${slugify(productId).toUpperCase().slice(0,45)}-${size.replace(/[^A-Z0-9]/g, "")}-${Date.now().toString(36).slice(-5).toUpperCase()}`.slice(0,100);
+        const uniqueSku = `SS-${slugify(productId).toUpperCase().slice(0,45)}-${colorCode}-${size.replace(/[^A-Z0-9]/g, "")}-${Date.now().toString(36).slice(-5).toUpperCase()}`.slice(0,100);
         await call(`catalog/products/${encodeURIComponent(productId)}/variants`, {method:"POST",body:JSON.stringify({
-          sizeCode:size,sizeLabel:size,sizeGroup:newSize.sizeGroup,sku:uniqueSku,priceOverride:price,
+          sizeCode:size,sizeLabel:size,sizeGroup:newSize.sizeGroup,colorCode,sku:uniqueSku,priceOverride:price,
           isDefault:variants.length===0,status:"ACTIVE",initialStock:qty,reorderLevel:Number(newSize.reorderLevel),
         })});
         await readProduct();
       } else setVariants(curr => [...curr,{
-        id:`draft-${curr.length}-${Date.now()}`,size,sizeLabel:size,sizeGroup:newSize.sizeGroup,sku:"",
+        id:`draft-${curr.length}-${Date.now()}`,size,colorCode,sizeLabel:size,sizeGroup:newSize.sizeGroup,sku:"",
         priceOverride:price,isDefault:curr.length===0,status:"ACTIVE",
         inventory:{onHandQty:qty,reservedQty:0,availableQty:qty,reorderLevel:Number(newSize.reorderLevel)},
       }]);
@@ -249,7 +296,7 @@ export default function ProductEditor({ token, productId, categories, segments, 
     setSaving(true); setError("");
     try {
       await call(`inventory/${encodeURIComponent(variant.id)}/adjust`, {method:"POST",body:JSON.stringify({movementType:delta>0?"RESTOCK":"ADJUSTMENT",onHandDelta:delta,reservedDelta:0,note:`Stock updated from product editor for ${productId}`})});
-      await readProduct(); setNotice(`Stock updated for ${variant.size}. Reserved orders were preserved.`);
+      await readProduct(); setNotice(`Stock updated for ${variant.colorCode} / ${variant.size}. Reserved orders were preserved.`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not update stock."); }
     finally { setSaving(false); }
   }
@@ -262,7 +309,7 @@ export default function ProductEditor({ token, productId, categories, segments, 
     setSaving(true); setError("");
     try {
       await call(`catalog/products/${encodeURIComponent(productId)}/variants/${variant.id}`, {method:"PATCH",body:JSON.stringify(patch)});
-      await readProduct();setNotice(`Size ${variant.size} updated.`);
+      await readProduct();setNotice(`Variant ${variant.colorCode} / ${variant.size} updated.`);
     } catch (cause) { setError(cause instanceof Error ? cause.message : "Could not update size."); }
     finally { setSaving(false); }
   }
@@ -299,28 +346,37 @@ export default function ProductEditor({ token, productId, categories, segments, 
 
       <div className={cardClass}>
         <h3 className={titleClass}>2. Product photos <span className="text-base text-white/40">({images.length}/50)</span></h3>
-        <p className="mt-1 text-sm text-white/55">Upload photos from your phone or computer. The first main photo appears on product cards. Images are uploaded directly to Cloudinary (up to 3 MB each).</p>
-        <div className="mt-4 grid gap-3 sm:grid-cols-[220px_minmax(0,1fr)] sm:items-end">
-          <label className={labelClass}>Photo type<select className={input} value={imageType} onChange={e=>setImageType(e.target.value as ImageType)}><option value="STILL">Main product photo</option><option value="WORN">On a model</option><option value="GALLERY">Additional photo</option><option value="OTHER">Other photo</option></select></label>
+        <p className="mt-1 text-sm text-white/55">Select the colour before each upload. Photos are displayed in their saved order; use Move up/down below to change it. The first main photo of the selected colour appears on product cards. Images are uploaded directly to Cloudinary (up to 3 MB each).</p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(150px,1fr)_minmax(170px,1fr)_minmax(240px,2fr)] sm:items-end">
+          <label className={labelClass}>Product colour<input list="sicko-colours" className={input} value={imageColorCode} maxLength={32} onChange={e=>setImageColorCode(e.target.value.toUpperCase())} placeholder="BLACK or WHITE" />
+          <datalist id="sicko-colours"><option value="BLACK"/><option value="WHITE"/></datalist>
+          </label><label className={labelClass}>Photo type<select className={input} value={imageType} onChange={e=>setImageType(e.target.value as ImageType)}><option value="STILL">Main product photo</option><option value="WORN">On a model</option><option value="GALLERY">Additional photo</option><option value="OTHER">Other photo</option></select></label>
           <label className={labelClass}>Choose photos (you can select multiple)
             <input className={`${input} max-w-full file:mr-3 file:rounded-sm file:border-0 file:bg-red-900 file:px-3 file:py-2 file:text-white`} accept="image/*" type="file" multiple disabled={disabled || images.length>=50} onChange={e=>{const files=Array.from(e.target.files ?? []);e.target.value="";void uploadPhotos(files);}} /></label>
         </div>
         {uploading && <div className="mt-3"><UploadProgressIndicator label="Product photo" value={progress} /></div>}
-        <details className="mt-3 text-xs text-white/60"><summary className="cursor-pointer py-2">Or add an existing Cloudinary image link</summary><div className="mt-2 grid gap-2 sm:grid-cols-2"><label className={labelClass}>Image URL<input type="url" className={input} value={imageUrl} onChange={e=>setImageUrl(e.target.value)} placeholder="https://res.cloudinary.com/..." /></label><label className={labelClass}>Photo description<input className={input} value={imageAlt} maxLength={255} onChange={e=>setImageAlt(e.target.value)} placeholder="Front view of product" /></label></div><button type="button" disabled={disabled} className={`${miniButton} mt-3`} onClick={()=>{void addPhoto(imageUrl,imageAlt,imageType).catch(c=>setError(c instanceof Error?c.message:"Could not add photo."));}}>Add image link</button></details>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{images.map((image,index)=><div key={image.id ?? `${image.url}-${index}`} className="min-w-0 border border-white/15 p-3"><div className="relative aspect-[4/3] overflow-hidden bg-black">{cloudinaryPhoto(image.url) ? <Image src={image.url} alt={image.alt || form.name || "Product photo"} fill sizes="(max-width:640px) 90vw, 230px" className="object-contain" /> : <p className="p-4 text-xs text-white/40">Image preview unavailable</p>}</div><div className="mt-3 flex flex-wrap items-center justify-between gap-2"><span className="text-xs uppercase text-white/65">{image.type === "STILL" ? "Main photo" : image.type === "WORN" ? "On model" : "Gallery"}</span><button className={`${miniButton} border-red-800 text-red-300`} type="button" disabled={disabled} onClick={()=>void removePhoto(image,index)}>Remove</button></div></div>)}</div>
+        <details className="mt-3 text-xs text-white/60"><summary className="cursor-pointer py-2">Or add an existing Cloudinary image link (using the selected colour above)</summary><div className="mt-2 grid gap-2 sm:grid-cols-2"><label className={labelClass}>Image URL<input type="url" className={input} value={imageUrl} onChange={e=>setImageUrl(e.target.value)} placeholder="https://res.cloudinary.com/..." /></label><label className={labelClass}>Photo description<input className={input} value={imageAlt} maxLength={255} onChange={e=>setImageAlt(e.target.value)} placeholder="Front view of product" /></label></div><button type="button" disabled={disabled} className={`${miniButton} mt-3`} onClick={()=>{void addPhoto(imageUrl,imageAlt,imageType).catch(c=>setError(c instanceof Error?c.message:"Could not add photo."));}}>Add image link</button></details>
+        <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-3">{images.map((image,index)=><div key={image.id ?? `${image.url}-${index}`} className="min-w-0 border border-white/15 p-3"><div className="relative aspect-[4/3] overflow-hidden bg-black">{cloudinaryPhoto(image.url) ? <Image src={image.url} alt={image.alt || form.name || "Product photo"} fill sizes="(max-width:640px) 90vw, 230px" className="object-contain" /> : <p className="p-4 text-xs text-white/40">Image preview unavailable</p>}</div><div className="mt-3 flex flex-wrap items-center justify-between gap-2"><span className="text-xs uppercase text-white/65">{image.type === "STILL" ? "Main photo" : image.type === "WORN" ? "On model" : "Gallery"} · {image.colorCode} · ORDER {index+1}</span><button className={`${miniButton} border-red-800 text-red-300`} type="button" disabled={disabled} onClick={()=>void removePhoto(image,index)}>Remove</button></div>
+          <div className="mt-3 flex flex-wrap items-center gap-2"><button type="button" className={miniButton} disabled={disabled || index===0} onClick={()=>void moveImage(index,-1)}>↑ Move up</button>
+          <button type="button" className={miniButton} disabled={disabled || index===images.length-1} onClick={()=>void moveImage(index,1)}>↓ Move down</button></div>
+          <label className={`${labelClass} mt-3`}>Image colour<select className={input} value={image.colorCode} disabled={disabled} onChange={e=>void setPhotoColor(index,e.target.value)}>
+            {[...new Set(["BLACK","WHITE",...images.map(i=>i.colorCode)])].map(code=><option key={code} value={code}>{code}</option>)}
+          </select></label>
+        </div>)}</div>
         {images.length===0&&<p className="mt-4 border border-dashed border-white/20 p-5 text-sm text-white/50">No photos added yet. Upload at least one before publishing.</p>}
       </div>
 
       <div className={cardClass}>
-        <h3 className={titleClass}>3. Sizes & stock</h3><p className="mt-1 text-sm text-white/55">Each size has its own stock. Available = On hand − Reserved for orders. Never lower on-hand stock below reserved units.</p>
+        <h3 className={titleClass}>3. Sizes & stock</h3><p className="mt-1 text-sm text-white/55">Each colour and size combination has its own stock. Available = On hand − Reserved for orders. Never lower on-hand stock below reserved units.</p>
         <div className="mt-5 space-y-3">{variants.map((variant,index)=><div key={variant.id} className="grid gap-3 border border-white/15 bg-[#191919] p-3 sm:p-4 lg:grid-cols-[minmax(110px,1fr)_minmax(140px,1fr)_minmax(135px,1fr)_auto] lg:items-end">
-          <div><p className="font-bold">{variant.size}</p><p className="mt-1 text-xs text-white/50">{variant.sizeGroup} · {variant.status}</p><p className="mt-1 text-xs text-emerald-300">Available: {variant.inventory?.availableQty ?? 0}</p><p className="text-xs text-white/50">Reserved: {variant.inventory?.reservedQty ?? 0}</p></div>
-          {isEdit ? <label className={labelClass}>Total stock on hand<input aria-label={`${variant.size} stock on hand`} type="number" min={variant.inventory?.reservedQty ?? 0} max="100000" step="1" className={input} value={stockDrafts[variant.id] ?? ""} onChange={e=>setStockDrafts(s=>({...s,[variant.id]:e.target.value}))} /></label> : <div><p className="text-xs uppercase text-white/55">Stock on hand</p><p className="mt-2 font-semibold">{variant.inventory?.onHandQty ?? 0}</p></div>}
-          {isEdit ? <label className={labelClass}>Size-specific price (optional)<input aria-label={`${variant.size} price override`} type="number" min="0.01" max="1000000" step="0.01" placeholder="Uses base price" className={input} value={overrideDrafts[variant.id] ?? ""} onChange={e=>setOverrideDrafts(s=>({...s,[variant.id]:e.target.value}))} /></label> : <p className="text-xs text-white/60">{variant.priceOverride ? `Price: ৳ ${variant.priceOverride}` : "Uses base price"}</p>}
+          <div><p className="font-bold">{variant.colorCode} / {variant.size}</p><p className="mt-1 text-xs text-white/50">{variant.sizeGroup} · {variant.status}</p><p className="mt-1 text-xs text-emerald-300">Available: {variant.inventory?.availableQty ?? 0}</p><p className="text-xs text-white/50">Reserved: {variant.inventory?.reservedQty ?? 0}</p></div>
+          {isEdit ? <label className={labelClass}>Total stock on hand<input aria-label={`${variant.colorCode} ${variant.size} stock on hand`} type="number" min={variant.inventory?.reservedQty ?? 0} max="100000" step="1" className={input} value={stockDrafts[variant.id] ?? ""} onChange={e=>setStockDrafts(s=>({...s,[variant.id]:e.target.value}))} /></label> : <div><p className="text-xs uppercase text-white/55">Stock on hand</p><p className="mt-2 font-semibold">{variant.inventory?.onHandQty ?? 0}</p></div>}
+          {isEdit ? <label className={labelClass}>Size-specific price (optional)<input aria-label={`${variant.colorCode} ${variant.size} price override`} type="number" min="0.01" max="1000000" step="0.01" placeholder="Uses base price" className={input} value={overrideDrafts[variant.id] ?? ""} onChange={e=>setOverrideDrafts(s=>({...s,[variant.id]:e.target.value}))} /></label> : <p className="text-xs text-white/60">{variant.priceOverride ? `Price: ৳ ${variant.priceOverride}` : "Uses base price"}</p>}
           <div className="flex flex-wrap gap-2">{isEdit ? <><button type="button" disabled={disabled} className={miniButton} onClick={()=>void updateStock(variant)}>Save stock</button><button type="button" disabled={disabled} className={miniButton} onClick={()=>{const v=overrideDrafts[variant.id]??"";if(!numericPrice(v)){setError("Use a positive price or leave blank.");return;}void updateVariant(variant,{priceOverride:v ? Number(v) : null});}}>Save price</button><button type="button" disabled={disabled || variant.isDefault} className={miniButton} onClick={()=>void updateVariant(variant,{isDefault:true})}>Set default</button><button type="button" disabled={disabled} className={miniButton} onClick={()=>void updateVariant(variant,{status:variant.status==="ACTIVE"?"INACTIVE":"ACTIVE"})}>{variant.status==="ACTIVE"?"Disable size":"Enable size"}</button></> : <button type="button" className={miniButton} disabled={disabled} onClick={()=>setVariants(curr=>curr.filter(v=>v.id!==variant.id).map((v,n)=>({...v,isDefault:n===0})))}>Remove</button>}</div>
         </div>)}</div>
-        <div className="mt-5 border-t border-white/15 pt-5"><h4 className="text-sm font-bold uppercase tracking-wider text-white">Add a size / variant</h4>
+        <div className="mt-5 border-t border-white/15 pt-5"><h4 className="text-sm font-bold uppercase tracking-wider text-white">Add a colour + size / variant</h4>
           <div className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+            <label className={labelClass}>Colour<input list="sicko-colours" className={input} maxLength={32} placeholder="BLACK / WHITE" value={newSize.colorCode} onChange={e=>setNewSize(s=>({...s,colorCode:e.target.value.toUpperCase()}))} /></label>
             <label className={labelClass}>Size code<input className={input} maxLength={20} placeholder="S, M, L, XL, ONE SIZE" value={newSize.sizeCode} onChange={e=>setNewSize(s=>({...s,sizeCode:e.target.value}))} /></label>
             <label className={labelClass}>Size type<select className={input} value={newSize.sizeGroup} onChange={e=>setNewSize(s=>({...s,sizeGroup:e.target.value as SizeGroup}))}><option value="GENERAL">General / One size</option><option value="TOP">Tops / Shirts</option><option value="PANT">Pants</option></select></label>
             <label className={labelClass}>Initial stock<input className={input} type="number" min="0" step="1" max="100000" value={newSize.initialStock} onChange={e=>setNewSize(s=>({...s,initialStock:e.target.value}))} /></label>
