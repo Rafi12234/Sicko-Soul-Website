@@ -152,9 +152,8 @@ export default function Cart() {
 
           {items.map((item, index) => {
             const variants = (variantsByProduct[item.productId] ?? []).filter(
-              (entry) => entry.status === "ACTIVE",
+              (entry) => entry.status === "ACTIVE" && entry.colorCode === item.colorCode,
             );
-            const lowStock = item.stockMax <= 3;
 
             return (
               <article key={item.key} className={`${styles.line} cart-line grid gap-5 border-b border-bone-white/15 py-7 md:grid-cols-[11rem_1fr_auto] md:items-stretch`}>
@@ -176,9 +175,10 @@ export default function Cart() {
                     <Link href={`/products/${item.productId}`} className="mt-2 block max-w-[10ch] font-display text-[clamp(2.4rem,5vw,5rem)] leading-[0.8] tracking-crushed text-bone-white hover:text-concrete-gray">
                       {item.productName}
                     </Link>
-                    {item.productSpec && <p className="mt-3 font-body text-[0.7rem] font-semibold uppercase tracking-[0.15em] text-concrete-gray">{item.productSpec}</p>}
-                    <p className={`mt-4 font-body text-[0.7rem] font-semibold uppercase tracking-[0.15em] ${lowStock ? "text-blood-accent" : "text-bone-white/55"}`}>
-                      {item.stockMax <= 0 ? "NO STOCK" : lowStock ? `ONLY ${item.stockMax} LEFT IN ${item.size}` : `${item.stockMax} AVAILABLE IN ${item.size}`}
+                    <p className="mt-3 font-body text-[0.7rem] font-semibold uppercase tracking-[0.15em] text-blood-accent">COLOUR / {item.colorCode}</p>
+                     {item.productSpec && <p className="mt-3 font-body text-[0.7rem] font-semibold uppercase tracking-[0.15em] text-concrete-gray">{item.productSpec}</p>}
+                    <p className="mt-4 font-body text-[0.7rem] font-semibold uppercase tracking-[0.15em] text-bone-white/55">
+                      {item.inStock ? "AVAILABLE" : "SOLD OUT"} / SIZE {item.size}
                     </p>
                   </div>
 
@@ -199,8 +199,8 @@ export default function Cart() {
                     >
                       {variants.length === 0 && <option value={item.variantId}>{item.size}</option>}
                       {variants.map((entry) => (
-                        <option key={entry.id} value={entry.id} disabled={entry.availableQty <= 0}>
-                          {entry.size}{entry.availableQty <= 0 ? " / SOLD" : ""}
+                        <option key={entry.id} value={entry.id} disabled={!entry.inStock}>
+                          {entry.size}{!entry.inStock ? " / SOLD" : ""}
                         </option>
                       ))}
                     </select>
@@ -211,7 +211,7 @@ export default function Cart() {
                     <div className="mt-2 flex w-full items-center border border-bone-white/20">
                       <button type="button" disabled={syncing} onClick={() => void setQuantity(item.key, item.quantity - 1)} className="h-10 flex-1 font-display text-lg hover:bg-bone-white hover:text-black disabled:opacity-25" aria-label={`Decrease ${item.productName} quantity`}>−</button>
                       <span className="flex h-10 min-w-10 items-center justify-center border-x border-bone-white/20 font-body text-sm font-semibold">{String(item.quantity).padStart(2, "0")}</span>
-                      <button type="button" disabled={syncing || item.quantity >= item.stockMax} onClick={() => void setQuantity(item.key, item.quantity + 1)} className="h-10 flex-1 font-display text-lg hover:bg-bone-white hover:text-black disabled:opacity-25" aria-label={`Increase ${item.productName} quantity`}>+</button>
+                      <button type="button" disabled={syncing || item.quantity >= 20} onClick={() => void setQuantity(item.key, item.quantity + 1)} className="h-10 flex-1 font-display text-lg hover:bg-bone-white hover:text-black disabled:opacity-25" aria-label={`Increase ${item.productName} quantity`}>+</button>
                     </div>
                   </div>
 
