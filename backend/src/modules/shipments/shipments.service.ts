@@ -6,6 +6,7 @@ import { recordAudit } from "../../services/audit.service.js";
 import type { AuditContext } from "../../types/auth.js";
 import { decimalToNumber } from "../../utils/decimal.js";
 import { enqueueEmail } from "../email/email.service.js";
+import { privateOrderTrackingUrl } from "../customer-access/customer-access.js";
 import { returnSoldStock } from "../inventory/inventory.service.js";
 
 function mapShipment(row: {
@@ -242,6 +243,8 @@ export async function updateShipmentForAdmin(
         templateKey: "order-shipped",
         payload: {
           orderReference: shipment.orders.order_reference,
+          status: "SHIPPED",
+          trackingUrl: privateOrderTrackingUrl(shipment.orders.order_reference),
           trackingCode: input.trackingCode ?? shipment.tracking_code ?? "",
           courier: input.courierName ?? shipment.courier_name ?? "",
         },
@@ -277,7 +280,7 @@ export async function updateShipmentForAdmin(
         recipientEmail: shipment.orders.customer_email,
         subject: `SICKO SOUL / ORDER ${shipment.orders.order_reference} DELIVERED`,
         templateKey: "order-delivered",
-        payload: { orderReference: shipment.orders.order_reference },
+        payload: { orderReference: shipment.orders.order_reference, status: "DELIVERED", trackingUrl: privateOrderTrackingUrl(shipment.orders.order_reference) },
       });
     }
 
