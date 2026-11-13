@@ -64,6 +64,10 @@ export async function getPublicCollection(slug: string) {
   return mapCollectionDetail(row);
 }
 
+export async function getCollectionForAdmin(collectionId: bigint) {
+  return readAdminCollection(collectionId);
+}
+
 export async function getCollectionsForAdmin() {
   return (await listAdminCollections()).map((row) => ({
     id: row.collection_id.toString(),
@@ -94,6 +98,11 @@ export async function createCollectionForAdmin(
   },
   audit: AuditContext,
 ) {
+  // Publication requires explicit products. Create draft first, assign products,
+  // then activate the collection from the admin UI.
+  if (input.status === "LIVE") {
+    throw new AppError({ statusCode: 422, code: "EMPTY_DROP", message: "Create the drop as DRAFT, add products, then publish it." });
+  }
   const row = await prisma.collections.create({
     data: {
       code: input.code,
@@ -138,6 +147,20 @@ export async function updateCollectionForAdmin(
   if (input.name !== undefined) data.name = input.name;
   if (input.tagline !== undefined) data.tagline = input.tagline;
   if (input.releaseYear !== undefined) data.release_year = input.releaseYear;
+  if (input.status === "LIVE") {
+    const activeMembers = await prisma.collection_products.count({
+      where: {
+        collection_id: collectionId,
+        products: {
+          status: "ACTIVE",
+          product_categories: { is: { is_active: true, catalog_segments: { is: { is_active: true } } } },
+        },
+      },
+    });
+    if (activeMembers === 0) {
+      throw new AppError({ statusCode: 422, code: "EMPTY_DROP", message: "Add an active, visible product before publishing this drop." });
+    }
+  }
   if (input.status !== undefined) data.status = input.status;
   if (input.opensAt !== undefined) data.opens_at = input.opensAt ? new Date(input.opensAt) : null;
   if (input.closesAt !== undefined) data.closes_at = input.closesAt ? new Date(input.closesAt) : null;
@@ -173,6 +196,19 @@ export async function setCollectionProductsForAdmin(
     throw new AppError({ statusCode: 422, code: "UNKNOWN_COLLECTION_PRODUCT", message: "One or more collection products do not exist." });
   }
   const byPublicId = new Map(products.map((p) => [p.public_id, p.product_id]));
+
+  if (collection.status === "LIVE") {
+    const eligible = await prisma.products.count({
+      where: {
+        public_id: { in: uniqueProductIds },
+        status: "ACTIVE",
+        product_categories: { is: { is_active: true, catalog_segments: { is: { is_active: true } } } },
+      },
+    });
+    if (eligible === 0) {
+      throw new AppError({ statusCode: 422, code: "EMPTY_DROP", message: "Change this drop to DRAFT before removing its last active product." });
+    }
+  }
 
   await prisma.$transaction(async (tx) => {
     await tx.collection_products.deleteMany({ where: { collection_id: collectionId } });
