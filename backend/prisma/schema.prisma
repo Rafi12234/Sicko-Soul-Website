@@ -342,6 +342,8 @@ model orders {
   grand_total                                                     Decimal                @db.Decimal(12, 2)
   currency                                                        String                 @default("BDT") @db.Char(3)
   order_status                                                    orders_order_status    @default(PENDING_CONFIRMATION)
+  hold_expected_restock_at                                        DateTime?              @db.Date
+  hold_customer_wait_until                                        DateTime?              @db.Date
   // An expired stock hold does not cancel or reject a pending order.
   reservation_released_at                                         DateTime?              @db.DateTime(0)
   stock_hold_created_at_checkout                                  Boolean                @default(true)
@@ -456,6 +458,7 @@ model product_images {
   image_id   BigInt                    @id @default(autoincrement()) @db.UnsignedBigInt
   product_id BigInt                    @db.UnsignedBigInt
   image_type product_images_image_type @default(GALLERY)
+  color_code String                    @default("BLACK") @db.VarChar(32)
   image_url  String                    @db.VarChar(1000)
   alt_text   String?                   @db.VarChar(255)
   sort_order Int                       @default(0) @db.UnsignedInt
@@ -463,6 +466,7 @@ model product_images {
   products   products                  @relation(fields: [product_id], references: [product_id], onDelete: Cascade, map: "fk_product_images_product")
 
   @@index([product_id, sort_order], map: "idx_product_images_product_sort")
+  @@index([product_id, color_code, sort_order], map: "idx_product_images_product_color_sort")
 }
 
 model product_review_status_history {
@@ -514,6 +518,7 @@ model product_variants {
   variant_id          BigInt                  @id @default(autoincrement()) @db.UnsignedBigInt
   product_id          BigInt                  @db.UnsignedBigInt
   size_id             BigInt                  @db.UnsignedBigInt
+  color_code          String                  @default("BLACK") @db.VarChar(32)
   sku                 String                  @unique(map: "uq_product_variants_sku") @db.VarChar(100)
   price_override      Decimal?                @db.Decimal(12, 2)
   is_default          Boolean                 @default(false)
@@ -527,7 +532,7 @@ model product_variants {
   products            products                @relation(fields: [product_id], references: [product_id], map: "fk_product_variants_product")
   sizes               sizes                   @relation(fields: [size_id], references: [size_id], map: "fk_product_variants_size")
 
-  @@unique([product_id, size_id], map: "uq_product_variants_product_size")
+  @@unique([product_id, color_code, size_id], map: "uq_product_variants_product_color_size")
   @@index([size_id], map: "fk_product_variants_size")
   @@index([product_id, status], map: "idx_product_variants_product_status")
 }
@@ -674,6 +679,7 @@ enum email_outbox_event_type {
   ORDER_CANCELLED
   COMPLAINT_REPLY
   ORDER_OUT_OF_STOCK
+  ORDER_ON_HOLD
 }
 
 enum inventory_movements_movement_type {
@@ -840,8 +846,8 @@ enum orders_order_status {
   REJECTED
   RETURNED
   OUT_OF_STOCK
+  ON_HOLD
 }
-
 enum orders_payment_status {
   UNPAID
   PENDING
