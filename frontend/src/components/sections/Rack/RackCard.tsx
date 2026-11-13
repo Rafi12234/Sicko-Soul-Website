@@ -1,14 +1,14 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { gsap, ScrollTrigger } from "@/lib/gsap";
 import { COLOR, EASE, themeColor } from "@/styles/theme";
 import { RACK_COPY, type RackProduct } from "@/data/rack";
 import { getProductVariants } from "@/data/products";
 import { getCatalogProduct } from "@/lib/catalogApi";
-import StockCount from "@/components/commerce/StockCount";
 import { useCartStore } from "@/store/useCartStore";
 import styles from "./Rack.module.css";
 
@@ -28,7 +28,9 @@ export default function RackCard({ product, offsetClass }: Props) {
   const router = useRouter();
   const addItem = useCartStore((state) => state.addItem);
   const cardRef = useRef<HTMLElement>(null);
-  const frameRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLAnchorElement>(null);
+  const [galleryFrame, setGalleryFrame] = useState(1);
+  const gallery = product.gallery.length ? product.gallery : [{url:product.still,alt:product.name}];
   const stillRef = useRef<HTMLDivElement>(null);
   const wornRef = useRef<HTMLDivElement>(null);
   const numeralRef = useRef<HTMLSpanElement>(null);
@@ -51,6 +53,21 @@ export default function RackCard({ product, offsetClass }: Props) {
       gsap.set(worn, { scale: 1.12 });
 
       let active = false;
+      let galleryTimer: ReturnType<typeof setInterval> | null = null;
+      const stopGallery = () => {
+        if (galleryTimer !== null) window.clearInterval(galleryTimer);
+        galleryTimer = null;
+        gsap.killTweensOf(worn);
+        gsap.set(worn, {autoAlpha:1});
+      };
+      const advanceGallery = () => {
+        if (!active || gallery.length < 3) return;
+        gsap.to(worn, { autoAlpha:0.15, duration:0.2, overwrite:true, onComplete: () => {
+          if (!active) return;
+          setGalleryFrame(index => (index + 1) % gallery.length);
+          gsap.to(worn, { autoAlpha:1, duration:0.45, ease:EASE.expo, overwrite:true });
+        } });
+      };
       let swap: gsap.core.Timeline | null = null;
 
       // Killing a timeline mid-flight would otherwise strand the flash plate or
@@ -61,6 +78,9 @@ export default function RackCard({ product, offsetClass }: Props) {
       const enter = (reduced: boolean) => {
         if (active) return;
         active = true;
+        stopGallery();
+        setGalleryFrame(gallery.length > 1 ? 1 : 0);
+        if (!reduced && gallery.length > 2) galleryTimer = window.setInterval(advanceGallery, 1400);
         swap?.kill();
         clearTransients();
 
@@ -127,6 +147,7 @@ export default function RackCard({ product, offsetClass }: Props) {
       const leave = () => {
         if (!active) return;
         active = false;
+        stopGallery();
         swap?.kill();
         clearTransients();
 
@@ -271,7 +292,7 @@ export default function RackCard({ product, offsetClass }: Props) {
         };
       });
 
-      return () => actionCleanups.forEach((fn) => fn());
+      return () => { stopGallery(); actionCleanups.forEach((fn) => fn()); };
     }, cardRef);
 
     return () => ctx.revert();
@@ -288,8 +309,8 @@ export default function RackCard({ product, offsetClass }: Props) {
       const variants = getProductVariants(lookup.product);
       const variant =
         variants.find(
-          (entry) => entry.isDefault && entry.status === "ACTIVE" && entry.availableQty > 0,
-        ) ?? variants.find((entry) => entry.status === "ACTIVE" && entry.availableQty > 0);
+          (entry) => entry.isDefault && entry.status === "ACTIVE" && entry.inStock,
+        ) ?? variants.find((entry) => entry.status === "ACTIVE" && entry.inStock);
       if (variant) await addItem(variant.id, 1);
     } catch {
       // The cart store exposes the actionable error state.
@@ -298,7 +319,7 @@ export default function RackCard({ product, offsetClass }: Props) {
 
   const handleBuyNow = () => {
     if (!product.available) return;
-    router.push(`/buy-now?product=${encodeURIComponent(product.id)}&qty=1`);
+    router.push(`/buy-now?product=${encodeURIComponent(product.id)}&variant=${encodeURIComponent(product.variantId ?? "")}&qty=1`);
   };
 
   return (
@@ -309,18 +330,20 @@ export default function RackCard({ product, offsetClass }: Props) {
     >
       {/* Paper wraps the garment only — the plate is a mount, not a card. */}
       <div className="theme-light bg-black p-3 shadow-print">
-        <div
+        <Link
+          href={`/products/${encodeURIComponent(product.id)}`}
+          aria-label={`View ${product.name} product details`}
           ref={frameRef}
-          className={`${styles.frame} relative aspect-[4/5] overflow-hidden border border-bone-white/15 bg-off-black`}
+          className={`${styles.frame} block relative aspect-[4/5] overflow-hidden border border-bone-white/15 bg-off-black`}
         >
         {/* Worn shot sits underneath and is oversized so the drift never
             exposes the frame edge. Top-biased crop keeps every model framed
             the same way despite the source files differing in aspect. */}
         <div ref={wornRef} className="absolute -inset-[7%] z-0">
-          {product.worn ? (
+          {gallery.length > 0 && gallery[galleryFrame % gallery.length]?.url ? (
             <Image
-              src={product.worn}
-              alt={`${product.name} worn`}
+              src={gallery[galleryFrame % gallery.length].url}
+              alt={gallery[galleryFrame % gallery.length].alt}
               fill
               sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 24vw"
               className="media-product object-cover object-[50%_8%]"
@@ -389,7 +412,7 @@ export default function RackCard({ product, offsetClass }: Props) {
         >
           {RACK_COPY.still}
         </span>
-        </div>
+        </Link>
       </div>
 
       {/* Meta sits off the plate, on the dark field, in bone and blood only. */}
@@ -397,7 +420,7 @@ export default function RackCard({ product, offsetClass }: Props) {
         <div className="flex items-baseline gap-3">
           <span className="h-px w-5 shrink-0 bg-blood-accent" />
           <h3 className="font-display text-[clamp(1.1rem,1.6vw,1.5rem)] leading-none tracking-crushed text-bone-white">
-            {product.name}
+            <Link href={`/products/${encodeURIComponent(product.id)}`} className="hover:text-blood-accent focus-visible:underline">{product.name}</Link>
           </h3>
         </div>
         <p className="mt-2 pl-8 font-stencil text-[0.58rem] tracking-stencil text-blood-accent/85">
@@ -421,10 +444,6 @@ export default function RackCard({ product, offsetClass }: Props) {
         </span>
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        <span className="font-stencil text-[0.52rem] tracking-stencil text-concrete-gray">TOTAL STOCK / ALL SIZES</span>
-        <StockCount availableQty={product.availableQty} />
-      </div>
 
       <div className="mt-4 grid grid-cols-1 gap-2 xl:grid-cols-2">
         <button
