@@ -13,7 +13,6 @@ import { cloudinaryVideoPoster, cloudinaryVideoUrl, cloudinaryVideoMp4Url } from
 import { archiveProductFromApi, listCatalogCategories } from "@/lib/catalogApi";
 import { listCollections } from "@/lib/customerApi";
 import type { CollectionRecord, PublicCategoryRecord } from "@/types/commerce";
-import StockCount from "@/components/commerce/StockCount";
 import { createVideoPlaybackController, type VideoPlaybackController, type VideoPlaybackIssue } from "@/lib/videoPlayback";
 import styles from "./Drop.module.css";
 
@@ -38,7 +37,12 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
     Promise.all([listCollections(), listCatalogCategories()])
       .then(([collections, nextCategories]) => {
         if (!alive) return;
-        const selected = collections.find((entry) => entry.status === "LIVE") ?? collections[0] ?? null;
+        // The New Drop shelf is opt-in: never display a regular product merely
+        // because it exists in the catalogue, and never fall back to a stale drop.
+        const hasVisibleProducts = (entry: CollectionRecord) => entry.products.some((item) => item.product != null);
+        const selected = collections.find((entry) => entry.status === "LIVE" && hasVisibleProducts(entry))
+          ?? collections.find((entry) => entry.status === "SCHEDULED" && hasVisibleProducts(entry))
+          ?? null;
         setCollection(selected);
         setCategories(nextCategories);
       })
@@ -73,7 +77,7 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
               src: archive.still,
               alt: archive.alt,
               price: archive.price,
-              availableQty: archive.availableQty,
+              inStock: archive.inStock,
               spec: product.spec ?? "",
               sealed: entry.sealed || collection.status !== "LIVE",
             };
@@ -807,9 +811,6 @@ export default function Drop({ videoUrl }: { videoUrl: string }) {
                           <p className="drop-tile-spec mt-1.5 font-stencil text-[0.48rem] tracking-stencil text-concrete-gray">
                             {piece.spec}
                           </p>
-                          {!piece.sealed && (
-                            <StockCount availableQty={piece.availableQty} className="mt-2 border-0 bg-black/75 px-0 py-0 text-[0.6rem]" />
-                          )}
                         </div>
                       </article>
                     ))}
