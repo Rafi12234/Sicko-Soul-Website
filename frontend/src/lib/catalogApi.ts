@@ -29,25 +29,96 @@ function moneyLabel(value: number) {
   return `৳ ${new Intl.NumberFormat("en-BD", { maximumFractionDigits: 0 }).format(value)}`;
 }
 
+/**
+ * Backward compatibility for backend instances that have not been restarted with
+ * the new colour-aware product mapper yet. Older responses omit `colorCode`,
+ * but the real-catalogue image alt text and variant SKU still identify colour.
+ * A supplied API colour always wins, so admin-created colours remain dynamic.
+ */
+function resolveProductColor(
+  colorCode: string | null | undefined,
+  ...hints: Array<string | null | undefined>
+): string {
+  const explicit = typeof colorCode === "string" ? colorCode.trim().toUpperCase() : "";
+  if (explicit) return explicit;
+
+  for (const hint of hints) {
+    const match = hint?.match(/(?:^|[^a-z0-9])(BLACK|WHITE)(?=$|[^a-z0-9])/i);
+    if (match?.[1]) return match[1].toUpperCase();
+  }
+  return "BLACK";
+}
+
+/**
+ * The first real-catalogue spreadsheet import accidentally labelled model photos
+ * (`*_front_*`) as STILL and the garment-only photos (`*_F_*`) as WORN.
+ *
+ * Correct only that exact legacy import shape. New admin-uploaded products and
+ * intentionally reordered galleries keep their database-defined image order.
+ * Once the one-time image-order SQL has corrected the database, this is a no-op.
+ */
+function correctInitialRealCatalogueFrames(
+  productId: string,
+  images: ProductImageRecord[],
+): ProductImageRecord[] {
+  if (!productId.startsWith("SS-REAL-")) return images;
+
+  const corrected = images.map(image => ({ ...image }));
+  const colors = Array.from(new Set(corrected.map(image => image.colorCode)));
+
+  for (const color of colors) {
+    const frames = corrected
+      .filter(image => image.colorCode === color)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    // Only adjust untouched four-frame imports: model front, model back,
+    // garment front, garment back. Admin order overrides remain respected.
+    if (
+      frames.length !== 4 ||
+      frames[0].type !== "STILL" ||
+      frames[2].type !== "WORN" ||
+      !/_front_[^/]+\.(?:png|jpe?g|webp)(?:\?.*)?$/i.test(frames[0].url) ||
+      !/_F_[^/]+\.(?:png|jpe?g|webp)(?:\?.*)?$/i.test(frames[2].url) ||
+      !/_B_[^/]+\.(?:png|jpe?g|webp)(?:\?.*)?$/i.test(frames[3].url)
+    ) continue;
+
+    const firstOrder = frames[0].sortOrder;
+    frames[2].sortOrder = firstOrder;
+    frames[2].type = "STILL";
+    frames[2].label = "T-SHIRT FRONT";
+    frames[3].sortOrder = firstOrder + 10;
+    frames[1].sortOrder = firstOrder + 30;
+    frames[0].sortOrder = firstOrder + 20;
+    frames[0].type = "WORN";
+    frames[0].label = "ON MODEL";
+  }
+
+  return corrected.sort((a, b) => a.sortOrder - b.sortOrder);
+}
+
 export function archiveProductFromApi(record: PublicProductRecord): ArchiveProduct {
-  const gallery: ProductImageRecord[] = record.images
+  const importedGallery: ProductImageRecord[] = record.images
     .slice()
     .sort((a, b) => a.sortOrder - b.sortOrder)
     .map((image) => ({
       id: image.id,
       type: image.type,
+      colorCode: resolveProductColor(image.colorCode, image.alt, image.url),
       url: image.url,
       alt: image.alt ?? record.name,
       label: image.type === "STILL" ? "OBJECT" : image.type === "WORN" ? "ON BODY" : undefined,
       sortOrder: image.sortOrder,
     }));
 
+  const gallery = correctInitialRealCatalogueFrames(record.id, importedGallery);
+
   const variants: ProductVariantRecord[] = record.variants.map((variant) => ({
     id: variant.id,
     size: variant.size,
+    colorCode: resolveProductColor(variant.colorCode, variant.sku),
     sku: variant.sku,
     price: variant.price,
-    availableQty: variant.availableQty,
+    inStock: variant.inStock,
     status: variant.status,
     isDefault: variant.isDefault,
   }));
@@ -56,8 +127,18 @@ export function archiveProductFromApi(record: PublicProductRecord): ArchiveProdu
     variants.find((variant) => variant.id === record.defaultVariantId) ??
     variants.find((variant) => variant.status === "ACTIVE") ??
     variants[0];
-  const still = record.primaryImage ?? gallery[0] ?? null;
-  const worn = record.wornImage;
+  // The normalized gallery decides the hero image, not the stale API primaryImage
+  // metadata from the initial import. The default colour remains Black.
+  const still =
+    gallery.find(image => image.type === "STILL" && image.colorCode === defaultVariant?.colorCode) ??
+    gallery.find(image => image.type === "STILL") ??
+    record.primaryImage ??
+    gallery[0] ??
+    null;
+  const worn =
+    gallery.find(image => image.type === "WORN" && image.colorCode === defaultVariant?.colorCode) ??
+    gallery.find(image => image.type === "WORN") ??
+    record.wornImage;
   const displayPrice = defaultVariant?.price ?? record.basePrice;
 
   return {
@@ -66,7 +147,7 @@ export function archiveProductFromApi(record: PublicProductRecord): ArchiveProdu
     name: record.name,
     price: moneyLabel(displayPrice),
     priceValue: displayPrice,
-    availableQty: record.availability.availableQty,
+    inStock: record.availability.status === "IN_STOCK",
     spec: record.spec ?? "",
     line: record.tagline ?? "",
     description: record.description ?? "",
@@ -74,7 +155,7 @@ export function archiveProductFromApi(record: PublicProductRecord): ArchiveProdu
       .slice()
       .sort((a, b) => a.sortOrder - b.sortOrder)
       .map((feature) => feature.text),
-    sizes: variants.filter((variant) => variant.status !== "ARCHIVED").map((variant) => variant.size),
+    sizes: Array.from(new Set(variants.filter((variant) => variant.status !== "ARCHIVED").map((variant) => variant.size))),
     defaultSize: defaultVariant?.size ?? "",
     still: still?.url ?? "",
     worn: worn?.url,
