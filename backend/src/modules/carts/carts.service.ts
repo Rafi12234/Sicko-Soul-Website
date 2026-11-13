@@ -74,12 +74,13 @@ export async function addCartItem(cartToken: string, input: { variantId: string;
   if (nextQty > 20) {
     throw new AppError({ statusCode: 422, code: "CART_ITEM_QUANTITY_LIMIT", message: "You can add at most 20 of one size." });
   }
-  if (nextQty > available) {
+  // Never reveal the inventory threshold through cart quantity probing.
+  // Cart is not a reservation: actual stock for the requested quantity is checked at checkout.
+  if (available === 0) {
     throw new AppError({
       statusCode: 409,
       code: "INSUFFICIENT_STOCK",
-      message: "The requested cart quantity is no longer available.",
-      details: { available },
+      message: "The selected size is currently sold out.",
     });
   }
 
@@ -167,12 +168,13 @@ export async function updateCartItem(
       message: "A cart line cannot exceed 20 units.",
     });
   }
-  if (nextQty > available) {
+  // Never reveal the inventory threshold through cart quantity probing.
+  // Cart is not a reservation: actual stock for the requested quantity is checked at checkout.
+  if (available === 0) {
     throw new AppError({
       statusCode: 409,
       code: "INSUFFICIENT_STOCK",
-      message: "The requested cart quantity is no longer available.",
-      details: { available },
+      message: "The selected size is currently sold out.",
     });
   }
 
