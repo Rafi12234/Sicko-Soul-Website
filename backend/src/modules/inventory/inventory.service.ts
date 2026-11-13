@@ -42,11 +42,6 @@ export async function lockAndVerifyAvailableStock(
         statusCode: 409,
         code: "INSUFFICIENT_STOCK",
         message: "One or more selected sizes no longer have enough available stock.",
-        details: {
-          variantId: line.variantId.toString(),
-          requested: line.quantity,
-          available: Math.max(0, available),
-        },
       });
     }
   }
@@ -221,6 +216,7 @@ export async function listInventory(input: { q?: string | undefined; lowStock?: 
       productName: row.product_variants.products.name,
       sku: row.product_variants.sku,
       size: row.product_variants.sizes.code,
+      colorCode: row.product_variants.color_code,
       variantStatus: row.product_variants.status,
       basePrice: decimalToNumber(row.product_variants.products.base_price),
       currency: row.product_variants.products.currency,
