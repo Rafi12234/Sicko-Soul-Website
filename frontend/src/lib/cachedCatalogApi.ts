@@ -14,7 +14,7 @@ const REVALIDATE_SECONDS = 10;
 
 export const getCachedCatalogArchive = unstable_cache(
   getCatalogArchive,
-  ["sicko-public-catalog-archive-v1"],
+  ["sicko-public-catalog-archive-stock-private-v2"],
   { revalidate: REVALIDATE_SECONDS, tags: ["sicko-public-catalog"] },
 );
 
