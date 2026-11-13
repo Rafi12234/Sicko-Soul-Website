@@ -7,6 +7,15 @@ export type AccessKind = "order" | "complaint";
 const audience = "sicko-soul-customer";
 const issuer = "sicko-soul-api";
 
+// A private link is a bearer credential. The token belongs in the URL fragment,
+// which is not sent in HTTP requests or included in normal referrer headers.
+// The storefront consumes it immediately and stores it in the customer's browser.
+export function privateOrderTrackingUrl(reference: string): string {
+  const origin = env.FRONTEND_ORIGIN.replace(/\/$/, "");
+  const token = signCustomerAccess("order", reference);
+  return `${origin}/orders/${encodeURIComponent(reference)}#access=${encodeURIComponent(token)}`;
+}
+
 // A reference is never proof of ownership. Token is scoped to one exact record.
 export function signCustomerAccess(kind: AccessKind, reference: string, expiresInSeconds = 60 * 60 * 24 * 30): string {
   return jwt.sign({ kind, reference }, env.JWT_SECRET, {
