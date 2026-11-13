@@ -12,7 +12,7 @@ import {
 } from "react";
 import { gsap, SplitText } from "@/lib/gsap";
 import { EASE } from "@/styles/theme";
-import { getVariantBySize, type ProductLookup } from "@/data/products";
+import { getVariantBySize, getVariantById, type ProductLookup } from "@/data/products";
 import { createIdempotencyKey, money } from "@/lib/commerce";
 import { createOrder } from "@/lib/customerApi";
 import { useCartStore } from "@/store/useCartStore";
@@ -24,6 +24,7 @@ type OrderIntakeProps = {
   source?: string;
   productId?: string;
   size?: string;
+  variantId?: string;
   quantity?: number;
   buyNowProduct?: ProductLookup | null;
 };
@@ -37,13 +38,13 @@ type CheckoutLine = {
   imageUrl: string | null;
   imageAlt: string;
   size: string;
+  colorCode: string;
   sku: string;
   unitPrice: number;
-  availableQty: number;
   quantity: number;
 };
 
-export default function OrderIntake({ source, productId, size, quantity = 1, buyNowProduct }: OrderIntakeProps) {
+export default function OrderIntake({ source, productId, size, variantId, quantity = 1, buyNowProduct }: OrderIntakeProps) {
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
   const inFlightRef = useRef(false);
@@ -67,19 +68,20 @@ export default function OrderIntake({ source, productId, size, quantity = 1, buy
         imageUrl: item.imageUrl,
         imageAlt: item.productName,
         size: item.size,
+        colorCode: item.colorCode,
         sku: item.sku,
         unitPrice: item.unitPrice,
-        availableQty: item.stockMax,
         quantity: item.quantity,
       }));
     }
 
     if (!buyNowProduct) return [];
-    const variant = getVariantBySize(
+    // Resolve the precise colour+size variant, never a size-only approximation.
+    const variant = variantId ? getVariantById(buyNowProduct.product, variantId) : getVariantBySize(
       buyNowProduct.product,
       size ?? buyNowProduct.product.defaultSize,
     );
-    if (!variant || variant.status !== "ACTIVE" || variant.availableQty <= 0) return [];
+    if (!variant || variant.status !== "ACTIVE" || !variant.inStock) return [];
 
     return [
       {
@@ -88,16 +90,16 @@ export default function OrderIntake({ source, productId, size, quantity = 1, buy
         productName: buyNowProduct.product.name,
         productIndex: buyNowProduct.product.index,
         categoryName: buyNowProduct.category.name,
-        imageUrl: buyNowProduct.product.still,
+        imageUrl: buyNowProduct.product.gallery.find(image => image.colorCode === variant.colorCode)?.url ?? buyNowProduct.product.still,
         imageAlt: buyNowProduct.product.alt,
         size: variant.size,
+        colorCode: variant.colorCode,
         sku: variant.sku,
         unitPrice: variant.price,
-        availableQty: variant.availableQty,
-        quantity: Math.max(1, Math.min(variant.availableQty, quantity)),
+        quantity: Math.max(1, Math.min(20, quantity)),
       },
     ];
-  }, [buyNowProduct, cartItems, isCart, quantity, size]);
+  }, [buyNowProduct, cartItems, isCart, quantity, size, variantId]);
 
   const subtotal = lines.reduce((sum, line) => sum + line.unitPrice * line.quantity, 0);
   const itemCount = lines.reduce((sum, line) => sum + line.quantity, 0);
@@ -291,7 +293,7 @@ export default function OrderIntake({ source, productId, size, quantity = 1, buy
           <div className="mt-7">
             <SickoButton type="submit" tone="blood" full disabled={submitting}>{submitting ? "SEALING ORDER..." : "SEAL ORDER REQUEST"}</SickoButton>
           </div>
-          <p className="mt-4 max-w-[55ch] font-body text-sm leading-relaxed text-concrete-gray">Your order is a request, not a reservation. Our team will call to confirm. Stock is not guaranteed until we confirm by phone. Prices and stock are checked again by the server.</p>
+          <p className="mt-4 max-w-[55ch] font-body text-sm leading-relaxed text-concrete-gray">Your order is a request, not a reservation. Our team will review the request before confirming. Stock is not guaranteed until the admin confirms. Prices and stock are checked again by the server.</p>
         </form>
 
         <aside className={`${styles.summary} order-summary h-fit border border-bone-white/15 bg-off-black p-6 xl:sticky xl:top-28 xl:col-span-5`}>
@@ -317,7 +319,7 @@ export default function OrderIntake({ source, productId, size, quantity = 1, buy
                   <p className="mt-1 font-display text-[1.8rem] leading-[0.85] tracking-crushed">{line.productName}</p>
                 </div>
                 <div className="mt-3 flex items-end justify-between gap-3">
-                  <span className="font-body text-[0.68rem] font-semibold uppercase leading-[1.65] tracking-[0.13em] text-concrete-gray">SIZE {line.size}<br />QTY {String(line.quantity).padStart(2, "0")}</span>
+                  <span className="font-body text-[0.68rem] font-semibold uppercase leading-[1.65] tracking-[0.13em] text-concrete-gray">COLOUR {line.colorCode} / SIZE {line.size}<br />QTY {String(line.quantity).padStart(2, "0")}</span>
                   <span className="font-body text-base font-semibold">{money(line.unitPrice * line.quantity)}</span>
                 </div>
               </div>
