@@ -96,5 +96,17 @@ if (
 ) {
   throw new Error("Production email sending requires EMAIL_TRANSPORT=resend; disable EMAIL_WORKER_ENABLED until configured.");
 }
+// Never email a real customer a tracking link to localhost or an insecure URL.
+if (
+  parsed.data.NODE_ENV === "production" &&
+  parsed.data.EMAIL_WORKER_ENABLED &&
+  parsed.data.EMAIL_TRANSPORT === "resend"
+) {
+  const site = new URL(parsed.data.FRONTEND_ORIGIN);
+  if (site.protocol !== "https:" || site.hostname === "localhost" || site.hostname === "127.0.0.1") {
+    throw new Error("FRONTEND_ORIGIN must be the public HTTPS store URL when production order emails are enabled.");
+  }
+}
+
 export const env = Object.freeze(parsed.data);
 export type AppEnv = typeof env;
