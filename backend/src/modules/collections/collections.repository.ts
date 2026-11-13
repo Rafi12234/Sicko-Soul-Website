@@ -9,7 +9,7 @@ const publicMembershipWhere = {
     is: {
       status: "ACTIVE",
       product_categories: {
-        is: { is_active: true },
+        is: { is_active: true, catalog_segments: { is: { is_active: true } } },
       },
     },
   },
@@ -39,7 +39,12 @@ export type CollectionDetailRow = Prisma.collectionsGetPayload<{ include: typeof
 
 export function listPublicCollections() {
   return prisma.collections.findMany({
-    where: { status: { in: [...visibleCollectionStatuses] } },
+    // A normal catalogue product never becomes a drop automatically.
+    // Hide collections that have no explicit, public-eligible memberships.
+    where: {
+      status: { in: [...visibleCollectionStatuses] },
+      collection_products: { some: publicMembershipWhere },
+    },
     include: detailInclude,
     orderBy: [{ release_year: "desc" }, { opens_at: "desc" }, { collection_id: "desc" }],
   });
@@ -50,6 +55,7 @@ export function findPublicCollection(slug: string) {
     where: {
       slug,
       status: { in: [...visibleCollectionStatuses] },
+      collection_products: { some: publicMembershipWhere },
     },
     include: detailInclude,
   });
