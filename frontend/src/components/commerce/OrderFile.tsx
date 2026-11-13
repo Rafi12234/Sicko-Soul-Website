@@ -84,7 +84,7 @@ export default function OrderFile({
   if (loadError) {
     return (
       <RecordShell index="00" eyebrow="ORDER FILE / CONNECTION ERROR" title="ORDER FILE UNAVAILABLE" subtitle={loadError}>
-        <p className="mb-4 font-body text-sm text-concrete-gray">This order requires the private access link saved during checkout. Email recovery is temporarily disabled; your order is not publicly accessible.</p>
+        <p className="mb-4 font-body text-sm text-concrete-gray">This order requires the private access link saved during checkout. You can also open the private link sent to your checkout email address. Your order is not publicly accessible.</p>
         <SickoButton href="/track-order" tone="blood">OPEN ORDER TRACKER</SickoButton>
       </RecordShell>
     );
@@ -106,14 +106,15 @@ export default function OrderFile({
   }
 
   const current = orderStatusIndex(order.status);
-  const progressionStopped = current < 0;
+  const isWaitingForRestock = order.status === "ON_HOLD";
+  const progressionStopped = current < 0 && !isWaitingForRestock;
 
   return (
     <RecordShell
       index="05"
       eyebrow={confirmation ? "ORDER SEALED / RECEIPT" : "ORDER FILE / LIVE STATUS"}
       title={confirmation ? "ORDER RECEIVED" : order.reference}
-      subtitle={confirmation ? `Your request ${order.reference} was received. Our team will call you before confirming; stock is not reserved or guaranteed.` : "Your order status is shown below. Pending requests do not reserve stock."}
+      subtitle={confirmation ? `Your request ${order.reference} was received. Save the private tracking link below; a copy is emailed when notifications are enabled. Our team reviews every order before confirmation. Stock is not reserved until confirmed.` : "Your order status is shown below. Pending requests do not reserve stock."}
     >
       <div className="mb-7 flex flex-wrap items-center gap-4 border border-bone-white/20 bg-off-black p-4">
         <button type="button" className="border border-bone-white/50 px-4 py-3 font-body text-xs font-semibold uppercase tracking-widest text-bone-white" onClick={async () => {
@@ -122,7 +123,7 @@ export default function OrderFile({
           try { await navigator.clipboard.writeText(link); setSignal("PRIVATE ORDER LINK COPIED. STORE IT SAFELY."); }
           catch { setSignal("COULD NOT COPY. CHECK BROWSER CLIPBOARD PERMISSIONS."); }
         }}>COPY PRIVATE ORDER LINK</button>
-        <p className="font-body text-xs text-concrete-gray">Save this link privately. No email recovery is available yet.</p>
+        <p className="font-body text-xs text-concrete-gray">Keep this link private. The tracking link is also included in order emails when notifications are enabled.</p>
       </div>
       <div className="grid gap-10 xl:grid-cols-12">
         <div className="space-y-8 xl:col-span-8">
@@ -132,7 +133,14 @@ export default function OrderFile({
               <span className="border border-bone-white/20 px-3 py-2 font-body text-[0.68rem] font-semibold uppercase tracking-[0.15em]">{humanizeStatus(order.status)}</span>
             </div>
 
-            {progressionStopped ? (
+            {isWaitingForRestock ? (
+              <div className="mt-7 border-l-2 border-amber-500 bg-amber-800/10 p-5">
+                <p className="font-display text-[clamp(2.3rem,5vw,4.8rem)] leading-[0.85] tracking-crushed">ON HOLD</p>
+                <p className="mt-3 max-w-[52ch] font-body text-base leading-relaxed text-bone-white/70">Your request is waiting for incoming stock. It is not yet confirmed, and no items have been reserved.</p>
+                {order.holdExpectedRestockDate && <p className="mt-3 font-body text-sm">Expected restock: {order.holdExpectedRestockDate}</p>}
+                {order.holdCustomerWaitUntil && <p className="mt-2 font-body text-sm">Agreed wait-until: {order.holdCustomerWaitUntil}</p>}
+              </div>
+            ) : progressionStopped ? (
               <div className="mt-7 border-l-2 border-blood-accent bg-blood-accent/10 p-5">
                 <p className="font-display text-[clamp(2.3rem,5vw,4.8rem)] leading-[0.85] tracking-crushed">{humanizeStatus(order.status)}</p>
                 <p className="mt-3 max-w-[46ch] font-body text-base leading-relaxed text-bone-white/60">{order.status === "OUT_OF_STOCK" ? "We could not confirm your request because the requested items are unavailable. A notification email will be sent if email delivery is enabled." : "This order is no longer moving through the standard delivery sequence."}</p>
