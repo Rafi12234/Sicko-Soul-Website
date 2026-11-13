@@ -12,6 +12,7 @@ export type ProductCategoryRef = {
 export type ProductImage = {
   id: string;
   type: ProductImageType;
+  colorCode: string;
   url: string;
   alt: string | null;
   sortOrder: number;
@@ -26,20 +27,18 @@ export type ProductFeature = {
 export type ProductVariant = {
   id: string;
   size: string;
+  colorCode: string;
   sizeLabel: string;
   sizeGroup: "TOP" | "PANT" | "GENERAL";
   sku: string;
   price: number;
-  availableQty: number;
-  onHandQty: number;
-  reservedQty: number;
+  inStock: boolean;
   status: ProductVariantStatus;
   isDefault: boolean;
 };
 
 export type ProductAvailability = {
   status: ProductAvailabilityStatus;
-  availableQty: number;
 };
 
 export type PublicProduct = {
