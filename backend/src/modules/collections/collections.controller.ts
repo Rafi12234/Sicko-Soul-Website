@@ -10,6 +10,7 @@ import {
 import {
   createCollectionForAdmin,
   getCollectionsForAdmin,
+  getCollectionForAdmin,
   getPublicCollection,
   getPublicCollections,
   setCollectionProductsForAdmin,
@@ -29,6 +30,11 @@ export const getCollectionController: RequestHandler = async (req, res) => {
 export const adminListCollectionsController: RequestHandler = async (_req, res) => {
   const data = await getCollectionsForAdmin();
   res.json({ data, meta: { count: data.length } });
+};
+
+export const adminGetCollectionController: RequestHandler = async (req, res) => {
+  const { collectionId } = adminCollectionIdParamsSchema.parse(req.params);
+  res.json({ data: await getCollectionForAdmin(BigInt(collectionId)) });
 };
 
 export const adminCreateCollectionController: RequestHandler = async (req, res) => {
