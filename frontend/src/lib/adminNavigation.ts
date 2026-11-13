@@ -16,6 +16,7 @@ export const ADMIN_SECTIONS: readonly AdminSection[] = [
   {href:"/admin/media",label:"Site Media",group:"WORKSPACE",short:"IM",roles:managers},
   {href:"/admin/catalog",label:"Categories & Segments",group:"COMMERCE",short:"CT",roles:managers},
   {href:"/admin/products",label:"Products",group:"COMMERCE",short:"PR",roles:managers},
+  {href:"/admin/drops",label:"New Drops",group:"COMMERCE",short:"DR",roles:managers},
   {href:"/admin/orders",label:"Orders",group:"COMMERCE",short:"OR",roles:orders},
   {href:"/admin/inventory",label:"Inventory",group:"COMMERCE",short:"ST",roles:inventory},
   {href:"/admin/shipments",label:"Shipments",group:"COMMERCE",short:"SH",roles:orders},
