@@ -18,6 +18,7 @@ import {
   sellAvailableStock,
 } from "../inventory/inventory.service.js";
 import { enqueueEmail } from "../email/email.service.js";
+import { privateOrderTrackingUrl } from "../customer-access/customer-access.js";
 import { mapOrder } from "./orders.mapper.js";
 import {
   findOrderById,
@@ -142,7 +143,9 @@ export async function createOrder(input: CreateOrderInput) {
           ? decimalToNumber(variant.price_override)
           : decimalToNumber(variant.products.base_price);
         const image =
-          variant.products.product_images.find((item) => item.image_type === "STILL") ??
+          variant.products.product_images.find((item) => item.image_type === "STILL" && item.color_code === variant.color_code) ??
+           variant.products.product_images.find((item) => item.color_code === variant.color_code) ??
+           variant.products.product_images.find((item) => item.image_type === "STILL") ??
           variant.products.product_images[0] ??
           null;
         return {
@@ -257,7 +260,7 @@ export async function createOrder(input: CreateOrderInput) {
         product_public_id_snapshot: entry.variant.products.public_id,
         sku_snapshot: entry.variant.sku,
         product_name_snapshot: entry.variant.products.name,
-        size_snapshot: entry.variant.sizes.code,
+        size_snapshot: `${entry.variant.color_code} / ${entry.variant.sizes.code}`,
         image_url_snapshot: entry.imageUrl,
         unit_price: entry.unitPrice,
         quantity: entry.quantity,
@@ -274,7 +277,7 @@ export async function createOrder(input: CreateOrderInput) {
       },
     });
 
-    // An order request does NOT reserve inventory. Staff confirms after calling
+    // An order request does NOT reserve inventory. Staff confirms after reviewing
     // at night; only confirmation deducts stock. Old orders keep legacy holds.
 
     await tx.payments.create({
@@ -294,7 +297,15 @@ export async function createOrder(input: CreateOrderInput) {
       recipientName: order.customer_name, recipientEmail: order.customer_email,
       subject: `SICKO SOUL / ORDER ${order.order_reference} RECEIVED`,
       templateKey: "order-received",
-      payload: { orderReference: order.order_reference, status: "PENDING_CONFIRMATION", paymentMethod: order.payment_method, message: "We received your request. Our team will call to confirm. Stock is not reserved or guaranteed until confirmed." },
+      payload: {
+        orderReference: order.order_reference,
+        status: "PENDING_CONFIRMATION",
+        customerName: order.customer_name,
+        paymentMethod: order.payment_method,
+        totalBDT: subtotal + deliveryCharge,
+        trackingUrl: privateOrderTrackingUrl(order.order_reference),
+        message: "We received your order request. Our team will review it before confirmation. Your order is not confirmed and stock is not reserved yet.",
+      },
     });
 
     if (sourceCartId) {
@@ -329,7 +340,8 @@ export async function getOrder(reference: string) {
 }
 
 const transitions: Record<orders_order_status, orders_order_status[]> = {
-  PENDING_CONFIRMATION: ["CONFIRMED", "CANCELLED", "REJECTED", "OUT_OF_STOCK"],
+  PENDING_CONFIRMATION: ["ON_HOLD", "CONFIRMED", "CANCELLED", "REJECTED", "OUT_OF_STOCK"],
+  ON_HOLD: ["CONFIRMED", "CANCELLED", "REJECTED", "OUT_OF_STOCK"],
   CONFIRMED: ["PROCESSING", "CANCELLED"],
   PROCESSING: ["SHIPPED", "CANCELLED"],
   SHIPPED: ["DELIVERED", "RETURNED"],
@@ -352,6 +364,8 @@ export async function updateOrderStatus(
     status: orders_order_status;
     note?: string | undefined;
     cancellationReason?: string | undefined;
+    holdExpectedRestockDate?: string | undefined;
+    holdCustomerWaitUntil?: string | undefined;
   },
   audit: AuditContext,
 ) {
@@ -368,7 +382,8 @@ export async function updateOrderStatus(
     });
     if (!order) throw new AppError({ statusCode: 404, code: "ORDER_NOT_FOUND", message: "Order was not found." });
 
-    if (order.order_status === input.status) return order.order_id;
+    // Reapplying ON_HOLD updates the dates/reason and sends an updated notification.
+    if (order.order_status === input.status && input.status !== "ON_HOLD") return order.order_id;
     if (["SHIPPED", "DELIVERED", "RETURNED"].includes(input.status)) {
       throw new AppError({ statusCode: 409, code: "SHIPMENT_WORKFLOW_REQUIRED", message: "Shipping and delivery must be recorded through the shipment workflow." });
     }
@@ -376,7 +391,7 @@ export async function updateOrderStatus(
       const active = await tx.shipments.count({ where: { order_id: order.order_id, status: { notIn: ["CANCELLED", "RETURNED"] } } });
       if (active > 0) throw new AppError({ statusCode: 409, code: "SHIPMENT_MUST_BE_CANCELLED", message: "Close the existing shipment before cancelling this order." });
     }
-    if (!transitions[order.order_status].includes(input.status)) {
+    if (!(input.status === "ON_HOLD" && order.order_status === "ON_HOLD") && !transitions[order.order_status].includes(input.status)) {
       throw new AppError({
         statusCode: 409,
         code: "INVALID_ORDER_STATUS_TRANSITION",
@@ -386,10 +401,26 @@ export async function updateOrderStatus(
 
     const quantities = itemQuantities(order.order_items);
 
-    if (order.order_status === "PENDING_CONFIRMATION" && input.status === "CONFIRMED") {
+    if (["PENDING_CONFIRMATION", "ON_HOLD"].includes(order.order_status) && input.status === "REJECTED") {
+      if (!(input.cancellationReason ?? input.note ?? "").trim()) {
+        throw new AppError({ statusCode: 422, code: "REJECTION_REASON_REQUIRED", message: "Record a reason before rejecting this order." });
+      }
+    }
+
+    if (input.status === "ON_HOLD") {
+      const today = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString().slice(0, 10);
+      if (!input.note || input.note.trim().length < 10 || !input.holdExpectedRestockDate || !input.holdCustomerWaitUntil ||
+          input.holdExpectedRestockDate < today || input.holdCustomerWaitUntil < input.holdExpectedRestockDate) {
+        throw new AppError({ statusCode: 422, code: "INVALID_HOLD_DETAILS", message: "Enter a reason, future restock date, and the agreed wait-until date." });
+      }
+    }
+
+    if (["PENDING_CONFIRMATION", "ON_HOLD"].includes(order.order_status) && input.status === "CONFIRMED") {
+      // Admin decision does not depend on a separate call log. Inventory is still
+      // checked and deducted atomically. ON_HOLD is NOT a stock reservation.
       if (!order.stock_hold_created_at_checkout) {
         // New COD/manual requests were never reserved. Check all requested sizes
-        // atomically and deduct on-hand stock only after staff phone confirmation.
+        // atomically and deduct on-hand stock only after an admin confirms.
         await sellAvailableStock(tx, quantities, order.order_id, audit.staff.id);
       } else {
         // Legacy orders from before this upgrade may still have a valid hold.
@@ -401,12 +432,11 @@ export async function updateOrderStatus(
       }
     }
 
-    if (
-      order.order_status === "PENDING_CONFIRMATION" &&
-      (input.status === "CANCELLED" || input.status === "REJECTED" || input.status === "OUT_OF_STOCK") &&
-      order.stock_hold_created_at_checkout &&
-      order.reservation_released_at === null
-    ) {
+    const releasesLegacyHold =
+      (order.order_status === "PENDING_CONFIRMATION" || order.order_status === "ON_HOLD") &&
+      (input.status === "CANCELLED" || input.status === "REJECTED" || input.status === "OUT_OF_STOCK" || input.status === "ON_HOLD") &&
+      order.stock_hold_created_at_checkout && order.reservation_released_at === null;
+    if (releasesLegacyHold) {
       // Release only legacy active reservations; new orders never held stock.
       await releaseReservedStock(tx, quantities, order.order_id, audit.staff.id);
     }
@@ -426,11 +456,21 @@ export async function updateOrderStatus(
     }
 
     const now = new Date();
+    const holdRestock = input.status === "ON_HOLD" && input.holdExpectedRestockDate ? new Date(`${input.holdExpectedRestockDate}T00:00:00.000Z`) : null;
+    const holdUntil = input.status === "ON_HOLD" && input.holdCustomerWaitUntil ? new Date(`${input.holdCustomerWaitUntil}T00:00:00.000Z`) : null;
+    const effectiveHoldNote = input.status === "ON_HOLD"
+      ? `Expected restock: ${input.holdExpectedRestockDate}; customer agrees to wait until: ${input.holdCustomerWaitUntil}. ${input.note?.trim() ?? ""}`.slice(0, 500)
+      : input.note ?? null;
     await tx.orders.update({
       where: { order_id: order.order_id },
       data: {
         order_status: input.status,
         last_status_changed_by_staff_id: audit.staff.id,
+        ...(releasesLegacyHold ? { reservation_released_at: now } : {}),
+        ...(input.status === "ON_HOLD" ? {
+          hold_expected_restock_at: holdRestock,
+          hold_customer_wait_until: holdUntil,
+        } : {}),
         ...(input.status === "CONFIRMED"
           ? { confirmed_at: now, confirmed_by_staff_id: audit.staff.id }
           : {}),
@@ -446,17 +486,28 @@ export async function updateOrderStatus(
         from_status: order.order_status,
         to_status: input.status,
         changed_by_staff_id: audit.staff.id,
-        note: input.note ?? null,
+        note: effectiveHoldNote,
       },
     });
 
-    if (order.order_status === "PENDING_CONFIRMATION" && (input.status === "CONFIRMED" || input.status === "REJECTED")) {
-      await tx.order_call_attempts.create({
-        data: {
-          order_id: order.order_id,
-          called_by_staff_id: audit.staff.id,
-          outcome: input.status === "CONFIRMED" ? "CUSTOMER_CONFIRMED" : "CUSTOMER_DECLINED",
-          note: input.note ?? input.cancellationReason ?? null,
+    if (input.status === "ON_HOLD") {
+      // Never deduct or reserve stock for a customer-approved waiting order.
+      await enqueueEmail(tx, {
+        dedupeKey: `order-on-hold:${order.order_id.toString()}:${input.holdExpectedRestockDate}:${input.holdCustomerWaitUntil}`,
+        eventType: "ORDER_ON_HOLD",
+        orderId: order.order_id,
+        customerId: order.customer_id,
+        recipientName: order.customer_name,
+        recipientEmail: order.customer_email,
+        subject: `SICKO SOUL / ORDER ${order.order_reference} ON HOLD`,
+        templateKey: "order-on-hold",
+        payload: {
+          orderReference: order.order_reference,
+          status: "ON_HOLD",
+          expectedRestockDate: input.holdExpectedRestockDate,
+          customerWaitUntil: input.holdCustomerWaitUntil,
+          message: "Your order request is on hold while we await restocking. It is not confirmed, and stock has not been reserved.",
+          trackingUrl: privateOrderTrackingUrl(order.order_reference),
         },
       });
     }
@@ -479,6 +530,7 @@ export async function updateOrderStatus(
           totalBDT: decimalToNumber(order.grand_total),
           deliveryAddress: [order.shipping_address, order.shipping_city, order.shipping_district].filter(Boolean).join(", "),
           paymentMethod: order.payment_method,
+          trackingUrl: privateOrderTrackingUrl(order.order_reference),
         },
       });
     }
@@ -524,6 +576,7 @@ export async function updateOrderStatus(
           message: "Unfortunately the requested items are no longer available. Your request could not be confirmed.",
           items: order.order_items.map(item => `${item.product_name_snapshot} / ${item.size_snapshot} × ${item.quantity}`).join("; "),
           reason: input.cancellationReason ?? input.note ?? "Stock unavailable at confirmation",
+          trackingUrl: privateOrderTrackingUrl(order.order_reference),
         },
       });
     }
@@ -541,6 +594,7 @@ export async function updateOrderStatus(
           orderReference: order.order_reference,
           status: input.status,
           reason: input.cancellationReason ?? input.note ?? "",
+          trackingUrl: privateOrderTrackingUrl(order.order_reference),
         },
       });
     }
@@ -567,7 +621,7 @@ export async function updateOrderStatus(
 
 export async function recordOrderCall(
   reference: string,
-  input: { outcome: "NO_ANSWER" | "CALL_AGAIN"; note?: string | undefined; callbackAt?: string | undefined },
+  input: { outcome: "NO_ANSWER" | "CALL_AGAIN" | "CUSTOMER_CONFIRMED" | "CUSTOMER_DECLINED"; note?: string | undefined; callbackAt?: string | undefined },
   audit: AuditContext,
 ) {
   const orderId = await prisma.$transaction(async tx => {
