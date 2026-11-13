@@ -1,23 +1,19 @@
-/** Customer-facing stock total, supplied by the products API (on hand minus reserved).
- * This is a snapshot for display; cart and checkout revalidate live inventory. */
+/** Customer-facing *boolean* availability only. Exact inventory belongs to admin. */
 export default function StockCount({
-  availableQty,
+  inStock,
   className = "",
 }: {
-  availableQty: number;
+  inStock: boolean;
   className?: string;
 }) {
-  const count = Math.max(0, Math.floor(availableQty));
-  const low = count <= 3;
-
   return (
     <span
-      aria-label={count === 0 ? "Sold out" : `${count} units left in stock across all sizes`}
+      aria-label={inStock ? "Available" : "Sold out"}
       className={`inline-flex w-fit items-center border px-2.5 py-1.5 font-body text-[0.7rem] font-semibold uppercase tracking-[0.1em] ${
-        low ? "border-blood-accent/70 text-blood-accent" : "border-bone-white/30 text-bone-white/80"
+        inStock ? "border-bone-white/30 text-bone-white/80" : "border-blood-accent/70 text-blood-accent"
       } ${className}`}
     >
-      {count === 0 ? "SOLD OUT" : `${count} ${count === 1 ? "UNIT" : "UNITS"} LEFT`}
+      {inStock ? "AVAILABLE" : "SOLD OUT"}
     </span>
   );
 }
