@@ -18,7 +18,9 @@ export function mapOrder(row: OrderDetailRow) {
     paymentMethod: row.payment_method,
     paymentStatus: row.payment_status,
     status: row.order_status,
-    stockHoldStatus: row.order_status === "PENDING_CONFIRMATION"
+    holdExpectedRestockDate: row.hold_expected_restock_at?.toISOString().slice(0, 10) ?? null,
+    holdCustomerWaitUntil: row.hold_customer_wait_until?.toISOString().slice(0, 10) ?? null,
+    stockHoldStatus: (row.order_status === "PENDING_CONFIRMATION" || row.order_status === "ON_HOLD")
       ? (!row.stock_hold_created_at_checkout ? "NONE" : row.reservation_released_at === null ? "HELD" : "RELEASED")
       : (row.order_status === "CONFIRMED" || row.order_status === "PROCESSING" || row.order_status === "SHIPPED" || row.order_status === "DELIVERED" ? "SOLD" : "CLOSED"),
     reservationReleasedAt: row.reservation_released_at?.toISOString() ?? null,
