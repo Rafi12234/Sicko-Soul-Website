@@ -46,6 +46,7 @@ export const adminOrderListQuerySchema = z.object({
   to: adminDate.optional(),
   status: z.enum([
     "PENDING_CONFIRMATION",
+    "ON_HOLD",
     "CONFIRMED",
     "PROCESSING",
     "SHIPPED",
@@ -64,6 +65,7 @@ export const adminOrderListQuerySchema = z.object({
 
 export const adminOrderStatusSchema = z.object({
   status: z.enum([
+    "ON_HOLD",
     "CONFIRMED",
     "PROCESSING",
     "SHIPPED",
@@ -75,11 +77,41 @@ export const adminOrderStatusSchema = z.object({
   ]),
   note: z.string().trim().max(500).optional(),
   cancellationReason: z.string().trim().max(500).optional(),
+  holdExpectedRestockDate: adminDate.optional(),
+  holdCustomerWaitUntil: adminDate.optional(),
+}).superRefine((input, context) => {
+  if (input.status !== "ON_HOLD") {
+    if (input.holdExpectedRestockDate || input.holdCustomerWaitUntil) {
+      context.addIssue({ code: "custom", path: ["status"], message: "Hold dates are only valid for ON_HOLD orders." });
+    }
+    return;
+  }
+  const today = new Date(Date.now() + 6 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  if (!input.note || input.note.trim().length < 10) {
+    context.addIssue({ code: "custom", path: ["note"], message: "Describe the incoming shipment and the customer's agreement (10+ characters)." });
+  }
+  if (!input.holdExpectedRestockDate) {
+    context.addIssue({ code: "custom", path: ["holdExpectedRestockDate"], message: "Enter the expected restock date." });
+  } else if (input.holdExpectedRestockDate < today) {
+    context.addIssue({ code: "custom", path: ["holdExpectedRestockDate"], message: "The expected restock date cannot be in the past." });
+  }
+  if (!input.holdCustomerWaitUntil) {
+    context.addIssue({ code: "custom", path: ["holdCustomerWaitUntil"], message: "Enter the date the customer agreed to wait until." });
+  } else if (input.holdCustomerWaitUntil < today || (input.holdExpectedRestockDate && input.holdCustomerWaitUntil < input.holdExpectedRestockDate)) {
+    context.addIssue({ code: "custom", path: ["holdCustomerWaitUntil"], message: "Customer wait-until date must be today or later and not before restock." });
+  }
 });
 
 /** Call Again is a separate workflow action; it never confirms inventory. */
 export const adminOrderCallSchema = z.object({
-  outcome: z.enum(["NO_ANSWER", "CALL_AGAIN"]),
+  outcome: z.enum(["NO_ANSWER", "CALL_AGAIN", "CUSTOMER_CONFIRMED", "CUSTOMER_DECLINED"]),
   note: z.string().trim().max(500).optional(),
   callbackAt: z.string().datetime({ offset: true }).optional(),
+}).superRefine((input, context) => {
+  if (input.outcome === "CUSTOMER_CONFIRMED" && (!input.note || input.note.trim().length < 5)) {
+    context.addIssue({ code: "custom", path: ["note"], message: "Record a short note about the customer's phone agreement." });
+  }
+  if ((input.outcome === "CUSTOMER_CONFIRMED" || input.outcome === "CUSTOMER_DECLINED") && input.callbackAt) {
+    context.addIssue({ code: "custom", path: ["callbackAt"], message: "A completed call cannot also schedule a callback." });
+  }
 });
