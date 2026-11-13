@@ -6,6 +6,8 @@ import type {
 import { env } from "../../config/env.js";
 import { logger } from "../../lib/logger.js";
 import { prisma } from "../../lib/prisma.js";
+import { AppError } from "../../errors/app-error.js";
+import { renderTransactionalEmail } from "./email.templates.js";
 
 export type EmailPayload = Record<string, unknown>;
 
@@ -46,54 +48,42 @@ export async function enqueueEmail(
   });
 }
 
-function escapeHtml(value: unknown): string {
-  return String(value ?? "")
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
-}
-
-function renderHtml(subject: string, payload: EmailPayload): string {
-  const rows = Object.entries(payload)
-    .map(([key, value]) => `<tr><td style="padding:6px 12px;font-weight:700">${escapeHtml(key)}</td><td style="padding:6px 12px">${escapeHtml(value)}</td></tr>`)
-    .join("");
-  return `<!doctype html><html><body style="font-family:Arial,sans-serif;background:#0a0a0a;color:#fff;padding:24px"><h1>${escapeHtml(subject)}</h1><table>${rows}</table><p style="opacity:.6">SICKO SOUL / AUTOMATED NOTICE</p></body></html>`;
-}
-
+// Idempotency key stays constant across outbox retries to reduce duplicate mail.
 async function sendEmail(input: {
   to: string;
   subject: string;
+  templateKey: string;
+  dedupeKey: string;
   payload: EmailPayload;
 }): Promise<string> {
   if (env.EMAIL_TRANSPORT === "console") {
-    // Local console mode must not leak customer access links or customer details.
-    logger.info({ mode: "console", subjectCategory: input.subject.split(" /")[0] }, "email simulated (not delivered)");
+    // Never print emails, addresses, private links, or outbox payloads in logs.
+    logger.info({ mode: "console", templateKey: input.templateKey }, "email simulated (not delivered)");
     return `console-${Date.now()}-${randomUUID()}`;
   }
+  if (!env.RESEND_API_KEY) throw new Error("RESEND_API_KEY is missing.");
 
-  if (!env.RESEND_API_KEY) {
-    throw new Error("RESEND_API_KEY is missing.");
-  }
-
+  const rendered = renderTransactionalEmail(input.subject, input.templateKey, input.payload);
   const response = await fetch("https://api.resend.com/emails", {
     method: "POST",
+    signal: AbortSignal.timeout(15_000),
     headers: {
       Authorization: `Bearer ${env.RESEND_API_KEY}`,
       "Content-Type": "application/json",
+      "Idempotency-Key": input.dedupeKey,
     },
     body: JSON.stringify({
       from: env.EMAIL_FROM,
       to: [input.to],
       subject: input.subject,
-      html: renderHtml(input.subject, input.payload),
+      html: rendered.html,
+      text: rendered.text,
     }),
   });
-
   const body = (await response.json()) as { id?: string; message?: string };
   if (!response.ok || !body.id) {
-    throw new Error(body.message ?? `Email provider returned HTTP ${response.status}.`);
+    // Avoid writing provider request payloads / private bearer links to logs.
+    throw new Error(`Resend delivery rejected (HTTP ${response.status}): ${(body.message ?? "No provider details").slice(0, 300)}`);
   }
   return body.id;
 }
@@ -169,6 +159,8 @@ export async function processEmailOutboxBatch(limit = env.EMAIL_WORKER_BATCH_SIZ
       const providerMessageId = await sendEmail({
         to: row.recipient_email,
         subject: row.subject,
+        templateKey: row.template_key,
+        dedupeKey: row.dedupe_key,
         payload,
       });
 
@@ -267,14 +259,20 @@ export async function listOutboxForAdmin() {
 }
 
 export async function retryOutboxItem(id: bigint) {
-  const row = await prisma.email_outbox.update({
-    where: { email_outbox_id: id },
+  // Retry only terminal/failed deliveries; retrying a SENT notification could
+  // email the customer a second time (provider dedupe lasts only 24 hours).
+  const updated = await prisma.email_outbox.updateMany({
+    where: { email_outbox_id: id, status: { in: ["FAILED", "DEAD"] } },
     data: {
       status: "PENDING",
+      attempt_count: 0,
       available_at: new Date(),
       locked_at: null,
       last_error: null,
     },
   });
-  return { id: row.email_outbox_id.toString(), status: row.status };
+  if (updated.count !== 1) {
+    throw new AppError({ statusCode: 409, code: "EMAIL_NOT_RETRYABLE", message: "Only failed emails can be retried." });
+  }
+  return { id: id.toString(), status: "PENDING" as const };
 }
