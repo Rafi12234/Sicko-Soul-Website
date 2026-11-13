@@ -33,7 +33,7 @@ test('legacy TTL worker only releases LEGACY holds and never cancels pending ord
   assert.doesNotMatch(worker, /order_status: "REJECTED"|order_status: "CANCELLED"|to_status: "REJECTED"/);
 });
 
-test('phone confirmation deducts unreserved stock with row locks; old holds are consumed once', () => {
+test('admin confirmation deducts unreserved stock with row locks; old holds are consumed once', () => {
   const service = read('src/modules/orders/orders.service.ts');
   const inventory = read('src/modules/inventory/inventory.service.ts');
   assert.match(service, /if \(!order\.stock_hold_created_at_checkout\)/);
@@ -50,7 +50,7 @@ test('phone confirmation deducts unreserved stock with row locks; old holds are 
 test('reject and unavailable are terminal, never consume new stock, and send distinct emails', () => {
   const service = read('src/modules/orders/orders.service.ts');
   assert.match(service, /OUT_OF_STOCK: \[\]/);
-  assert.match(service, /order\.stock_hold_created_at_checkout &&\s*order\.reservation_released_at === null/);
+  assert.match(service, /order\.stock_hold_created_at_checkout && order\.reservation_released_at === null/);
   assert.match(service, /eventType: "ORDER_OUT_OF_STOCK"/);
   assert.match(service, /eventType: "ORDER_CONFIRMED"/);
   assert.match(service, /eventType: "ORDER_CANCELLED"/);
@@ -65,14 +65,16 @@ test('call again is tracked and does not create a sale or alter pending order st
   assert.match(read('src/modules/orders/orders.routes.ts'), /adminRecordOrderCallController/);
 });
 
-test('admin workflow offers phone actions and customer-facing status stays accurate', () => {
+test('admin workflow supports direct actions and customer-facing hold state stays accurate', () => {
   const admin = read('../frontend/src/components/admin/OrdersManager.tsx');
   const mapper = read('src/modules/orders/orders.mapper.ts');
   const ui = read('../frontend/src/components/commerce/OrderIntake/index.tsx');
-  for (const label of ['Confirm', 'Reject', 'Out of stock', 'Call again', "Today's orders"]) {
+  for (const label of ['Confirm', 'Reject', 'Out of Stock', 'Save Hold', "Today's orders"]) {
     assert.ok(admin.includes(label), label);
   }
-  assert.match(mapper, /stockHoldStatus: row\.order_status === "PENDING_CONFIRMATION"/);
+  const actions=admin.split('const actions = (order: Order) =>')[1].split('  return <>')[0];
+  assert.doesNotMatch(actions, /Call again|Record call|href=\{`tel:/);
+  assert.match(mapper, /row\.order_status === "ON_HOLD"/);
   assert.match(mapper, /"NONE"/);
   assert.match(ui, /stock is not guaranteed|Stock is not guaranteed/i);
 });
