@@ -20,6 +20,9 @@ export const dynamic = "force-dynamic";
 export default async function Home() {
   const [catalogCategories, segments, siteMedia, content] = await Promise.all([getCachedCatalogArchive(), getCachedCatalogSegments(), getHomepageMedia(), getSiteContent()]);
   const bands = mergeCopy(STATEMENTS, content.statementBands);
+  const liveCategories = catalogCategories.filter(category => category.products.length > 0);
+  const liveSegmentIds = new Set(liveCategories.map(category => category.segment?.id));
+  const liveSegments = segments.filter(segment => liveSegmentIds.has(segment.id));
 
   return (
     <SiteContentProvider value={content}>
@@ -29,7 +32,7 @@ export default async function Home() {
         <Manifesto />
         <StatementBand statement={bands.entry} />
         <Drop videoUrl={siteMedia.dropVideoUrl} />
-        <Rack catalogCategories={catalogCategories} segments={segments} />
+        <Rack catalogCategories={liveCategories} segments={liveSegments} />
         <Streets images={siteMedia.streetsImages} />
         <StatementBand statement={bands.seen} />
         {siteMedia.lookbookFrames.length > 0 && <Lookbook frames={siteMedia.lookbookFrames} />}
