@@ -22,7 +22,6 @@ import {
 import { listReviews, submitReview } from "@/lib/customerApi";
 import { money } from "@/lib/commerce";
 import { useCartStore } from "@/store/useCartStore";
-import StockCount from "@/components/commerce/StockCount";
 import type { ProductReview } from "@/types/commerce";
 import SickoButton from "@/components/ui/SickoButton";
 import styles from "./ProductDetail.module.css";
@@ -36,17 +35,29 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
   const router = useRouter();
   const rootRef = useRef<HTMLDivElement>(null);
   const viewerRef = useRef<HTMLDivElement>(null);
-  const gallery = useMemo(() => getProductGallery(product), [product]);
+  const allGallery = useMemo(() => getProductGallery(product), [product]);
   const variants = useMemo(() => getProductVariants(product), [product]);
 
   const defaultVariant =
     variants.find(
-      (variant) => variant.isDefault && variant.status === "ACTIVE" && variant.availableQty > 0,
+      (variant) => variant.isDefault && variant.status === "ACTIVE" && variant.inStock,
     ) ??
-    variants.find((variant) => variant.status === "ACTIVE" && variant.availableQty > 0) ??
+    variants.find((variant) => variant.status === "ACTIVE" && variant.inStock) ??
     variants[0];
 
-  const [selectedVariantId, setSelectedVariantId] = useState(defaultVariant?.id ?? "");
+  // When Black exists, it is the default even if another colour has the most stock.
+  const initialVariant =
+    variants.find((variant) => variant.colorCode === "BLACK" && variant.status === "ACTIVE" && variant.inStock) ??
+    variants.find((variant) => variant.colorCode === "BLACK" && variant.status === "ACTIVE") ??
+    variants.find((variant) => variant.colorCode === "BLACK") ??
+    defaultVariant;
+
+  const [selectedVariantId, setSelectedVariantId] = useState(initialVariant?.id ?? "");
+  const [selectedColor, setSelectedColor] = useState(initialVariant?.colorCode ?? "BLACK");
+  const colors = Array.from(new Set(variants.map((variant) => variant.colorCode).filter(Boolean)))
+    .sort((a, b) => (a === "BLACK" ? -1 : b === "BLACK" ? 1 : a === "WHITE" ? -1 : b === "WHITE" ? 1 : a.localeCompare(b)));
+  const gallery = useMemo(() => allGallery.filter((image) => image.colorCode === selectedColor), [allGallery, selectedColor]);
+  const colorVariants = variants.filter(variant => variant.colorCode === selectedColor);
   const [quantity, setQuantity] = useState(1);
   const [activeImageIndex, setActiveImageIndex] = useState(0);
   const [cartSignal, setCartSignal] = useState("ADD TO HOLDING CELL");
@@ -57,8 +68,17 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
   const selectedVariant = variants.find((variant) => variant.id === selectedVariantId) ?? null;
   const activeImage = gallery[activeImageIndex] ?? gallery[0];
   const soldOut =
-    !selectedVariant || selectedVariant.status !== "ACTIVE" || selectedVariant.availableQty <= 0;
+    !selectedVariant || selectedVariant.status !== "ACTIVE" || !selectedVariant.inStock;
   const unitPrice = selectedVariant?.price ?? product.priceValue;
+
+  useEffect(() => {
+    setSelectedVariantId(initialVariant?.id ?? "");
+    setSelectedColor(initialVariant?.colorCode ?? "BLACK");
+    setActiveImageIndex(0);
+    setQuantity(1);
+    // A new product ID represents a new selection; switching colour itself must not reset it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [product.id]);
 
   useEffect(() => {
     let alive = true;
@@ -75,9 +95,8 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
   }, [product.id]);
 
   useEffect(() => {
-    setQuantity((current) =>
-      Math.max(1, Math.min(current, Math.max(1, selectedVariant?.availableQty ?? 1))),
-    );
+    // Public catalogue exposes only in-stock/out-of-stock. The server validates real stock.
+    setQuantity((current) => Math.max(1, Math.min(current, 20)));
   }, [selectedVariant]);
 
   useLayoutEffect(() => {
@@ -111,6 +130,16 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
     return () => ctx.revert();
   }, [product.id]);
 
+  function chooseColor(code: string) {
+    if (code === selectedColor) return;
+    setSelectedColor(code);
+    const next = variants.find(variant => variant.colorCode === code && variant.status === "ACTIVE" && variant.inStock)
+      ?? variants.find(variant => variant.colorCode === code);
+    setSelectedVariantId(next?.id ?? "");
+    setActiveImageIndex(0);
+    setQuantity(1);
+  }
+
   function changeImage(index: number) {
     if (index === activeImageIndex || !viewerRef.current) return;
     gsap
@@ -134,9 +163,7 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
   function handleBuyNow() {
     if (!selectedVariant || soldOut) return;
     router.push(
-      `/buy-now?product=${encodeURIComponent(product.id)}&size=${encodeURIComponent(
-        selectedVariant.size,
-      )}&qty=${quantity}`,
+      `/buy-now?product=${encodeURIComponent(product.id)}&variant=${encodeURIComponent(selectedVariant.id)}&qty=${quantity}`,
     );
   }
 
@@ -266,10 +293,6 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
               <span className="font-body text-[1.45rem] font-semibold text-bone-white">{money(unitPrice)}</span>
             </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="font-body text-[0.65rem] uppercase tracking-[0.12em] text-concrete-gray">TOTAL STOCK / ALL SIZES</span>
-              <StockCount availableQty={product.availableQty} />
-            </div>
 
             <p className="mt-7 max-w-[15ch] font-display text-[clamp(2.6rem,5vw,4.8rem)] uppercase leading-[0.86] tracking-crushed text-bone-white">
               {product.line}
@@ -277,14 +300,51 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
             <p className="mt-6 max-w-[39ch] font-body text-body-lg text-bone-white/65">{product.description}</p>
 
             <div className="mt-8 border-y border-bone-white/15 py-6">
+              <div className="mb-7">
+                <div className="mb-3 flex items-center justify-between gap-4">
+                  <span className="font-body text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-bone-white">SELECT COLOUR</span>
+                  <span className="font-body text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-blood-accent">{selectedColor}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-3" role="group" aria-label="Product colours">
+                  {colors.map((color) => {
+                    const selected = selectedColor === color;
+                    return (
+                      <button
+                        type="button"
+                        key={color}
+                        onClick={() => chooseColor(color)}
+                        aria-label={`Select ${color.toLowerCase()} colour`}
+                        aria-pressed={selected}
+                        className={`flex min-h-[3.75rem] w-full items-center justify-center gap-3 border px-4 py-3 font-body text-[0.78rem] font-bold uppercase tracking-[0.17em] transition-colors duration-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blood-accent ${
+                          selected
+                            ? "border-blood-accent bg-blood-accent text-bone-white"
+                            : "border-bone-white/40 bg-black text-bone-white hover:border-bone-white"
+                        }`}
+                      >
+                        <span
+                          aria-hidden="true"
+                          className={`inline-block h-5 w-5 shrink-0 rounded-full border ${
+                            color === "BLACK"
+                              ? "border-bone-white/80 bg-black"
+                              : color === "WHITE"
+                                ? "border-bone-white/80 bg-white"
+                                : "border-bone-white/60 bg-concrete-gray"
+                          }`}
+                        />
+                        <span>{color.replaceAll("_", " ")}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               <div className="flex items-center justify-between gap-5">
                 <span className="font-body text-[0.72rem] font-semibold uppercase tracking-[0.2em] text-bone-white">SELECT SIZE</span>
                 <span className="font-body text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-blood-accent">REQUIRED</span>
               </div>
 
               <div className="mt-4 grid grid-cols-4 gap-2">
-                {variants.map((variant) => {
-                  const unavailable = variant.status !== "ACTIVE" || variant.availableQty <= 0;
+                {colorVariants.map((variant) => {
+                  const unavailable = variant.status !== "ACTIVE" || !variant.inStock;
                   const selected = variant.id === selectedVariantId;
                   return (
                     <button
@@ -305,7 +365,7 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
                     >
                       <span className="block">{variant.size}</span>
                       <span className="mt-1 block text-[0.55rem] tracking-[0.06em]">
-                        {unavailable ? "SOLD OUT" : `${variant.availableQty} LEFT`}
+                        {unavailable ? "SOLD OUT" : "AVAILABLE"}
                       </span>
                       {unavailable && <span className="absolute inset-x-1 top-1/2 h-px rotate-[-12deg] bg-blood-accent" />}
                     </button>
@@ -316,12 +376,8 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
               {selectedVariant && (
                 <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
                   <span className="font-body text-[0.68rem] uppercase tracking-[0.17em] text-concrete-gray">SKU / {selectedVariant.sku}</span>
-                  <span className={`font-body text-[0.7rem] font-semibold uppercase tracking-[0.16em] ${selectedVariant.availableQty <= 3 ? "text-blood-accent" : "text-bone-white/60"}`}>
-                    {selectedVariant.availableQty === 0
-                      ? "SOLD OUT"
-                      : selectedVariant.availableQty <= 3
-                        ? `ONLY ${selectedVariant.availableQty} LEFT`
-                        : `${selectedVariant.availableQty} AVAILABLE`}
+                  <span className={`font-body text-[0.7rem] font-semibold uppercase tracking-[0.16em] ${selectedVariant.inStock ? "text-bone-white/60" : "text-blood-accent"}`}>
+                    {selectedVariant.inStock ? "AVAILABLE" : "SOLD OUT"}
                   </span>
                 </div>
               )}
@@ -334,8 +390,8 @@ export default function ProductDetail({ product, category }: ProductDetailProps)
                 <span className="grid h-11 min-w-12 place-items-center border-x border-bone-white/20 font-body text-base font-semibold">{String(quantity).padStart(2, "0")}</span>
                 <button
                   type="button"
-                  disabled={!selectedVariant || quantity >= selectedVariant.availableQty}
-                  onClick={() => setQuantity(Math.min(selectedVariant?.availableQty ?? quantity, quantity + 1))}
+                  disabled={!selectedVariant || quantity >= 20}
+                  onClick={() => setQuantity(Math.min(20, quantity + 1))}
                   className="grid h-11 w-11 place-items-center font-body text-xl text-bone-white hover:bg-bone-white hover:text-ink disabled:opacity-25"
                   aria-label="Increase quantity"
                 >
