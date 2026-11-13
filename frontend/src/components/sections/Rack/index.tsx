@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useSiteCopy } from "@/components/providers/SiteContentContext";
 
 import { useLayoutEffect, useRef, useState } from "react";
@@ -34,8 +35,8 @@ export default function Rack({ catalogCategories, segments }: { catalogCategorie
     const variants = getProductVariants(product);
     const defaultVariant =
       variants.find(
-        (variant) => variant.isDefault && variant.status === "ACTIVE" && variant.availableQty > 0,
-      ) ?? variants.find((variant) => variant.status === "ACTIVE" && variant.availableQty > 0);
+        (variant) => variant.isDefault && variant.status === "ACTIVE" && variant.inStock,
+      ) ?? variants.find((variant) => variant.status === "ACTIVE" && variant.inStock);
 
     return {
       id: product.id,
@@ -43,12 +44,12 @@ export default function Rack({ catalogCategories, segments }: { catalogCategorie
       name: product.name,
       still: product.still,
       worn: product.worn ?? product.still,
+      gallery: product.gallery.map(image => ({url:image.url,alt:image.alt})),
       price: product.price,
       spec: product.spec,
       line: product.line,
       variantId: defaultVariant?.id,
       available: Boolean(defaultVariant),
-      availableQty: product.availableQty,
     };
   });
 
@@ -348,6 +349,13 @@ export default function Rack({ catalogCategories, segments }: { catalogCategorie
               offsetClass={OFFSET[index % OFFSET.length]}
             />
           ))}
+
+          {/* A dedicated archive route exposes every active product beyond the rack. */}
+          <div className="sm:col-span-2 lg:col-span-4 flex justify-center py-5">
+            <Link href="/products" className="group inline-flex min-h-16 items-center gap-8 border border-blood-accent bg-blood-accent px-8 py-4 font-display text-2xl uppercase tracking-crushed text-bone-white transition-colors hover:bg-black hover:text-blood-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-blood-accent">
+              EXPLORE ALL PRODUCTS <span aria-hidden className="text-3xl transition-transform group-hover:translate-x-2">→</span>
+            </Link>
+          </div>
 
           {/* Withheld categories get a plate, never a filler photograph. */}
           <div
