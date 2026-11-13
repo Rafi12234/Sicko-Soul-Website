@@ -14,6 +14,7 @@ function mapImage(row: PublicProductRow["product_images"][number]): ProductImage
   return {
     id: row.image_id.toString(),
     type: row.image_type,
+    colorCode: row.color_code,
     url: row.image_url,
     alt: row.alt_text,
     sortOrder: row.sort_order,
@@ -38,13 +39,12 @@ function mapVariant(row: PublicProductRow["product_variants"][number], basePrice
   return {
     id: row.variant_id.toString(),
     size: row.sizes.code,
+    colorCode: row.color_code,
     sizeLabel: row.sizes.label,
     sizeGroup: row.sizes.size_group,
     sku: row.sku,
     price: row.price_override ? decimalToNumber(row.price_override) : basePrice,
-    availableQty,
-    onHandQty,
-    reservedQty,
+    inStock: availableQty > 0,
     status: row.status,
     isDefault: row.is_default,
   };
@@ -63,10 +63,7 @@ export function mapPublicProduct(row: PublicProductRow): PublicProduct {
     variants.find((variant) => variant.status === "ACTIVE") ??
     null;
 
-  const availableQty = variants.reduce(
-    (sum, variant) => sum + (variant.status === "ACTIVE" ? variant.availableQty : 0),
-    0,
-  );
+  const inStock = variants.some((variant) => variant.inStock);
 
   return {
     id: row.public_id,
@@ -90,11 +87,10 @@ export function mapPublicProduct(row: PublicProductRow): PublicProduct {
     variants,
     defaultVariantId: defaultVariant?.id ?? null,
     primaryImage:
-      images.find((image) => image.type === "STILL") ?? images[0] ?? null,
-    wornImage: images.find((image) => image.type === "WORN") ?? null,
+      images.find((image) => image.type === "STILL" && image.colorCode === defaultVariant?.colorCode) ?? images.find((image) => image.type === "STILL") ?? images[0] ?? null,
+    wornImage: images.find((image) => image.type === "WORN" && image.colorCode === defaultVariant?.colorCode) ?? images.find((image) => image.type === "WORN") ?? null,
     availability: {
-      status: availableQty > 0 ? "IN_STOCK" : "OUT_OF_STOCK",
-      availableQty,
+      status: inStock ? "IN_STOCK" : "OUT_OF_STOCK",
     },
   };
 }
