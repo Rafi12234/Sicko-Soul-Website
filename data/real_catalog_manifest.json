@@ -1,0 +1,515 @@
+{
+  "source": "Untitled spreadsheet (1).xlsx",
+  "productCount": 8,
+  "colorOptions": 12,
+  "imageCount": 48,
+  "sizes": [
+    "S",
+    "M",
+    "L",
+    "XL",
+    "XXL"
+  ],
+  "products": [
+    {
+      "slug": "warrior",
+      "name": "Warrior",
+      "price": 790,
+      "colors": [
+        {
+          "code": "BLACK",
+          "stock": {
+            "L": 8,
+            "XL": 3
+          },
+          "images": [
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394880/warrior_front_t9i7fe.png",
+              "type": "STILL",
+              "label": "Front",
+              "order": 0,
+              "excelRow": 2
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394875/warrior_back_fmfcf1.png",
+              "type": "GALLERY",
+              "label": "Back",
+              "order": 10,
+              "excelRow": 3
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394868/warrior_F_lbk5nz.png",
+              "type": "WORN",
+              "label": "Front on body",
+              "order": 20,
+              "excelRow": 4
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394859/warrior_B_v7rsou.png",
+              "type": "GALLERY",
+              "label": "Back on body",
+              "order": 30,
+              "excelRow": 9
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "ninja",
+      "name": "Ninja",
+      "price": 790,
+      "colors": [
+        {
+          "code": "BLACK",
+          "stock": {
+            "L": 3,
+            "XL": 5
+          },
+          "images": [
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394831/ninja_black_front_tyakmh.png",
+              "type": "STILL",
+              "label": "Front",
+              "order": 0,
+              "excelRow": 19
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394827/ninja_black_back_kcp3iv.png",
+              "type": "GALLERY",
+              "label": "Back",
+              "order": 10,
+              "excelRow": 20
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394840/ninja_black_F_bqktj6.png",
+              "type": "WORN",
+              "label": "Front on body",
+              "order": 20,
+              "excelRow": 17
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394815/ninja_black_B_ipsaf9.png",
+              "type": "GALLERY",
+              "label": "Back on body",
+              "order": 30,
+              "excelRow": 24
+            }
+          ]
+        },
+        {
+          "code": "WHITE",
+          "stock": {
+            "L": 3,
+            "XL": 0
+          },
+          "images": [
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394840/ninja_white_front_lac1cl.png",
+              "type": "STILL",
+              "label": "Front",
+              "order": 0,
+              "excelRow": 18
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394844/ninja_white_back_ydxmcv.png",
+              "type": "GALLERY",
+              "label": "Back",
+              "order": 10,
+              "excelRow": 14
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394843/ninja_white_F_yl70eg.png",
+              "type": "WORN",
+              "label": "Front on body",
+              "order": 20,
+              "excelRow": 15
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394841/ninja_white_B_abi0ka.png",
+              "type": "GALLERY",
+              "label": "Back on body",
+              "order": 30,
+              "excelRow": 16
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "iceman",
+      "name": "Iceman",
+      "price": 790,
+      "colors": [
+        {
+          "code": "BLACK",
+          "stock": {
+            "L": 4,
+            "XL": 6
+          },
+          "images": [
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394795/iceman_black_front_edgx06.png",
+              "type": "STILL",
+              "label": "Front",
+              "order": 0,
+              "excelRow": 28
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394796/iceman_black_back_x1lpoy.png",
+              "type": "GALLERY",
+              "label": "Back",
+              "order": 10,
+              "excelRow": 27
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394790/iceman_black_F_bio2go.png",
+              "type": "WORN",
+              "label": "Front on body",
+              "order": 20,
+              "excelRow": 29
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394816/iceman_black_B_fd5w0f.png",
+              "type": "GALLERY",
+              "label": "Back on body",
+              "order": 30,
+              "excelRow": 23
+            }
+          ]
+        },
+        {
+          "code": "WHITE",
+          "stock": {
+            "L": 4,
+            "XL": 6
+          },
+          "images": [
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394826/iceman_white_front_vlj3t0.png",
+              "type": "STILL",
+              "label": "Front",
+              "order": 0,
+              "excelRow": 21
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394817/iceman_white_back_siu1yv.png",
+              "type": "GALLERY",
+              "label": "Back",
+              "order": 10,
+              "excelRow": 22
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394813/iceman_white_F_rctbss.png",
+              "type": "WORN",
+              "label": "Front on body",
+              "order": 20,
+              "excelRow": 25
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394801/iceman_white_B_scmitn.png",
+              "type": "GALLERY",
+              "label": "Back on body",
+              "order": 30,
+              "excelRow": 26
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "horse-game",
+      "name": "Horse Game",
+      "price": 790,
+      "colors": [
+        {
+          "code": "BLACK",
+          "stock": {
+            "L": 4,
+            "XL": 7
+          },
+          "images": [
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394789/horse_game_black_front_2_fvfkpj.png",
+              "type": "STILL",
+              "label": "Front",
+              "order": 0,
+              "excelRow": 30
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394772/horse_game_black_back_1_dvwebt.png",
+              "type": "GALLERY",
+              "label": "Back",
+              "order": 10,
+              "excelRow": 35
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394772/horse_game_black_F_nqxqsg.png",
+              "type": "WORN",
+              "label": "Front on body",
+              "order": 20,
+              "excelRow": 34
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394777/horse_game_black_B_xcixle.png",
+              "type": "GALLERY",
+              "label": "Back on body",
+              "order": 30,
+              "excelRow": 31
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "sicko-bird",
+      "name": "Sicko Bird",
+      "price": 790,
+      "colors": [
+        {
+          "code": "BLACK",
+          "stock": {
+            "L": 3,
+            "XL": 6
+          },
+          "images": [
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394852/sicko_bird_black_front_adjnvn.png",
+              "type": "STILL",
+              "label": "Front",
+              "order": 0,
+              "excelRow": 12
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394860/sicko_bird_black_back_u9myyv.png",
+              "type": "GALLERY",
+              "label": "Back",
+              "order": 10,
+              "excelRow": 8
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394868/sicko_bird_black_F_aeahai.png",
+              "type": "WORN",
+              "label": "Front on body",
+              "order": 20,
+              "excelRow": 5
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394851/sicko_bird_black_B_n8l9f7.png",
+              "type": "GALLERY",
+              "label": "Back on body",
+              "order": 30,
+              "excelRow": 13
+            }
+          ]
+        },
+        {
+          "code": "WHITE",
+          "stock": {
+            "L": 4,
+            "XL": 6
+          },
+          "images": [
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394867/sicko_bird_white_front_ijqnr6.png",
+              "type": "STILL",
+              "label": "Front",
+              "order": 0,
+              "excelRow": 6
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394860/sicko_bird_white_back_y3rgxl.png",
+              "type": "GALLERY",
+              "label": "Back",
+              "order": 10,
+              "excelRow": 7
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394855/sicko_bird_white_F_owfewe.png",
+              "type": "WORN",
+              "label": "Front on body",
+              "order": 20,
+              "excelRow": 11
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394856/sicko_bird_white_B_ysxrj6.png",
+              "type": "GALLERY",
+              "label": "Back on body",
+              "order": 30,
+              "excelRow": 10
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "return",
+      "name": "Return",
+      "price": 950,
+      "colors": [
+        {
+          "code": "BLACK",
+          "stock": {
+            "L": 0,
+            "XL": 7
+          },
+          "images": [
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394668/return_black_front_qn4tz2.png",
+              "type": "STILL",
+              "label": "Front",
+              "order": 0,
+              "excelRow": 41
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394670/return_black_back_gkj3wx.png",
+              "type": "GALLERY",
+              "label": "Back",
+              "order": 10,
+              "excelRow": 40
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394672/return_black_F_v5a0ck.png",
+              "type": "WORN",
+              "label": "Front on body",
+              "order": 20,
+              "excelRow": 39
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394762/return_black_B_kdz9wf.png",
+              "type": "GALLERY",
+              "label": "Back on body",
+              "order": 30,
+              "excelRow": 38
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "dinosoul",
+      "name": "DinoSoul",
+      "price": 790,
+      "colors": [
+        {
+          "code": "BLACK",
+          "stock": {
+            "L": 8,
+            "XL": 0
+          },
+          "images": [
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394589/dinosoul_black_front_qum6xr.png",
+              "type": "STILL",
+              "label": "Front",
+              "order": 0,
+              "excelRow": 45
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394575/dinosoul_black_back_swiv0d.png",
+              "type": "GALLERY",
+              "label": "Back",
+              "order": 10,
+              "excelRow": 46
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394567/dinosoul_black_F_gvio4q.png",
+              "type": "WORN",
+              "label": "Front on body",
+              "order": 20,
+              "excelRow": 47
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394553/dinosoul_black_B_zdmsri.png",
+              "type": "GALLERY",
+              "label": "Back on body",
+              "order": 30,
+              "excelRow": 48
+            }
+          ]
+        },
+        {
+          "code": "WHITE",
+          "stock": {
+            "L": 2,
+            "XL": 4
+          },
+          "images": [
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394591/dinosoul_white_front_zn7yqg.png",
+              "type": "STILL",
+              "label": "Front",
+              "order": 0,
+              "excelRow": 44
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794398288/dinosoul_white_back_dgekuf.png",
+              "type": "GALLERY",
+              "label": "Back",
+              "order": 10,
+              "excelRow": 49
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394627/dinosoul_white_F_beo4cx.png",
+              "type": "WORN",
+              "label": "Front on body",
+              "order": 20,
+              "excelRow": 42
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394621/dinosoul_white_B_g2dx8e.png",
+              "type": "GALLERY",
+              "label": "Back on body",
+              "order": 30,
+              "excelRow": 43
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "slug": "gods-plan",
+      "name": "Gods Plan",
+      "price": 790,
+      "colors": [
+        {
+          "code": "BLACK",
+          "stock": {
+            "L": 8,
+            "XL": 0
+          },
+          "images": [
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394773/gods_plan_black_front_lysfiu.png",
+              "type": "STILL",
+              "label": "Front",
+              "order": 0,
+              "excelRow": 32
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394764/gods_plan_black_back_kaiidv.png",
+              "type": "GALLERY",
+              "label": "Back",
+              "order": 10,
+              "excelRow": 37
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394773/gods_plan_black_F_r3thm7.png",
+              "type": "WORN",
+              "label": "Front on body",
+              "order": 20,
+              "excelRow": 33
+            },
+            {
+              "url": "https://res.cloudinary.com/dec82taov/image/upload/v1794394769/gods_plan_black_B_o7jif4.png",
+              "type": "GALLERY",
+              "label": "Back on body",
+              "order": 30,
+              "excelRow": 36
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
