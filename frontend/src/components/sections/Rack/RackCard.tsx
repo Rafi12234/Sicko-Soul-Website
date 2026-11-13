@@ -53,7 +53,7 @@ export default function RackCard({ product, offsetClass }: Props) {
       gsap.set(worn, { scale: 1.12 });
 
       let active = false;
-      let galleryTimer: ReturnType<typeof setInterval> | null = null;
+      let galleryTimer: number | null = null;
       const stopGallery = () => {
         if (galleryTimer !== null) window.clearInterval(galleryTimer);
         galleryTimer = null;
