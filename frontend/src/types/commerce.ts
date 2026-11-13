@@ -3,6 +3,7 @@ export type ProductImageType = "STILL" | "WORN" | "GALLERY" | "OTHER";
 export type ProductImageRecord = {
   id: string;
   type: ProductImageType;
+  colorCode: string;
   url: string;
   alt: string;
   label?: string;
@@ -14,9 +15,10 @@ export type VariantStatus = "ACTIVE" | "INACTIVE" | "ARCHIVED";
 export type ProductVariantRecord = {
   id: string;
   size: string;
+  colorCode: string;
   sku: string;
   price: number;
-  availableQty: number;
+  inStock: boolean;
   status: VariantStatus;
   isDefault?: boolean;
 };
@@ -24,6 +26,7 @@ export type ProductVariantRecord = {
 export type PublicProductImageRecord = {
   id: string;
   type: ProductImageType;
+  colorCode: string;
   url: string;
   alt: string | null;
   sortOrder: number;
@@ -38,13 +41,12 @@ export type PublicProductFeatureRecord = {
 export type PublicProductVariantRecord = {
   id: string;
   size: string;
+  colorCode: string;
   sizeLabel: string;
   sizeGroup: "TOP" | "PANT" | "GENERAL";
   sku: string;
   price: number;
-  availableQty: number;
-  onHandQty: number;
-  reservedQty: number;
+  inStock: boolean;
   status: VariantStatus;
   isDefault: boolean;
 };
@@ -74,7 +76,6 @@ export type PublicProductRecord = {
   wornImage: PublicProductImageRecord | null;
   availability: {
     status: "IN_STOCK" | "OUT_OF_STOCK";
-    availableQty: number;
   };
 };
 
@@ -127,12 +128,13 @@ export type ServerCartItemRecord = {
   categoryIndex?: string | null;
   productSpec?: string | null;
   size: string;
+  colorCode: string;
   sku: string;
   imageUrl: string | null;
   quantity: number;
   priceWhenAdded: number;
   currentPrice: number;
-  availableQty: number;
+  inStock: boolean;
   variantStatus: VariantStatus;
   lineTotal: number;
 };
@@ -157,6 +159,7 @@ export type PaymentMethod =
 
 export type OrderStatus =
   | "PENDING_CONFIRMATION"
+  | "ON_HOLD"
   | "CONFIRMED"
   | "PROCESSING"
   | "SHIPPED"
@@ -276,6 +279,8 @@ export type CustomerOrder = {
   paymentMethod: PaymentMethod;
   paymentStatus: PaymentStatus;
   status: OrderStatus;
+  holdExpectedRestockDate?: string | null;
+  holdCustomerWaitUntil?: string | null;
   stockHoldStatus?: "NONE" | "HELD" | "RELEASED" | "SOLD" | "CLOSED";
   callAttempts?: Array<{ id: string; outcome: "NO_ANSWER" | "CALL_AGAIN" | "CUSTOMER_CONFIRMED" | "CUSTOMER_DECLINED"; note: string | null; callbackAt: string | null; calledAt: string }>;
   reservationReleasedAt?: string | null;
