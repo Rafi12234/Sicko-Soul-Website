@@ -28,7 +28,7 @@ export type DropPiece = {
   src: string;
   alt: string;
   price: string;
-  availableQty: number;
+  inStock: boolean;
   spec: string;
   sealed: boolean;
 };
