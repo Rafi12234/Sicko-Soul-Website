@@ -8,7 +8,6 @@ import { gsap } from "@/lib/gsap";
 import { EASE } from "@/styles/theme";
 import { PRODUCTS_COPY, getProductGallery, getProductVariants, type ArchiveProduct } from "@/data/products";
 import { useCartStore } from "@/store/useCartStore";
-import StockCount from "@/components/commerce/StockCount";
 import styles from "./ProductArchive.module.css";
 
 type ProductRecordProps = {
@@ -115,8 +114,8 @@ export default function ProductRecord({ product, ordinal }: ProductRecordProps) 
     const variants = getProductVariants(product);
     const defaultVariant =
       variants.find(
-        (variant) => variant.isDefault && variant.status === "ACTIVE" && variant.availableQty > 0,
-      ) ?? variants.find((variant) => variant.status === "ACTIVE" && variant.availableQty > 0);
+        (variant) => variant.isDefault && variant.status === "ACTIVE" && variant.inStock,
+      ) ?? variants.find((variant) => variant.status === "ACTIVE" && variant.inStock);
 
     if (!defaultVariant) {
       setCartSignal("SOLD OUT");
@@ -131,14 +130,14 @@ export default function ProductRecord({ product, ordinal }: ProductRecordProps) 
   const buyNow = () => {
     const variants = getProductVariants(product);
     const variant =
-      variants.find((entry) => entry.isDefault && entry.status === "ACTIVE" && entry.availableQty > 0) ??
-      variants.find((entry) => entry.status === "ACTIVE" && entry.availableQty > 0);
+      variants.find((entry) => entry.isDefault && entry.status === "ACTIVE" && entry.inStock) ??
+      variants.find((entry) => entry.status === "ACTIVE" && entry.inStock);
     if (!variant) {
       setCartSignal("SOLD OUT");
       return;
     }
     router.push(
-      `/buy-now?product=${encodeURIComponent(product.id)}&size=${encodeURIComponent(variant.size)}&qty=1`,
+      `/buy-now?product=${encodeURIComponent(product.id)}&variant=${encodeURIComponent(variant.id)}&qty=1`,
     );
   };
 
@@ -267,10 +266,6 @@ export default function ProductRecord({ product, ordinal }: ProductRecordProps) 
             </span>
           </div>
 
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span className="font-stencil text-[0.52rem] tracking-stencil text-concrete-gray">TOTAL STOCK / ALL SIZES</span>
-            <StockCount availableQty={product.availableQty} />
-          </div>
 
           <div className="mt-5 flex items-center gap-3">
             <span
