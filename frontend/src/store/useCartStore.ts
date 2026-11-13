@@ -23,11 +23,12 @@ export type CartLine = {
   productSpec?: string | null;
   variantId: string;
   size: string;
+  colorCode: string;
   sku: string;
   imageUrl: string | null;
   quantity: number;
   unitPrice: number;
-  stockMax: number;
+  inStock: boolean;
 };
 
 type CartState = {
@@ -59,11 +60,12 @@ function linesFromServer(cart: ServerCartRecord): CartLine[] {
     productSpec: item.productSpec,
     variantId: item.variantId,
     size: item.size,
+    colorCode: item.colorCode,
     sku: item.sku,
     imageUrl: item.imageUrl,
     quantity: item.quantity,
     unitPrice: item.currentPrice,
-    stockMax: item.availableQty,
+    inStock: item.inStock,
   }));
 }
 
@@ -215,7 +217,7 @@ export const useCartStore = create<CartState>()(
     }),
     {
       name: "sicko-soul-cart",
-      version: 4,
+      version: 5,
       storage: createJSONStorage(() => localStorage),
       // The browser only remembers the opaque server-cart token. Product names,
       // prices, quantities, stock and totals are always reloaded from the API.
