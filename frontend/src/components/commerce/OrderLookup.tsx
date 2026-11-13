@@ -39,7 +39,7 @@ export default function OrderLookup() {
   return (
     <RecordShell
       index="06" eyebrow="ORDER TRACKING / PRIVATE ACCESS" title="FIND THE FILE"
-      subtitle="Your order was saved securely on the device used for checkout. To open it elsewhere, use your private link. Email-based recovery is temporarily unavailable."
+      subtitle="Your private order link is included in the order-received email when automatic emails are enabled. You can also use the same browser as checkout."
     >
       <form onSubmit={submit} className="grid max-w-4xl gap-6 border-l-2 border-blood-accent bg-off-black p-6 md:p-9">
         <label className="block">
