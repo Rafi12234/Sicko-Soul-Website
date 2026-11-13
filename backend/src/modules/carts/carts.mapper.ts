@@ -14,7 +14,9 @@ export function mapCart(row: CartRow) {
       ? decimalToNumber(variant.price_override)
       : decimalToNumber(product.base_price);
     const primaryImage =
-      product.product_images.find((image) => image.image_type === "STILL") ??
+      product.product_images.find((image) => image.image_type === "STILL" && image.color_code === variant.color_code) ??
+       product.product_images.find((image) => image.color_code === variant.color_code) ??
+       product.product_images.find((image) => image.image_type === "STILL") ??
       product.product_images[0] ??
       null;
 
@@ -28,12 +30,13 @@ export function mapCart(row: CartRow) {
       categoryName: product.product_categories.name,
       categoryIndex: product.product_categories.index_code,
       size: variant.sizes.code,
+      colorCode: variant.color_code,
       sku: variant.sku,
       imageUrl: primaryImage?.image_url ?? null,
       quantity: item.quantity,
       priceWhenAdded: decimalToNumber(item.price_when_added),
       currentPrice: effectivePrice,
-      availableQty,
+      inStock: availableQty > 0,
       variantStatus: variant.status,
       lineTotal: effectivePrice * item.quantity,
     };
