@@ -16,6 +16,7 @@ type BuyNowPageProps = {
     source?: string;
     product?: string;
     size?: string;
+    variant?: string;
     qty?: string;
   }>;
 };
@@ -41,6 +42,7 @@ export default async function BuyNowPage({ searchParams }: BuyNowPageProps) {
           source={params.source}
           productId={params.product}
           size={params.size}
+          variantId={params.variant}
           quantity={Number.isFinite(parsedQuantity) ? Math.max(1, parsedQuantity) : 1}
           buyNowProduct={buyNowProduct}
         />
