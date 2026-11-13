@@ -18,7 +18,11 @@ export const dynamic = "force-dynamic";
 export default async function ProductsPage() {
   const [categories, segments] = await Promise.all([getCachedCatalogArchive(), getCachedCatalogSegments()]);
 
-  if (segments.length === 0) {
+  const liveCategories = categories.filter(category => category.products.length > 0);
+  const liveSegmentIds = new Set(liveCategories.map(category => category.segment?.id));
+  const liveSegments = segments.filter(segment => liveSegmentIds.has(segment.id));
+
+  if (liveSegments.length === 0) {
     return (
       <>
         <Navbar />
@@ -34,7 +38,7 @@ export default async function ProductsPage() {
     <>
       <Navbar />
       <main>
-        <ProductArchive categories={categories} segments={segments} />
+        <ProductArchive categories={liveCategories} segments={liveSegments} />
       </main>
     </>
   );
