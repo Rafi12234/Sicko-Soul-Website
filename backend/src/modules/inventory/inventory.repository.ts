@@ -51,20 +51,28 @@ export type InventoryListRow = Prisma.inventory_stockGetPayload<{
   include: typeof inventoryListInclude;
 }>;
 
+/** Admin inventory only: do not resurrect archived demo products (or retired sizes).
+ * Draft and inactive products remain editable so staff can stock them before launch.
+ */
 export function listInventoryRows(q?: string): Promise<InventoryListRow[]> {
-  const where: Prisma.inventory_stockWhereInput = q
-    ? {
-        product_variants: {
-          is: {
-            OR: [
-              { sku: { contains: q } },
-              { products: { is: { public_id: { contains: q } } } },
-              { products: { is: { name: { contains: q } } } },
-            ],
-          },
-        },
-      }
-    : {};
+  const search = q?.trim();
+  const where: Prisma.inventory_stockWhereInput = {
+    product_variants: {
+      is: {
+        status: { not: "ARCHIVED" },
+        products: { is: { status: { not: "ARCHIVED" } } },
+        ...(search
+          ? {
+              OR: [
+                { sku: { contains: search } },
+                { products: { is: { public_id: { contains: search } } } },
+                { products: { is: { name: { contains: search } } } },
+              ],
+            }
+          : {}),
+      },
+    },
+  };
 
   return prisma.inventory_stock.findMany({
     where,
